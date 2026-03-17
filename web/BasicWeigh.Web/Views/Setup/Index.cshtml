@@ -1,0 +1,59 @@
+@model BasicWeigh.Web.Models.AppSetup
+@{
+    ViewData["Title"] = "Setup";
+}
+
+<h3>Setup</h3>
+
+@if (TempData["Message"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Message"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <form asp-action="Index" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="Id" />
+
+                    <div class="mb-3">
+                        <label asp-for="Header1" class="form-label"></label>
+                        <input asp-for="Header1" class="form-control" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Header2" class="form-label"></label>
+                        <input asp-for="Header2" class="form-control" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Header3" class="form-label"></label>
+                        <input asp-for="Header3" class="form-control" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Header4" class="form-label"></label>
+                        <input asp-for="Header4" class="form-control" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="TicketNumber" class="form-label"></label>
+                        <input asp-for="TicketNumber" class="form-control" type="number" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="TicketsPerPage" class="form-label"></label>
+                        <input asp-for="TicketsPerPage" class="form-control" type="number" />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg">Save Settings</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,47 @@
+@{
+    ViewData["Title"] = "Inbound Trucks";
+}
+
+<h3>Inbound Trucks</h3>
+
+<div id="inboundGrid"></div>
+
+@section Scripts {
+<script>
+    $(function () {
+        $('#inboundGrid').dxDataGrid({
+            dataSource: new DevExpress.data.CustomStore({
+                key: 'ticket',
+                load: function () {
+                    return $.getJSON('/api/transactions/inbound');
+                }
+            }),
+            columns: [
+                { dataField: 'ticket', caption: 'Ticket', width: 80 },
+                { dataField: 'customer', caption: 'Customer' },
+                { dataField: 'carrier', caption: 'Carrier' },
+                { dataField: 'truckId', caption: 'Truck ID' },
+                { dataField: 'commodity', caption: 'Commodity' },
+                { dataField: 'inWeight', caption: 'In Weight', dataType: 'number', format: '#,##0' },
+                { dataField: 'dateIn', caption: 'Date In', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a' },
+                {
+                    caption: 'Actions',
+                    width: 120,
+                    cellTemplate: function (container, options) {
+                        $('<a>')
+                            .addClass('btn btn-sm btn-success')
+                            .attr('href', '/Transaction/WeighOut/' + options.data.ticket)
+                            .text('Weigh Out')
+                            .appendTo(container);
+                    }
+                }
+            ],
+            showBorders: true,
+            filterRow: { visible: true },
+            sorting: { mode: 'multiple' },
+            paging: { pageSize: 20 },
+            pager: { showPageSizeSelector: true, allowedPageSizes: [10, 20, 50] }
+        });
+    });
+</script>
+}

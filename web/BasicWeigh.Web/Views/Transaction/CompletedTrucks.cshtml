@@ -1,0 +1,99 @@
+@{
+    ViewData["Title"] = "Completed Trucks";
+}
+
+<h3>Completed Trucks</h3>
+
+<div class="row mb-3">
+    <div class="col-auto">
+        <label class="form-label">Start Date</label>
+        <input type="date" id="startDate" class="form-control" value="@DateTime.Today.AddDays(-30).ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="col-auto">
+        <label class="form-label">End Date</label>
+        <input type="date" id="endDate" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="col-auto d-flex align-items-end">
+        <button id="btnFilter" class="btn btn-primary">Filter</button>
+    </div>
+</div>
+
+<div id="completedGrid"></div>
+
+@section Scripts {
+<script>
+    $(function () {
+        var grid = $('#completedGrid').dxDataGrid({
+            dataSource: new DevExpress.data.CustomStore({
+                key: 'ticket',
+                load: function () {
+                    var start = $('#startDate').val();
+                    var end = $('#endDate').val();
+                    return $.getJSON('/api/transactions/completed?startDate=' + start + '&endDate=' + end);
+                }
+            }),
+            columns: [
+                { dataField: 'ticket', caption: 'Ticket', width: 80 },
+                { dataField: 'customer', caption: 'Customer' },
+                { dataField: 'carrier', caption: 'Carrier' },
+                { dataField: 'truckId', caption: 'Truck ID' },
+                { dataField: 'commodity', caption: 'Commodity' },
+                { dataField: 'inWeight', caption: 'In Weight', dataType: 'number', format: '#,##0' },
+                { dataField: 'outWeight', caption: 'Out Weight', dataType: 'number', format: '#,##0' },
+                { dataField: 'netWeight', caption: 'Net Weight', dataType: 'number', format: '#,##0' },
+                { dataField: 'dateIn', caption: 'Date In', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a' },
+                { dataField: 'dateOut', caption: 'Date Out', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a' },
+                {
+                    dataField: 'void', caption: 'Void', dataType: 'boolean', width: 60,
+                    cellTemplate: function (container, options) {
+                        if (options.value) {
+                            $('<span>').addClass('badge bg-danger').text('VOID').appendTo(container);
+                        }
+                    }
+                },
+                {
+                    caption: 'Actions',
+                    width: 200,
+                    cellTemplate: function (container, options) {
+                        $('<a>')
+                            .addClass('btn btn-sm btn-primary me-1')
+                            .attr('href', '/Transaction/Edit/' + options.data.ticket)
+                            .text('Edit')
+                            .appendTo(container);
+
+                        $('<button>')
+                            .addClass('btn btn-sm btn-danger me-1')
+                            .text(options.data.void ? 'Unvoid' : 'Void')
+                            .on('click', function () {
+                                $.post('/Transaction/Void/' + options.data.ticket, function () {
+                                    grid.dxDataGrid('instance').refresh();
+                                });
+                            })
+                            .appendTo(container);
+
+                        $('<a>')
+                            .addClass('btn btn-sm btn-secondary')
+                            .attr('href', '/Ticket/Print/' + options.data.ticket)
+                            .attr('target', '_blank')
+                            .text('Print')
+                            .appendTo(container);
+                    }
+                }
+            ],
+            showBorders: true,
+            filterRow: { visible: true },
+            sorting: { mode: 'multiple' },
+            paging: { pageSize: 20 },
+            pager: { showPageSizeSelector: true, allowedPageSizes: [10, 20, 50] },
+            export: {
+                enabled: true,
+                fileName: 'CompletedTrucks'
+            }
+        }).dxDataGrid('instance');
+
+        $('#btnFilter').on('click', function () {
+            grid.refresh();
+        });
+    });
+</script>
+}

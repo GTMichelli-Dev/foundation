@@ -1,0 +1,128 @@
+@{
+    ViewData["Title"] = "Reports";
+}
+
+<h3>Reports</h3>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-auto">
+                <label class="form-label">Start Date</label>
+                <input type="date" id="startDate" class="form-control" value="@DateTime.Today.AddDays(-30).ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-auto">
+                <label class="form-label">End Date</label>
+                <input type="date" id="endDate" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-auto">
+                <label class="form-label">Customer</label>
+                <select id="customerFilter" class="form-select">
+                    <option value="">All</option>
+                    @foreach (var c in (List<BasicWeigh.Web.Models.Customer>)ViewBag.Customers)
+                    {
+                        <option value="@c.CustomerName">@c.CustomerName</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <label class="form-label">Commodity</label>
+                <select id="commodityFilter" class="form-select">
+                    <option value="">All</option>
+                    @foreach (var c in (List<BasicWeigh.Web.Models.Commodity>)ViewBag.Commodities)
+                    {
+                        <option value="@c.CommodityName">@c.CommodityName</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <label class="form-label">Location</label>
+                <select id="locationFilter" class="form-select">
+                    <option value="">All</option>
+                    @foreach (var l in (List<BasicWeigh.Web.Models.Location>)ViewBag.Locations)
+                    {
+                        <option value="@l.LocationName">@l.LocationName</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <label class="form-label">Carrier</label>
+                <select id="carrierFilter" class="form-select">
+                    <option value="">All</option>
+                    @foreach (var c in (List<BasicWeigh.Web.Models.Carrier>)ViewBag.Carriers)
+                    {
+                        <option value="@c.CarrierName">@c.CarrierName</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <button id="btnFilter" class="btn btn-primary">Filter</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="reportGrid"></div>
+
+@section Scripts {
+<script>
+    $(function () {
+        var grid = $('#reportGrid').dxDataGrid({
+            dataSource: new DevExpress.data.CustomStore({
+                key: 'ticket',
+                load: function () {
+                    var params = {
+                        startDate: $('#startDate').val(),
+                        endDate: $('#endDate').val(),
+                        customer: $('#customerFilter').val(),
+                        commodity: $('#commodityFilter').val(),
+                        location: $('#locationFilter').val(),
+                        carrier: $('#carrierFilter').val()
+                    };
+                    return $.getJSON('/api/reports/transactions', params);
+                }
+            }),
+            columns: [
+                { dataField: 'ticket', caption: 'Ticket', width: 80 },
+                { dataField: 'dateIn', caption: 'Date In', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a' },
+                { dataField: 'dateOut', caption: 'Date Out', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a' },
+                { dataField: 'customer', caption: 'Customer' },
+                { dataField: 'carrier', caption: 'Carrier' },
+                { dataField: 'truckId', caption: 'Truck ID' },
+                { dataField: 'commodity', caption: 'Commodity' },
+                { dataField: 'location', caption: 'Location' },
+                { dataField: 'destination', caption: 'Destination' },
+                { dataField: 'inWeight', caption: 'In Weight', dataType: 'number', format: '#,##0' },
+                { dataField: 'outWeight', caption: 'Out Weight', dataType: 'number', format: '#,##0' },
+                { dataField: 'netWeight', caption: 'Net Weight', dataType: 'number', format: '#,##0' },
+                {
+                    dataField: 'void', caption: 'Void', dataType: 'boolean', width: 60,
+                    cellTemplate: function (container, options) {
+                        if (options.value) {
+                            $('<span>').addClass('badge bg-danger').text('VOID').appendTo(container);
+                        }
+                    }
+                }
+            ],
+            summary: {
+                totalItems: [
+                    { column: 'netWeight', summaryType: 'sum', valueFormat: '#,##0', displayFormat: 'Total: {0}' }
+                ]
+            },
+            showBorders: true,
+            filterRow: { visible: true },
+            sorting: { mode: 'multiple' },
+            paging: { pageSize: 50 },
+            pager: { showPageSizeSelector: true, allowedPageSizes: [20, 50, 100] },
+            export: {
+                enabled: true,
+                fileName: 'WeighReport'
+            }
+        }).dxDataGrid('instance');
+
+        $('#btnFilter').on('click', function () {
+            grid.refresh();
+        });
+    });
+</script>
+}

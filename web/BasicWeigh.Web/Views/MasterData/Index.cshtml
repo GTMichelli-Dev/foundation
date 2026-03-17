@@ -1,0 +1,153 @@
+@{
+    ViewData["Title"] = "Edit Tables";
+}
+
+<h3>Edit Tables</h3>
+
+<ul class="nav nav-tabs" id="masterDataTabs" role="tablist">
+    <li class="nav-item">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#customersTab">Customers</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#carriersTab">Carriers</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#locationsTab">Locations</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#destinationsTab">Destinations</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#trucksTab">Trucks</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#commoditiesTab">Commodities</button>
+    </li>
+</ul>
+
+<div class="tab-content mt-3">
+    <div class="tab-pane fade show active" id="customersTab">
+        <div id="customersGrid"></div>
+    </div>
+    <div class="tab-pane fade" id="carriersTab">
+        <div id="carriersGrid"></div>
+    </div>
+    <div class="tab-pane fade" id="locationsTab">
+        <div id="locationsGrid"></div>
+    </div>
+    <div class="tab-pane fade" id="destinationsTab">
+        <div id="destinationsGrid"></div>
+    </div>
+    <div class="tab-pane fade" id="trucksTab">
+        <div id="trucksGrid"></div>
+    </div>
+    <div class="tab-pane fade" id="commoditiesTab">
+        <div id="commoditiesGrid"></div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    $(function () {
+        function createNameActiveStore(endpoint, keyField) {
+            return new DevExpress.data.CustomStore({
+                key: keyField,
+                load: function () {
+                    return $.getJSON('/api/masterdata/' + endpoint);
+                },
+                insert: function (values) {
+                    return $.ajax({
+                        url: '/api/masterdata/' + endpoint,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(values)
+                    });
+                },
+                update: function (key, values) {
+                    values[keyField] = key;
+                    return $.ajax({
+                        url: '/api/masterdata/' + endpoint,
+                        method: 'PUT',
+                        contentType: 'application/json',
+                        data: JSON.stringify(values)
+                    });
+                },
+                remove: function (key) {
+                    return $.ajax({
+                        url: '/api/masterdata/' + endpoint + '/' + encodeURIComponent(key),
+                        method: 'DELETE'
+                    });
+                }
+            });
+        }
+
+        function initNameActiveGrid(selector, endpoint, keyField, nameCaption) {
+            $(selector).dxDataGrid({
+                dataSource: createNameActiveStore(endpoint, keyField),
+                showBorders: true,
+                editing: {
+                    mode: 'batch',
+                    allowAdding: true,
+                    allowUpdating: true,
+                    allowDeleting: true
+                },
+                columns: [
+                    { dataField: keyField, caption: nameCaption, validationRules: [{ type: 'required' }] },
+                    { dataField: 'active', caption: 'Active', dataType: 'boolean', width: 100 }
+                ]
+            });
+        }
+
+        initNameActiveGrid('#customersGrid', 'customers', 'customerName', 'Customer Name');
+        initNameActiveGrid('#carriersGrid', 'carriers', 'carrierName', 'Carrier Name');
+        initNameActiveGrid('#locationsGrid', 'locations', 'locationName', 'Location Name');
+        initNameActiveGrid('#destinationsGrid', 'destinations', 'destinationName', 'Destination Name');
+        initNameActiveGrid('#commoditiesGrid', 'commodities', 'commodityName', 'Commodity Name');
+
+        // Trucks grid (different columns)
+        $('#trucksGrid').dxDataGrid({
+            dataSource: new DevExpress.data.CustomStore({
+                key: 'truckId',
+                load: function () {
+                    return $.getJSON('/api/masterdata/trucks');
+                },
+                insert: function (values) {
+                    return $.ajax({
+                        url: '/api/masterdata/trucks',
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(values)
+                    });
+                },
+                update: function (key, values) {
+                    values.truckId = key;
+                    return $.ajax({
+                        url: '/api/masterdata/trucks',
+                        method: 'PUT',
+                        contentType: 'application/json',
+                        data: JSON.stringify(values)
+                    });
+                },
+                remove: function (key) {
+                    return $.ajax({
+                        url: '/api/masterdata/trucks/' + encodeURIComponent(key),
+                        method: 'DELETE'
+                    });
+                }
+            }),
+            showBorders: true,
+            editing: {
+                mode: 'batch',
+                allowAdding: true,
+                allowUpdating: true,
+                allowDeleting: true
+            },
+            columns: [
+                { dataField: 'truckId', caption: 'Truck ID', validationRules: [{ type: 'required' }] },
+                { dataField: 'phone', caption: 'Phone' },
+                { dataField: 'lot', caption: 'Lot' }
+            ]
+        });
+    });
+</script>
+}

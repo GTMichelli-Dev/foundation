@@ -1,0 +1,114 @@
+@{
+    ViewData["Title"] = "Weigh In";
+}
+
+<h3>Weigh In</h3>
+
+<form asp-action="WeighIn" method="post">
+    @Html.AntiForgeryToken()
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Ticket Number</label>
+                        <input type="text" class="form-control" value="@ViewBag.NextTicket" readonly />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Weight (lb)</label>
+                        <input type="number" name="InWeight" class="form-control" value="@ViewBag.CurrentWeight" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Date In</label>
+                        <input type="datetime-local" name="DateIn" class="form-control" value="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Customer</label>
+                        <select name="Customer" class="form-select">
+                            <option value="">-- Select --</option>
+                            @foreach (var c in (List<BasicWeigh.Web.Models.Customer>)ViewBag.Customers)
+                            {
+                                <option value="@c.CustomerName">@c.CustomerName</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Carrier</label>
+                        <select name="Carrier" class="form-select">
+                            <option value="">-- Select --</option>
+                            @foreach (var c in (List<BasicWeigh.Web.Models.Carrier>)ViewBag.Carriers)
+                            {
+                                <option value="@c.CarrierName">@c.CarrierName</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Truck ID</label>
+                        <select name="TruckId" class="form-select">
+                            <option value="">-- Select --</option>
+                            @foreach (var t in (List<BasicWeigh.Web.Models.Truck>)ViewBag.Trucks)
+                            {
+                                <option value="@t.TruckId">@t.TruckId</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Commodity</label>
+                        <select name="Commodity" class="form-select">
+                            <option value="">-- Select --</option>
+                            @foreach (var c in (List<BasicWeigh.Web.Models.Commodity>)ViewBag.Commodities)
+                            {
+                                <option value="@c.CommodityName">@c.CommodityName</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Location</label>
+                        <select name="Location" class="form-select">
+                            <option value="">-- Select --</option>
+                            @foreach (var l in (List<BasicWeigh.Web.Models.Location>)ViewBag.Locations)
+                            {
+                                <option value="@l.LocationName">@l.LocationName</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Destination</label>
+                        <select name="Destination" class="form-select">
+                            <option value="">-- Select --</option>
+                            @foreach (var d in (List<BasicWeigh.Web.Models.Destination>)ViewBag.Destinations)
+                            {
+                                <option value="@d.DestinationName">@d.DestinationName</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Comment</label>
+                        <textarea name="Comment" class="form-control" rows="3"></textarea>
+                    </div>
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-success btn-lg me-2">Save Weigh In</button>
+                        <a asp-controller="Home" asp-action="Index" class="btn btn-secondary btn-lg">Cancel</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>

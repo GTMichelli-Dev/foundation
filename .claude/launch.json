@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "basicweigh",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "web/BasicWeigh.Web"],
+      "port": 5110
+    }
+  ]
+}

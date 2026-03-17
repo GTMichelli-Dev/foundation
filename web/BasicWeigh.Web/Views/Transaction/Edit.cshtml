@@ -1,0 +1,131 @@
+@model BasicWeigh.Web.Models.Transaction
+@{
+    ViewData["Title"] = "Edit Ticket " + Model.Ticket;
+}
+
+<h3>Edit Ticket @Model.Ticket</h3>
+
+<form asp-action="Edit" asp-route-id="@Model.Ticket" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Ticket" />
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Ticket Number</label>
+                        <input type="text" class="form-control" value="@Model.Ticket" readonly />
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="InWeight" class="form-label"></label>
+                        <input asp-for="InWeight" class="form-control" type="number" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="OutWeight" class="form-label"></label>
+                        <input asp-for="OutWeight" class="form-control" type="number" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="DateIn" class="form-label"></label>
+                        <input asp-for="DateIn" class="form-control" type="datetime-local" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="DateOut" class="form-label"></label>
+                        <input asp-for="DateOut" class="form-control" type="datetime-local" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Customer" class="form-label"></label>
+                        <select asp-for="Customer" class="form-select">
+                            <option value="">-- Select --</option>
+                            @foreach (var c in (List<BasicWeigh.Web.Models.Customer>)ViewBag.Customers)
+                            {
+                                <option value="@c.CustomerName">@c.CustomerName</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Carrier" class="form-label"></label>
+                        <select asp-for="Carrier" class="form-select">
+                            <option value="">-- Select --</option>
+                            @foreach (var c in (List<BasicWeigh.Web.Models.Carrier>)ViewBag.Carriers)
+                            {
+                                <option value="@c.CarrierName">@c.CarrierName</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label asp-for="TruckId" class="form-label"></label>
+                        <select asp-for="TruckId" class="form-select">
+                            <option value="">-- Select --</option>
+                            @foreach (var t in (List<BasicWeigh.Web.Models.Truck>)ViewBag.Trucks)
+                            {
+                                <option value="@t.TruckId">@t.TruckId</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Commodity" class="form-label"></label>
+                        <select asp-for="Commodity" class="form-select">
+                            <option value="">-- Select --</option>
+                            @foreach (var c in (List<BasicWeigh.Web.Models.Commodity>)ViewBag.Commodities)
+                            {
+                                <option value="@c.CommodityName">@c.CommodityName</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Location" class="form-label"></label>
+                        <select asp-for="Location" class="form-select">
+                            <option value="">-- Select --</option>
+                            @foreach (var l in (List<BasicWeigh.Web.Models.Location>)ViewBag.Locations)
+                            {
+                                <option value="@l.LocationName">@l.LocationName</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Destination" class="form-label"></label>
+                        <select asp-for="Destination" class="form-select">
+                            <option value="">-- Select --</option>
+                            @foreach (var d in (List<BasicWeigh.Web.Models.Destination>)ViewBag.Destinations)
+                            {
+                                <option value="@d.DestinationName">@d.DestinationName</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Comment" class="form-label"></label>
+                        <textarea asp-for="Comment" class="form-control" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input asp-for="Void" class="form-check-input" type="checkbox" />
+                        <label asp-for="Void" class="form-check-label"></label>
+                    </div>
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg me-2">Save Changes</button>
+                        <a asp-action="CompletedTrucks" class="btn btn-secondary btn-lg">Cancel</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>

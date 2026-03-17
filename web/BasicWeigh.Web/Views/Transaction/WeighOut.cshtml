@@ -1,0 +1,67 @@
+@model BasicWeigh.Web.Models.Transaction
+@{
+    ViewData["Title"] = "Weigh Out - Ticket " + Model.Ticket;
+}
+
+<h3>Weigh Out - Ticket @Model.Ticket</h3>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header">Inbound Information</div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr><th>Ticket:</th><td>@Model.Ticket</td></tr>
+                    <tr><th>Date In:</th><td>@Model.DateIn.ToString("g")</td></tr>
+                    <tr><th>In Weight:</th><td>@Model.InWeight lb</td></tr>
+                    <tr><th>Customer:</th><td>@Model.Customer</td></tr>
+                    <tr><th>Carrier:</th><td>@Model.Carrier</td></tr>
+                    <tr><th>Truck ID:</th><td>@Model.TruckId</td></tr>
+                    <tr><th>Commodity:</th><td>@Model.Commodity</td></tr>
+                    <tr><th>Location:</th><td>@Model.Location</td></tr>
+                    <tr><th>Comment:</th><td>@Model.Comment</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">Complete Weigh Out</div>
+            <div class="card-body">
+                <form asp-action="WeighOut" asp-route-id="@Model.Ticket" method="post">
+                    @Html.AntiForgeryToken()
+
+                    <div class="mb-3">
+                        <label class="form-label">Out Weight (lb)</label>
+                        <input type="number" name="outWeight" class="form-control" value="@ViewBag.CurrentWeight" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Date Out</label>
+                        <input type="datetime-local" name="dateOut" class="form-control" value="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" />
+                    </div>
+
+                    @if (string.IsNullOrEmpty(Model.Destination))
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Destination</label>
+                            <select name="destination" class="form-select">
+                                <option value="">-- Select --</option>
+                                @foreach (var d in (List<BasicWeigh.Web.Models.Destination>)ViewBag.Destinations)
+                                {
+                                    <option value="@d.DestinationName">@d.DestinationName</option>
+                                }
+                            </select>
+                        </div>
+                    }
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-success btn-lg me-2">Save Weigh Out</button>
+                        <a asp-action="InboundTrucks" class="btn btn-secondary btn-lg">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
