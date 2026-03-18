@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find C:UsersSeanSollederDocumentsGitHubBasic_Weighvb -type f \\\\\\(-name *.mdb -o -name *.accdb -o -name *.sql \\\\\\))"
+    ]
+  }
+}

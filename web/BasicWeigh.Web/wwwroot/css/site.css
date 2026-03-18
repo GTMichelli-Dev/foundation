@@ -41,6 +41,7 @@ body {
   min-height: 80px;
   font-size: 1.1rem;
   margin-bottom: 10px;
+  border-radius: 16px;
 }
 
 /* Ticket print styles */
