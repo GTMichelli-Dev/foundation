@@ -70,7 +70,7 @@ public class TransactionController : Controller
     // POST: Transaction/WeighOut/5
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult WeighOut(string id, int outWeight, DateTime? dateOut, string? destination)
+    public IActionResult WeighOut(string id, int outWeight, DateTime? dateOut, string? destination, string? notes)
     {
         var transaction = _db.Transactions.Find(id);
         if (transaction == null) return NotFound();
@@ -79,6 +79,8 @@ public class TransactionController : Controller
         transaction.DateOut = dateOut ?? DateTime.Now;
         if (!string.IsNullOrEmpty(destination))
             transaction.Destination = destination;
+        if (!string.IsNullOrEmpty(notes))
+            transaction.Notes = notes;
 
         _db.SaveChanges();
 
@@ -172,6 +174,7 @@ public class TransactionController : Controller
         existing.Location = transaction.Location;
         existing.Destination = transaction.Destination;
         existing.Comment = transaction.Comment;
+        existing.Notes = transaction.Notes;
         existing.Void = transaction.Void;
 
         _db.SaveChanges();
@@ -196,7 +199,8 @@ public class TransactionController : Controller
                 t.InWeight,
                 t.DateIn,
                 t.Location,
-                t.Comment
+                t.Comment,
+                t.Notes
             })
             .ToList();
 
@@ -231,6 +235,7 @@ public class TransactionController : Controller
                 t.Location,
                 t.Destination,
                 t.Comment,
+                t.Notes,
                 t.Void
             })
             .ToList();
@@ -256,6 +261,7 @@ public class TransactionController : Controller
         existing.Location = transaction.Location;
         existing.Destination = transaction.Destination;
         existing.Comment = transaction.Comment;
+        existing.Notes = transaction.Notes;
         existing.Void = transaction.Void;
 
         _db.SaveChanges();

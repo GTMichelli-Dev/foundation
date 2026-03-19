@@ -39,15 +39,17 @@
         justify-content: center;
         gap: 12px;
         border-radius: 16px;
-        border: none;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        border: 2px solid #2ea3f2;
+        box-shadow: 0 4px 12px rgba(46,163,242,0.1);
+        transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
         text-decoration: none;
-        color: #fff;
+        background: #f0f8ff;
+        color: #333;
     }
     .dashboard-btn:hover {
         transform: translateY(-3px);
-        box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+        box-shadow: 0 8px 24px rgba(46,163,242,0.25);
+        background: #2ea3f2;
         color: #fff;
     }
     .dashboard-btn:active {
@@ -57,17 +59,7 @@
         width: 32px;
         height: 32px;
         flex-shrink: 0;
-    }
-    .dashboard-btn {
-        background: #2d3748;
-        color: rgba(255,255,255,0.95);
-    }
-    .dashboard-btn:hover {
-        background: #4a5568;
-        color: #fff;
-    }
-    .dashboard-btn svg {
-        opacity: 0.7;
+        opacity: 0.8;
     }
     .dashboard-btn:hover svg {
         opacity: 1;

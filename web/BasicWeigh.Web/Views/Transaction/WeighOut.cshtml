@@ -20,6 +20,7 @@
                     <tr><th>Commodity:</th><td>@Model.Commodity</td></tr>
                     <tr><th>Location:</th><td>@Model.Location</td></tr>
                     <tr><th>Comment:</th><td>@Model.Comment</td></tr>
+                    <tr><th>Notes:</th><td>@Model.Notes</td></tr>
                 </table>
             </div>
         </div>
@@ -55,6 +56,11 @@
                             </select>
                         </div>
                     }
+
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea name="notes" class="form-control" rows="3">@Model.Notes</textarea>
+                    </div>
 
                     <div class="mt-4">
                         <button type="submit" class="btn btn-success btn-lg me-2">Save Weigh Out</button>

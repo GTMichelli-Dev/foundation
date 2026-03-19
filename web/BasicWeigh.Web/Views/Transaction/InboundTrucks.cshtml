@@ -22,10 +22,11 @@
                 { dataField: 'carrier', caption: 'Carrier' },
                 { dataField: 'truckId', caption: 'Truck ID' },
                 { dataField: 'commodity', caption: 'Commodity' },
-                { dataField: 'inWeight', caption: 'In Weight', dataType: 'number', format: '#,##0' },
+                { dataField: 'inWeight', caption: 'In (lbs)', dataType: 'number', format: '#,##0', width: 90 },
                 { dataField: 'dateIn', caption: 'Date In', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a' },
+                { dataField: 'notes', caption: 'Notes' },
                 {
-                    caption: 'Actions',
+                    caption: '',
                     width: 120,
                     cellTemplate: function (container, options) {
                         $('<a>')
@@ -38,7 +39,9 @@
             ],
             showBorders: true,
             filterRow: { visible: true },
+            headerFilter: { visible: true },
             sorting: { mode: 'multiple' },
+            columnAutoWidth: true,
             paging: { pageSize: 20 },
             pager: { showPageSizeSelector: true, allowedPageSizes: [10, 20, 50] }
         });

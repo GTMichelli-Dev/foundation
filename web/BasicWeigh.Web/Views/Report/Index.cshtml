@@ -2,127 +2,276 @@
     ViewData["Title"] = "Reports";
 }
 
-<h3>Reports</h3>
+<style>
+    .export-excel-btn .dx-button-content {
+        background: #1a7f37 !important;
+        color: #fff !important;
+        border-radius: 6px;
+        padding: 6px 16px !important;
+    }
+    .export-excel-btn .dx-icon,
+    .export-excel-btn .dx-button-text {
+        color: #fff !important;
+        font-weight: 600;
+    }
+    .export-excel-btn:hover .dx-button-content {
+        background: #15652c !important;
+    }
+    .export-pdf-btn .dx-button-content {
+        background: #c53030 !important;
+        color: #fff !important;
+        border-radius: 6px;
+        padding: 6px 16px !important;
+    }
+    .export-pdf-btn .dx-icon,
+    .export-pdf-btn .dx-button-text {
+        color: #fff !important;
+        font-weight: 600;
+    }
+    .export-pdf-btn:hover .dx-button-content {
+        background: #9b2c2c !important;
+    }
+    .notes-cell {
+        white-space: normal !important;
+        word-wrap: break-word;
+        max-height: 60px;
+        overflow: hidden;
+    }
+</style>
 
-<div class="card mb-3">
-    <div class="card-body">
-        <div class="row g-3 align-items-end">
-            <div class="col-auto">
-                <label class="form-label">Start Date</label>
-                <input type="date" id="startDate" class="form-control" value="@DateTime.Today.AddDays(-30).ToString("yyyy-MM-dd")" />
-            </div>
-            <div class="col-auto">
-                <label class="form-label">End Date</label>
-                <input type="date" id="endDate" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" />
-            </div>
-            <div class="col-auto">
-                <label class="form-label">Customer</label>
-                <select id="customerFilter" class="form-select">
-                    <option value="">All</option>
-                    @foreach (var c in (List<BasicWeigh.Web.Models.Customer>)ViewBag.Customers)
-                    {
-                        <option value="@c.CustomerName">@c.CustomerName</option>
-                    }
-                </select>
-            </div>
-            <div class="col-auto">
-                <label class="form-label">Commodity</label>
-                <select id="commodityFilter" class="form-select">
-                    <option value="">All</option>
-                    @foreach (var c in (List<BasicWeigh.Web.Models.Commodity>)ViewBag.Commodities)
-                    {
-                        <option value="@c.CommodityName">@c.CommodityName</option>
-                    }
-                </select>
-            </div>
-            <div class="col-auto">
-                <label class="form-label">Location</label>
-                <select id="locationFilter" class="form-select">
-                    <option value="">All</option>
-                    @foreach (var l in (List<BasicWeigh.Web.Models.Location>)ViewBag.Locations)
-                    {
-                        <option value="@l.LocationName">@l.LocationName</option>
-                    }
-                </select>
-            </div>
-            <div class="col-auto">
-                <label class="form-label">Carrier</label>
-                <select id="carrierFilter" class="form-select">
-                    <option value="">All</option>
-                    @foreach (var c in (List<BasicWeigh.Web.Models.Carrier>)ViewBag.Carriers)
-                    {
-                        <option value="@c.CarrierName">@c.CarrierName</option>
-                    }
-                </select>
-            </div>
-            <div class="col-auto">
-                <button id="btnFilter" class="btn btn-primary">Filter</button>
-            </div>
-        </div>
-    </div>
-</div>
+<h3>Reports</h3>
 
 <div id="reportGrid"></div>
 
 @section Scripts {
 <script>
     $(function () {
+        var storageKey = 'report_dates';
+        var defaultStart = new Date(new Date().setDate(new Date().getDate() - 30));
+        var defaultEnd = new Date();
+
+        var saved = sessionStorage.getItem(storageKey);
+        if (saved) {
+            try {
+                var parsed = JSON.parse(saved);
+                defaultStart = new Date(parsed.start);
+                defaultEnd = new Date(parsed.end);
+            } catch (e) { }
+        }
+
+        var startVal = defaultStart;
+        var endVal = defaultEnd;
+        var startDateBox, endDateBox;
+
+        // Track active group-by selections
+        var groupByFields = [];
+
+        function saveDates() {
+            sessionStorage.setItem(storageKey, JSON.stringify({
+                start: startVal.toISOString(),
+                end: endVal.toISOString()
+            }));
+        }
+
+        function resetDates() {
+            startVal = new Date(new Date().setDate(new Date().getDate() - 30));
+            endVal = new Date();
+            startDateBox.option('value', startVal);
+            endDateBox.option('value', endVal);
+            saveDates();
+            grid.refresh();
+        }
+
+        function applyGrouping() {
+            var grouping = groupByFields.map(function (f) { return { selector: f, isExpanded: true }; });
+            grid.clearGrouping();
+            for (var i = 0; i < groupByFields.length; i++) {
+                grid.columnOption(groupByFields[i], 'groupIndex', i);
+            }
+        }
+
+        function exportToExcel() {
+            var workbook = new ExcelJS.Workbook();
+            var worksheet = workbook.addWorksheet('WeighReport');
+            DevExpress.excelExporter.exportDataGrid({
+                component: grid,
+                worksheet: worksheet,
+                autoFilterEnabled: true
+            }).then(function () {
+                workbook.xlsx.writeBuffer().then(function (buffer) {
+                    saveAs(new Blob([buffer], { type: 'application/octet-stream' }), 'WeighReport.xlsx');
+                });
+            });
+        }
+
+        function exportToPdf() {
+            var doc = new jspdf.jsPDF({ orientation: 'landscape', format: 'letter' });
+            DevExpress.pdfExporter.exportDataGrid({
+                jsPDFDocument: doc,
+                component: grid,
+                autoTableOptions: {
+                    styles: { fontSize: 8 },
+                    headStyles: { fillColor: [46, 163, 242] }
+                }
+            }).then(function () {
+                doc.save('WeighReport.pdf');
+            });
+        }
+
+        var groupByOptions = [
+            { value: 'customer', text: 'Customer' },
+            { value: 'carrier', text: 'Carrier' },
+            { value: 'truckId', text: 'Truck ID' },
+            { value: 'commodity', text: 'Commodity' },
+            { value: 'location', text: 'Location' },
+            { value: 'destination', text: 'Destination' }
+        ];
+
         var grid = $('#reportGrid').dxDataGrid({
+            remoteOperations: false,
             dataSource: new DevExpress.data.CustomStore({
                 key: 'ticket',
                 load: function () {
-                    var params = {
-                        startDate: $('#startDate').val(),
-                        endDate: $('#endDate').val(),
-                        customer: $('#customerFilter').val(),
-                        commodity: $('#commodityFilter').val(),
-                        location: $('#locationFilter').val(),
-                        carrier: $('#carrierFilter').val()
-                    };
-                    return $.getJSON('/api/reports/transactions', params);
+                    var s = DevExpress.localization.formatDate(startVal, 'yyyy-MM-dd');
+                    var e = DevExpress.localization.formatDate(endVal, 'yyyy-MM-dd');
+                    return $.getJSON('/api/reports/transactions', { startDate: s, endDate: e });
                 }
             }),
+            toolbar: {
+                items: [
+                    {
+                        location: 'before',
+                        template: function () {
+                            var container = $('<div>').css({ display: 'flex', alignItems: 'center', gap: '8px' });
+                            container.append($('<span>').css({ fontWeight: '600', whiteSpace: 'nowrap' }).text('Date Out From:'));
+                            var dateDiv = $('<div>').appendTo(container);
+                            startDateBox = dateDiv.dxDateBox({
+                                value: startVal,
+                                type: 'date',
+                                displayFormat: 'MM/dd/yyyy',
+                                width: 150,
+                                onValueChanged: function (e) { startVal = e.value; saveDates(); grid.refresh(); }
+                            }).dxDateBox('instance');
+                            return container;
+                        }
+                    },
+                    {
+                        location: 'before',
+                        template: function () {
+                            var container = $('<div>').css({ display: 'flex', alignItems: 'center', gap: '8px' });
+                            container.append($('<span>').css({ fontWeight: '600', whiteSpace: 'nowrap' }).text('To:'));
+                            var dateDiv = $('<div>').appendTo(container);
+                            endDateBox = dateDiv.dxDateBox({
+                                value: endVal,
+                                type: 'date',
+                                displayFormat: 'MM/dd/yyyy',
+                                width: 150,
+                                onValueChanged: function (e) { endVal = e.value; saveDates(); grid.refresh(); }
+                            }).dxDateBox('instance');
+                            return container;
+                        }
+                    },
+                    {
+                        location: 'before',
+                        widget: 'dxButton',
+                        options: {
+                            icon: 'revert',
+                            text: 'Reset',
+                            hint: 'Reset to today and 30 days prior',
+                            onClick: function () { resetDates(); }
+                        }
+                    },
+                    {
+                        location: 'before',
+                        template: function () {
+                            var container = $('<div>').css({ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '16px' });
+                            container.append($('<span>').css({ fontWeight: '600', whiteSpace: 'nowrap' }).text('Group By:'));
+                            var tagDiv = $('<div>').appendTo(container);
+                            tagDiv.dxTagBox({
+                                items: groupByOptions,
+                                valueExpr: 'value',
+                                displayExpr: 'text',
+                                placeholder: 'Select grouping...',
+                                width: 350,
+                                showSelectionControls: true,
+                                onValueChanged: function (e) {
+                                    groupByFields = e.value || [];
+                                    // Clear all existing grouping first
+                                    groupByOptions.forEach(function (opt) {
+                                        grid.columnOption(opt.value, 'groupIndex', undefined);
+                                    });
+                                    // Apply new grouping
+                                    for (var i = 0; i < groupByFields.length; i++) {
+                                        grid.columnOption(groupByFields[i], 'groupIndex', i);
+                                    }
+                                }
+                            });
+                            return container;
+                        }
+                    },
+                    {
+                        location: 'after',
+                        widget: 'dxButton',
+                        options: {
+                            icon: 'exportpdf',
+                            text: 'Export to PDF',
+                            elementAttr: { class: 'export-pdf-btn' },
+                            onClick: function () { exportToPdf(); }
+                        }
+                    },
+                    {
+                        location: 'after',
+                        widget: 'dxButton',
+                        options: {
+                            icon: 'xlsxfile',
+                            text: 'Export to Excel',
+                            elementAttr: { class: 'export-excel-btn' },
+                            onClick: function () { exportToExcel(); }
+                        }
+                    }
+                ]
+            },
             columns: [
-                { dataField: 'ticket', caption: 'Ticket', width: 80 },
-                { dataField: 'dateIn', caption: 'Date In', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a' },
-                { dataField: 'dateOut', caption: 'Date Out', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a' },
+                { dataField: 'ticket', caption: '#', width: 60, sortOrder: 'desc', sortIndex: 0 },
+                { dataField: 'dateOut', caption: 'Date Out', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a', width: 155 },
+                { dataField: 'dateIn', caption: 'Date In', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a', width: 155 },
                 { dataField: 'customer', caption: 'Customer' },
                 { dataField: 'carrier', caption: 'Carrier' },
                 { dataField: 'truckId', caption: 'Truck ID' },
                 { dataField: 'commodity', caption: 'Commodity' },
                 { dataField: 'location', caption: 'Location' },
                 { dataField: 'destination', caption: 'Destination' },
-                { dataField: 'inWeight', caption: 'In Weight', dataType: 'number', format: '#,##0' },
-                { dataField: 'outWeight', caption: 'Out Weight', dataType: 'number', format: '#,##0' },
-                { dataField: 'netWeight', caption: 'Net Weight', dataType: 'number', format: '#,##0' },
-                {
-                    dataField: 'void', caption: 'Void', dataType: 'boolean', width: 60,
-                    cellTemplate: function (container, options) {
-                        if (options.value) {
-                            $('<span>').addClass('badge bg-danger').text('VOID').appendTo(container);
-                        }
-                    }
-                }
+                { dataField: 'inWeight', caption: 'In (lbs)', dataType: 'number', format: '#,##0', width: 90 },
+                { dataField: 'outWeight', caption: 'Out (lbs)', dataType: 'number', format: '#,##0', width: 90 },
+                { dataField: 'netWeight', caption: 'Net (lbs)', dataType: 'number', format: '#,##0', width: 90 },
+                { dataField: 'netTons', caption: 'Net (tons)', dataType: 'number', format: '#,##0.00', width: 90 },
+                { dataField: 'notes', caption: 'Notes', cssClass: 'notes-cell' }
             ],
             summary: {
                 totalItems: [
-                    { column: 'netWeight', summaryType: 'sum', valueFormat: '#,##0', displayFormat: 'Total: {0}' }
+                    { column: 'ticket', summaryType: 'count', displayFormat: 'Loads: {0}' },
+                    { column: 'netWeight', summaryType: 'sum', valueFormat: '#,##0', displayFormat: 'Total: {0} lbs' },
+                    { column: 'netTons', summaryType: 'sum', valueFormat: '#,##0.00', displayFormat: 'Total: {0} tons' }
+                ],
+                groupItems: [
+                    { column: 'ticket', summaryType: 'count', displayFormat: '{0} loads' },
+                    { column: 'netWeight', summaryType: 'sum', valueFormat: '#,##0', displayFormat: '{0} lbs' },
+                    { column: 'netTons', summaryType: 'sum', valueFormat: '#,##0.00', displayFormat: '{0} tons' }
                 ]
             },
             showBorders: true,
             filterRow: { visible: true },
+            headerFilter: { visible: true },
+            filterPanel: { visible: true },
+            groupPanel: { visible: false },
             sorting: { mode: 'multiple' },
+            columnAutoWidth: true,
+            columnMinWidth: 50,
+            wordWrapEnabled: false,
             paging: { pageSize: 50 },
-            pager: { showPageSizeSelector: true, allowedPageSizes: [20, 50, 100] },
-            export: {
-                enabled: true,
-                fileName: 'WeighReport'
-            }
+            pager: { showPageSizeSelector: true, allowedPageSizes: [20, 50, 100, 500] },
+            export: { enabled: false }
         }).dxDataGrid('instance');
-
-        $('#btnFilter').on('click', function () {
-            grid.refresh();
-        });
     });
 </script>
 }

@@ -4,16 +4,26 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Basic Weigh</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <!-- DevExtreme -->
-    <link rel="stylesheet" href="https://cdn3.devexpress.com/jslib/23.2.6/css/dx.light.css" />
+  
+
+
+     <link href="~/css/devextreme/bootstrap.css" rel="stylesheet" />
+
+    @* Predefined themes: https://js.devexpress.com/DevExtreme/Guide/Themes_and_Styles/Predefined_Themes/ *@
+    <link href="~/css/devextreme/dx.light.css" rel="stylesheet" />
+
+    <link href="~/css/pages/scales.css" rel="stylesheet" />
+    <link href="~/css/icons.css" rel="stylesheet" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+
+    @RenderSection("Styles", required: false)
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-dark bg-dark border-bottom mb-3">
+        <nav class="navbar navbar-expand-sm mb-3" style="background: #fff; border-bottom: 3px solid #2ea3f2; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
             <div class="container-fluid">
-                <a class="navbar-brand" asp-controller="Home" asp-action="Index">
+                <a class="navbar-brand" asp-controller="Home" asp-action="Index" style="color: #2ea3f2; font-size: 1.3rem;">
                     <strong>Basic Weigh</strong>
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse"
@@ -43,6 +53,9 @@
                         <li class="nav-item">
                             <a class="nav-link" asp-controller="Setup" asp-action="Index">Setup</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Ticket" asp-action="Designer">Ticket Designer</a>
+                        </li>
                     </ul>
                 </div>
             </div>
@@ -54,15 +67,51 @@
         </main>
     </div>
 
-    <footer class="border-top footer text-muted mt-3">
-        <div class="container">
-            &copy; @DateTime.Now.Year - Basic Weigh
+    <footer class="border-top footer mt-3" style="background: #f8f9fa; border-top: 2px solid #2ea3f2 !important;">
+        <div class="container d-flex align-items-center justify-content-center gap-3 py-2">
+            <a href="https://www.michelli.com" target="_blank" rel="noopener noreferrer">
+                <img src="~/images/michelli-logo.png" alt="Michelli Weighing &amp; Measurement" style="height: 30px;" />
+            </a>
+            <span style="color: #555;">Copyright &copy; @DateTime.Now.Year Michelli Weighing &amp; Measurement | We show the world what measurement can do.</span>
         </div>
     </footer>
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- DevExtreme -->
-    <script src="https://cdn3.devexpress.com/jslib/23.2.6/js/dx.all.js"></script>
+    @* Uncomment to use the Gantt control *@
+    @*<script src="~/js/devextreme/dx-gantt.js"></script>*@
+
+    @* Uncomment to use the Diagram control *@
+    @*<script src="~/js/devextreme/dx-diagram.js"></script>*@
+
+    <script src="~/js/devextreme/jquery.js"></script>
+    <script src="~/js/devextreme/bootstrap.js"></script>
+
+    @* Uncomment to use Globalize for localization *@
+    @* Docs: https://docs.devexpress.com/AspNetCore/400577#globalize *@
+    @*<script src="~/js/devextreme/cldr.js"></script>*@
+    @*<script src="~/js/devextreme/cldr/event.js"></script>*@
+    @*<script src="~/js/devextreme/cldr/supplemental.js"></script>*@
+    @*<script src="~/js/devextreme/cldr/unresolved.js"></script>*@
+    @*<script src="~/js/devextreme/globalize.js"></script>*@
+    @*<script src="~/js/devextreme/globalize/message.js"></script>*@
+    @*<script src="~/js/devextreme/globalize/number.js"></script>*@
+    @*<script src="~/js/devextreme/globalize/currency.js"></script>*@
+    @*<script src="~/js/devextreme/globalize/date.js"></script>*@
+
+    @* Uncomment to enable client-side export *@
+    @*<script src="~/js/devextreme/jszip.js"></script>*@
+
+    <script src="~/js/devextreme/dx.all.js"></script>
+
+    @* Uncomment to provide geo-data for the VectorMap control *@
+    @* Docs: https://js.devexpress.com/DevExtreme/Guide/Widgets/VectorMap/Providing_Data/#Data_for_Areas *@
+    @*<script src="~/js/devextreme/vectormap-data/world.js"></script>*@
+    <script src="~/js/devextreme/exceljs.min.js"></script>
+    <script src="~/js/devextreme/filesaver.min.js"></script>
+    <script src="~/js/devextreme/jspdf.umd.min.js"></script>
+    <script src="~/js/devextreme/jspdf.plugin.autotable.min.js"></script>
+    <script src="~/js/devextreme/aspnet/dx.aspnet.mvc.js"></script>
+    <script src="~/js/devextreme/aspnet/dx.aspnet.data.js"></script>
+    <script src="~/js/devextreme-license.js"></script>
+
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>

@@ -85,6 +85,8 @@
             $(selector).dxDataGrid({
                 dataSource: createNameActiveStore(endpoint, keyField),
                 showBorders: true,
+                filterRow: { visible: true },
+                headerFilter: { visible: true },
                 editing: {
                     mode: 'batch',
                     allowAdding: true,
@@ -136,6 +138,8 @@
                 }
             }),
             showBorders: true,
+            filterRow: { visible: true },
+            headerFilter: { visible: true },
             editing: {
                 mode: 'batch',
                 allowAdding: true,

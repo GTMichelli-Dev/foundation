@@ -45,6 +45,9 @@ public class Transaction
     [StringLength(255)]
     public string? Comment { get; set; }
 
+    [StringLength(500)]
+    public string? Notes { get; set; }
+
     [NotMapped]
     public int GrossWeight => Math.Max(InWeight, OutWeight ?? 0);
 

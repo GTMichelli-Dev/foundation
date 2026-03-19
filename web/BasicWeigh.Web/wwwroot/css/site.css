@@ -97,3 +97,34 @@ body {
 .footer {
   padding: 10px 0;
 }
+
+/* Michelli brand theme */
+.navbar .nav-link {
+  color: #333 !important;
+  font-weight: 500;
+  padding: 8px 14px !important;
+  border-radius: 6px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.navbar .nav-link:hover,
+.navbar .nav-link:focus {
+  color: #2ea3f2 !important;
+  background: rgba(46, 163, 242, 0.08);
+}
+
+.navbar .nav-link.active {
+  color: #2ea3f2 !important;
+}
+
+.navbar-brand:hover {
+  color: #1a8cd8 !important;
+}
+
+.navbar-toggler {
+  border-color: #2ea3f2 !important;
+}
+
+.navbar-toggler-icon {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%232ea3f2' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
+}

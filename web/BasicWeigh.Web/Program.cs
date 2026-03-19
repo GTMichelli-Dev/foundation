@@ -1,5 +1,7 @@
 using BasicWeigh.Web.Data;
 using BasicWeigh.Web.Services;
+using DevExpress.AspNetCore;
+using DevExpress.AspNetCore.Reporting;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,6 +29,21 @@ builder.Services.AddSingleton<IScaleService>(sp => sp.GetRequiredService<Simulat
 
 builder.Services.AddControllersWithViews();
 
+// DevExpress Reporting
+builder.Services.AddDevExpressControls();
+builder.Services.ConfigureReportingServices(configurator =>
+{
+    if (builder.Environment.IsDevelopment())
+    {
+        configurator.UseDevelopmentMode();
+    }
+    configurator.ConfigureReportDesigner(designerConfigurator => { });
+    configurator.ConfigureWebDocumentViewer(viewerConfigurator =>
+    {
+        viewerConfigurator.UseCachedReportSourceBuilder();
+    });
+});
+
 var app = builder.Build();
 
 // Initialize database and seed data
@@ -43,6 +60,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseDevExpressControls();
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
