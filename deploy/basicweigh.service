@@ -12,7 +12,7 @@ KillSignal=SIGINT
 SyslogIdentifier=basicweigh
 User=admin
 Group=admin
-Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_ENVIRONMENT=Development
 Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
 TimeoutStopSec=30
 
