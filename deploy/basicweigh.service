@@ -1,0 +1,20 @@
+[Unit]
+Description=Basic Weigh Scale Application
+After=network.target
+
+[Service]
+Type=notify
+WorkingDirectory=/opt/basicweigh
+ExecStart=/opt/basicweigh/BasicWeigh.Web --urls "http://127.0.0.1:5110"
+Restart=always
+RestartSec=10
+KillSignal=SIGINT
+SyslogIdentifier=basicweigh
+User=admin
+Group=admin
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
