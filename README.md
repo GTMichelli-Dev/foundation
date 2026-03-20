@@ -70,6 +70,15 @@ On your **local development machine** (Windows/Mac/Linux with .NET 8 SDK install
 ```bash
 git clone https://github.com/TotalScaleService/Basic_Weigh.git
 cd Basic_Weigh
+```
+
+**Windows (Command Prompt):**
+```
+deploy\publish.bat
+```
+
+**Linux / Mac / Git Bash:**
+```bash
 bash deploy/publish.sh
 ```
 
@@ -79,10 +88,14 @@ This builds a self-contained Linux binary and creates `deploy/basicweigh-deploy.
 
 Run the deploy script with your domain and email:
 
+**Windows (Command Prompt):**
+```
+deploy\deploy.bat admin@149.28.xxx.xxx --domain scale.yourcompany.com --email admin@yourcompany.com
+```
+
+**Linux / Mac / Git Bash:**
 ```bash
-bash deploy/deploy.sh admin@149.28.xxx.xxx \
-  --domain scale.yourcompany.com \
-  --email admin@yourcompany.com
+bash deploy/deploy.sh admin@149.28.xxx.xxx --domain scale.yourcompany.com --email admin@yourcompany.com
 ```
 
 Enter the `admin` user's password when prompted (twice — once for upload, once for install).
@@ -117,11 +130,11 @@ All scripts are in the [`deploy/`](deploy/) folder:
 
 ### Server (Debian x64)
 
-| Script | Description |
-|--------|-------------|
-| [`deploy/publish.sh`](deploy/publish.sh) | Builds the web app for Linux and creates a deployment tarball |
-| [`deploy/install.sh`](deploy/install.sh) | Installs on the server (Nginx, SSL, systemd service) |
-| [`deploy/deploy.sh`](deploy/deploy.sh) | One-step deploy: builds, uploads, and installs remotely |
+| Script | Windows | Description |
+|--------|---------|-------------|
+| [`deploy/publish.sh`](deploy/publish.sh) | [`deploy/publish.bat`](deploy/publish.bat) | Builds the web app for Linux and creates a deployment tarball |
+| [`deploy/install.sh`](deploy/install.sh) | — | Installs on the server (Nginx, SSL, systemd service) |
+| [`deploy/deploy.sh`](deploy/deploy.sh) | [`deploy/deploy.bat`](deploy/deploy.bat) | One-step deploy: builds, uploads, and installs remotely |
 
 **deploy.sh options:**
 
