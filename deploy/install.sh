@@ -42,18 +42,30 @@ if [[ -n "$DOMAIN" ]]; then
   echo "  certbot installed."
 fi
 
-# Open firewall ports (if ufw is active)
+# Open firewall ports
+echo "==> Configuring firewall..."
 if command -v ufw &>/dev/null && ufw status | grep -q "active"; then
+  ufw allow 22/tcp > /dev/null
   ufw allow 80/tcp > /dev/null
   ufw allow 443/tcp > /dev/null
-  echo "  Firewall: ports 80 and 443 opened."
+  echo "  Firewall: ufw — ports 22, 80, 443 opened."
 fi
 
-# Open firewall ports (if iptables is being used without ufw)
-if command -v iptables &>/dev/null && ! command -v ufw &>/dev/null; then
-  iptables -I INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null || true
-  iptables -I INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null || true
-  echo "  Firewall: iptables rules added for ports 80 and 443."
+# Always add iptables rules to ensure ports are open
+if command -v iptables &>/dev/null; then
+  # Only add if not already present
+  iptables -C INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport 80 -j ACCEPT
+  iptables -C INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport 443 -j ACCEPT
+  echo "  Firewall: iptables — ports 80 and 443 opened."
+
+  # Persist iptables rules across reboots
+  if command -v netfilter-persistent &>/dev/null; then
+    netfilter-persistent save 2>/dev/null || true
+  elif command -v iptables-save &>/dev/null; then
+    mkdir -p /etc/iptables
+    iptables-save > /etc/iptables/rules.v4 2>/dev/null || true
+  fi
+  echo "  Firewall: rules saved for reboot persistence."
 fi
 
 # Create service user if it doesn't exist

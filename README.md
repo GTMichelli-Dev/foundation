@@ -70,23 +70,13 @@ echo "admin ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/admin
 chmod 440 /etc/sudoers.d/admin
 ```
 
-Open firewall ports for HTTP/HTTPS (required for Let's Encrypt and web access):
-
-```bash
-iptables -I INPUT -p tcp --dport 80 -j ACCEPT
-iptables -I INPUT -p tcp --dport 443 -j ACCEPT
-```
-
-> **Tip:** If your server uses `nftables` instead of `iptables`, run:
-> ```bash
-> nft add rule inet filter input tcp dport {80, 443} accept
-> ```
-
 Then log out:
 
 ```bash
 exit
 ```
+
+> **Note:** The deploy script automatically opens firewall ports 80 and 443 on the server (both `ufw` and `iptables`). No manual firewall configuration is needed.
 
 ### Step 3: Build the Deployment Package
 
@@ -331,6 +321,56 @@ Navigate to **Setup** in the web interface to configure:
 - **System** — Demo mode, kiosk count (0/1/2), theme, custom icon
 - **Kiosk Prompts** — Which fields to show on the kiosk touchscreen
 - **Ticket Designers** — Edit the layout of printed tickets
+
+---
+
+## Troubleshooting
+
+### "Error" page with no details
+
+By default, production mode hides error details. To see the full error, SSH into the server and enable detailed errors:
+
+```bash
+ssh admin@149.28.xxx.xxx
+sudo nano /opt/basicweigh/appsettings.json
+```
+
+Change `"DetailedErrors": false` to `"DetailedErrors": true`, then restart:
+
+```bash
+sudo systemctl restart basicweigh
+```
+
+Check the logs for the error:
+
+```bash
+sudo journalctl -u basicweigh -f
+```
+
+> **Remember to set `DetailedErrors` back to `false` after fixing the issue.**
+
+### Let's Encrypt "Timeout during connect"
+
+This means ports 80/443 are blocked. The deploy script opens these automatically via iptables, but if it still fails:
+
+```bash
+ssh admin@149.28.xxx.xxx
+sudo iptables -I INPUT -p tcp --dport 80 -j ACCEPT
+sudo iptables -I INPUT -p tcp --dport 443 -j ACCEPT
+```
+
+Also verify DNS is pointing to the server:
+
+```
+nslookup yourDNSName.scaledata.net
+```
+
+### DNS not resolving
+
+The deploy script checks DNS before deploying. If it fails, make sure:
+1. You created an **A record** in your DNS provider pointing to the server IP
+2. You waited for propagation (typically 1-5 minutes, up to 1 hour)
+3. Run `nslookup yourDNSName.scaledata.net` and confirm it returns the correct IP
 
 ---
 
