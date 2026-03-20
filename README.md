@@ -235,13 +235,27 @@ git pull
 
 **2. Rebuild and deploy** to the server:
 
+**Windows (Command Prompt):**
+```
+deploy\publish.bat
+deploy\deploy.bat admin@149.28.xxx.xxx --domain yourDNSName.scaledata.net --email admin@yourcompany.com
+```
+
+**Linux / Mac / Git Bash:**
 ```bash
 bash deploy/publish.sh
 bash deploy/deploy.sh admin@149.28.xxx.xxx --domain yourDNSName.scaledata.net --email admin@yourcompany.com
 ```
 
-Or as a single step (deploy.sh will run publish.sh automatically if the tarball doesn't exist):
+Or as a single step (the deploy script will run publish automatically if the tarball doesn't exist):
 
+**Windows:**
+```
+del deploy\basicweigh-deploy.tar.gz
+deploy\deploy.bat admin@149.28.xxx.xxx --domain yourDNSName.scaledata.net --email admin@yourcompany.com
+```
+
+**Linux / Mac / Git Bash:**
 ```bash
 rm -f deploy/basicweigh-deploy.tar.gz
 bash deploy/deploy.sh admin@149.28.xxx.xxx --domain yourDNSName.scaledata.net --email admin@yourcompany.com
