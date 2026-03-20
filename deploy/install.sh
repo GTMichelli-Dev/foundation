@@ -224,9 +224,7 @@ NGINX
 
 else
   #--- Self-signed cert (no domain specified) ---
-  if ! grep -q "proxy_pass http://127.0.0.1:$APP_PORT" /etc/nginx/sites-available/default 2>/dev/null; then
-
-    # Create self-signed SSL cert if none exists
+  # Create self-signed SSL cert if none exists
     if [[ ! -f /etc/nginx/ssl/nginx.crt ]]; then
       echo "  Generating self-signed SSL certificate..."
       mkdir -p /etc/nginx/ssl
@@ -284,9 +282,6 @@ server {
     }
 }
 NGINX
-  else
-    echo "  Nginx already configured — skipping."
-  fi
 fi
 
 nginx -t && systemctl reload nginx
