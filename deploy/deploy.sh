@@ -73,6 +73,7 @@ INSTALL_CMD="cd /tmp"
 INSTALL_CMD="$INSTALL_CMD && mkdir -p /tmp/basicweigh-install"
 INSTALL_CMD="$INSTALL_CMD && tar -xzf /tmp/basicweigh-deploy.tar.gz -C /tmp/basicweigh-install"
 INSTALL_CMD="$INSTALL_CMD && cd /tmp/basicweigh-install"
+INSTALL_CMD="$INSTALL_CMD && sed -i 's/\r$//' install.sh"
 INSTALL_CMD="$INSTALL_CMD && sudo DOMAIN='$DOMAIN' EMAIL='$EMAIL' PORT='$APP_PORT' bash install.sh"
 INSTALL_CMD="$INSTALL_CMD && rm -rf /tmp/basicweigh-install /tmp/basicweigh-deploy.tar.gz"
 

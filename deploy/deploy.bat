@@ -68,8 +68,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Build install command
-set "INSTALL_CMD=cd /tmp && mkdir -p /tmp/basicweigh-install && tar -xzf /tmp/basicweigh-deploy.tar.gz -C /tmp/basicweigh-install && cd /tmp/basicweigh-install && sudo DOMAIN='%DOMAIN%' EMAIL='%EMAIL%' PORT='%APP_PORT%' bash install.sh && rm -rf /tmp/basicweigh-install /tmp/basicweigh-deploy.tar.gz"
+REM Build install command - sed fixes Windows CRLF line endings before running
+set "INSTALL_CMD=cd /tmp && mkdir -p /tmp/basicweigh-install && tar -xzf /tmp/basicweigh-deploy.tar.gz -C /tmp/basicweigh-install && cd /tmp/basicweigh-install && sed -i 's/\r$//' install.sh && sudo DOMAIN='%DOMAIN%' EMAIL='%EMAIL%' PORT='%APP_PORT%' bash install.sh && rm -rf /tmp/basicweigh-install /tmp/basicweigh-deploy.tar.gz"
 
 echo ==^> Installing on remote server...
 ssh %SSH_OPTS% "%REMOTE%" "%INSTALL_CMD%"
