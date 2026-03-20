@@ -33,8 +33,8 @@ fi
 #--------------------------------------------------
 echo "==> Installing required packages..."
 apt-get update -qq
-apt-get install -y -qq nginx rsync curl openssl > /dev/null
-echo "  nginx, rsync, curl, openssl installed."
+apt-get install -y -qq nginx rsync curl openssl libfontconfig1 fonts-dejavu-core > /dev/null
+echo "  nginx, rsync, curl, openssl, libfontconfig1 installed."
 
 # Install certbot if domain is specified
 if [[ -n "$DOMAIN" ]]; then
