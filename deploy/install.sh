@@ -6,10 +6,17 @@ set -euo pipefail
 #
 # Expects to be run from the extracted tarball directory, or
 # pass the tarball path: sudo bash install.sh /tmp/basicweigh-deploy.tar.gz
+#
+# Environment variables (optional):
+#   DOMAIN=scale.example.com   — enables Let's Encrypt SSL
+#   EMAIL=admin@example.com    — required for Let's Encrypt
+#   PORT=5110                  — app listen port (default 5110)
 
 APP_DIR="/opt/basicweigh"
-PRINT_DIR="/opt/kioskprint"
 SERVICE_USER="admin"
+DOMAIN="${DOMAIN:-}"
+EMAIL="${EMAIL:-}"
+APP_PORT="${PORT:-5110}"
 
 #--------------------------------------------------
 # 0. If a tarball was passed, extract it first
@@ -22,14 +29,33 @@ if [[ "${1:-}" == *.tar.gz ]] && [[ -f "${1:-}" ]]; then
 fi
 
 #--------------------------------------------------
-# 1. Stop existing services
+# 1. Install required packages
 #--------------------------------------------------
-echo "==> Stopping services (if running)..."
-systemctl stop basicweigh 2>/dev/null || true
-systemctl stop kioskprint 2>/dev/null || true
+echo "==> Installing required packages..."
+apt-get update -qq
+apt-get install -y -qq nginx rsync curl openssl > /dev/null
+echo "  nginx, rsync, curl, openssl installed."
+
+# Install certbot if domain is specified
+if [[ -n "$DOMAIN" ]]; then
+  apt-get install -y -qq certbot python3-certbot-nginx > /dev/null
+  echo "  certbot installed."
+fi
+
+# Create service user if it doesn't exist
+if ! id "$SERVICE_USER" &>/dev/null; then
+  useradd -r -m -s /bin/bash "$SERVICE_USER"
+  echo "  Created user: $SERVICE_USER"
+fi
 
 #--------------------------------------------------
-# 2. Install Basic Weigh web app
+# 2. Stop existing service
+#--------------------------------------------------
+echo "==> Stopping service (if running)..."
+systemctl stop basicweigh 2>/dev/null || true
+
+#--------------------------------------------------
+# 3. Install Basic Weigh web app
 #--------------------------------------------------
 echo "==> Installing BasicWeigh.Web to $APP_DIR..."
 mkdir -p "$APP_DIR"
@@ -61,55 +87,70 @@ chmod +x "$APP_DIR/BasicWeigh.Web"
 chown -R "$SERVICE_USER:$SERVICE_USER" "$APP_DIR"
 
 #--------------------------------------------------
-# 3. Install Kiosk Print Agent
+# 4. Install systemd service
 #--------------------------------------------------
-if [[ -d "kioskprint" ]]; then
-  echo "==> Installing KioskPrintAgent to $PRINT_DIR..."
-  mkdir -p "$PRINT_DIR"
-
-  # Preserve existing config
-  if [[ -f "$PRINT_DIR/appsettings.json" ]]; then
-    cp "$PRINT_DIR/appsettings.json" /tmp/kioskprint-appsettings.json.bak
-  fi
-
-  rsync -a --delete kioskprint/ "$PRINT_DIR/"
-
-  # Restore config
-  if [[ -f /tmp/kioskprint-appsettings.json.bak ]]; then
-    cp /tmp/kioskprint-appsettings.json.bak "$PRINT_DIR/appsettings.json"
-    echo "  Print agent config restored."
-  fi
-
-  chmod +x "$PRINT_DIR/KioskPrintAgent"
-  chown -R "$SERVICE_USER:$SERVICE_USER" "$PRINT_DIR"
-fi
-
-#--------------------------------------------------
-# 4. Install systemd services
-#--------------------------------------------------
-echo "==> Installing systemd services..."
+echo "==> Installing systemd service..."
 cp basicweigh.service /etc/systemd/system/basicweigh.service
-cp kioskprint.service /etc/systemd/system/kioskprint.service
 systemctl daemon-reload
 
 #--------------------------------------------------
-# 5. Update Nginx to reverse proxy to Kestrel
+# 5. Configure Nginx reverse proxy
 #--------------------------------------------------
-if command -v nginx &>/dev/null; then
-  echo "==> Configuring Nginx reverse proxy..."
+echo "==> Configuring Nginx reverse proxy..."
 
-  # Only update if not already configured for basicweigh
-  if ! grep -q "proxy_pass http://127.0.0.1:5110" /etc/nginx/sites-available/default 2>/dev/null; then
-    # Get the domain from existing config
-    DOMAIN=$(grep -oP 'server_name\s+\K[^;]+' /etc/nginx/sites-available/default 2>/dev/null | head -1 || echo "localhost")
+if [[ -n "$DOMAIN" ]]; then
+  #--- Let's Encrypt with real domain ---
+  echo "  Domain: $DOMAIN"
 
-    cat > /etc/nginx/sites-available/default <<NGINX
+  # Initial Nginx config (HTTP only, for certbot challenge)
+  cat > /etc/nginx/sites-available/default <<NGINX
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name $DOMAIN;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://\$host\$request_uri;
+    }
+}
+NGINX
+
+  nginx -t && systemctl reload nginx
+
+  # Get Let's Encrypt certificate
+  if [[ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]]; then
+    echo "  Requesting Let's Encrypt certificate..."
+    CERTBOT_OPTS="--nginx -d $DOMAIN --non-interactive --agree-tos"
+    if [[ -n "$EMAIL" ]]; then
+      CERTBOT_OPTS="$CERTBOT_OPTS --email $EMAIL"
+    else
+      CERTBOT_OPTS="$CERTBOT_OPTS --register-unsafely-without-email"
+    fi
+    certbot $CERTBOT_OPTS
+    echo "  SSL certificate obtained."
+  else
+    echo "  Let's Encrypt certificate already exists."
+  fi
+
+  # Full Nginx config with SSL
+  cat > /etc/nginx/sites-available/default <<NGINX
 # HTTP — redirect to HTTPS
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
     server_name $DOMAIN;
-    return 301 https://\$host\$request_uri;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://\$host\$request_uri;
+    }
 }
 
 # HTTPS — reverse proxy to Basic Weigh
@@ -118,8 +159,8 @@ server {
     listen [::]:443 ssl default_server;
     server_name $DOMAIN;
 
-    ssl_certificate     /etc/nginx/ssl/nginx.crt;
-    ssl_certificate_key /etc/nginx/ssl/nginx.key;
+    ssl_certificate     /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
     ssl_protocols       TLSv1.2 TLSv1.3;
     ssl_ciphers         HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
@@ -128,7 +169,7 @@ server {
     add_header X-Content-Type-Options nosniff always;
 
     location / {
-        proxy_pass         http://127.0.0.1:5110;
+        proxy_pass         http://127.0.0.1:$APP_PORT;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade \$http_upgrade;
         proxy_set_header   Connection "upgrade";
@@ -144,26 +185,80 @@ server {
 }
 NGINX
 
-    nginx -t && systemctl reload nginx
-    echo "  Nginx configured as reverse proxy."
+  # Enable auto-renewal timer
+  systemctl enable certbot.timer 2>/dev/null || true
+  echo "  Let's Encrypt auto-renewal enabled."
+
+else
+  #--- Self-signed cert (no domain specified) ---
+  if ! grep -q "proxy_pass http://127.0.0.1:$APP_PORT" /etc/nginx/sites-available/default 2>/dev/null; then
+
+    # Create self-signed SSL cert if none exists
+    if [[ ! -f /etc/nginx/ssl/nginx.crt ]]; then
+      echo "  Generating self-signed SSL certificate..."
+      mkdir -p /etc/nginx/ssl
+      openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+        -keyout /etc/nginx/ssl/nginx.key \
+        -out /etc/nginx/ssl/nginx.crt \
+        -subj "/CN=basicweigh/O=BasicWeigh/C=US" 2>/dev/null
+      echo "  SSL certificate created (self-signed)."
+    fi
+
+    cat > /etc/nginx/sites-available/default <<NGINX
+# HTTP — redirect to HTTPS
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name localhost;
+    return 301 https://\$host\$request_uri;
+}
+
+# HTTPS — reverse proxy to Basic Weigh
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name localhost;
+
+    ssl_certificate     /etc/nginx/ssl/nginx.crt;
+    ssl_certificate_key /etc/nginx/ssl/nginx.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options nosniff always;
+
+    location / {
+        proxy_pass         http://127.0.0.1:$APP_PORT;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade \$http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host \$host;
+        proxy_set_header   X-Real-IP \$remote_addr;
+        proxy_set_header   X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+
+        # WebSocket support (SignalR)
+        proxy_read_timeout 86400;
+    }
+}
+NGINX
   else
     echo "  Nginx already configured — skipping."
   fi
 fi
 
+nginx -t && systemctl reload nginx
+echo "  Nginx configured."
+
 #--------------------------------------------------
-# 6. Enable and start services
+# 6. Enable and start service
 #--------------------------------------------------
-echo "==> Enabling and starting services..."
+echo "==> Enabling and starting BasicWeigh..."
 systemctl enable basicweigh
 systemctl start basicweigh
 echo "  BasicWeigh: $(systemctl is-active basicweigh)"
-
-# Only start print agent if kiosk printing is needed
-# Uncomment the lines below to enable:
-# systemctl enable kioskprint
-# systemctl start kioskprint
-# echo "  KioskPrint: $(systemctl is-active kioskprint)"
 
 #--------------------------------------------------
 # 7. Done
@@ -172,13 +267,17 @@ echo ""
 echo "=========================================="
 echo "  Installation complete!"
 echo "=========================================="
-echo "  Web App:     $APP_DIR"
-echo "  Print Agent: $PRINT_DIR"
-echo "  Service:     systemctl status basicweigh"
-echo "  Logs:        journalctl -u basicweigh -f"
+echo "  Web App: $APP_DIR"
+echo "  Service: systemctl status basicweigh"
+echo "  Logs:    journalctl -u basicweigh -f"
+if [[ -n "$DOMAIN" ]]; then
+echo "  URL:     https://$DOMAIN"
+echo "  SSL:     Let's Encrypt (auto-renews)"
+else
+echo "  URL:     https://<server-ip>"
+echo "  SSL:     Self-signed (browser warning)"
 echo ""
-echo "  To enable kiosk printing:"
-echo "    1. Edit $PRINT_DIR/appsettings.json"
-echo "       Set ServerUrl, PrinterName, PrinterId"
-echo "    2. systemctl enable kioskprint --now"
+echo "  For Let's Encrypt, reinstall with:"
+echo "    DOMAIN=scale.example.com EMAIL=you@example.com sudo -E bash install.sh"
+fi
 echo "=========================================="
