@@ -38,7 +38,7 @@ Before starting, create a DNS **A record** pointing your domain to the server IP
 
 | Type | Name | Value |
 |------|------|-------|
-| A | `scale.yourcompany.com` | `149.28.xxx.xxx` |
+| A | `yourDNSName.scaledata.net` | `149.28.xxx.xxx` |
 
 > DNS can take a few minutes to propagate. You can verify with: `ping scale.yourcompany.com`
 
