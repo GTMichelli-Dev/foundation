@@ -196,11 +196,54 @@ sudo systemctl stop basicweigh
 
 ### Updating to a New Version
 
-Just run the deploy script again — it preserves your database and custom ticket templates:
+When the project has been updated (new features, bug fixes, etc.), follow these steps to deploy the latest version to your server:
+
+**1. Pull the latest code** on your local development machine:
 
 ```bash
-bash deploy/deploy.sh admin@149.28.xxx.xxx --domain scale.yourcompany.com --email admin@yourcompany.com
+cd Basic_Weigh
+git pull
 ```
+
+**2. Rebuild and deploy** to the server:
+
+```bash
+bash deploy/publish.sh
+bash deploy/deploy.sh admin@149.28.xxx.xxx --domain yourDNSName.scaledata.net --email admin@yourcompany.com
+```
+
+Or as a single step (deploy.sh will run publish.sh automatically if the tarball doesn't exist):
+
+```bash
+rm -f deploy/basicweigh-deploy.tar.gz
+bash deploy/deploy.sh admin@149.28.xxx.xxx --domain yourDNSName.scaledata.net --email admin@yourcompany.com
+```
+
+> **What's preserved during updates:**
+> - Your database (`BasicWeigh.db`) — all transactions, master data, and settings
+> - Custom ticket templates in the `Reports/` folder
+> - Nginx configuration and SSL certificates
+>
+> **What gets replaced:**
+> - Application binaries and static files
+> - The systemd service file
+
+**3. Verify** the update by checking the version in the browser footer or running:
+
+```bash
+ssh admin@149.28.xxx.xxx 'sudo systemctl status basicweigh'
+```
+
+### Updating the Pi Print Agent
+
+```bash
+cd Basic_Weigh
+git pull
+bash deploy/publish-pi.sh
+bash deploy/deploy-pi.sh pi@192.168.1.50 --server https://yourDNSName.scaledata.net --printer Zebra_LP2844 --printer-id 1
+```
+
+The Pi agent's `appsettings.json` (ServerUrl, PrinterName, PrinterId) is preserved during updates.
 
 ### File Locations on the Server
 
