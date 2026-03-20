@@ -29,7 +29,7 @@ These instructions will take you from a brand-new Debian server to a fully runni
 |------|---------|
 | Server IP address | `149.28.xxx.xxx` |
 | Root password | (from your Vultr dashboard) |
-| Domain name | `scale.yourcompany.com` |
+| Domain name | `yourDNSName.scaledata.net` |
 | Email address | `admin@yourcompany.com` |
 
 ### Step 1: Point Your Domain to the Server
