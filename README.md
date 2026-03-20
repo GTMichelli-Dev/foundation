@@ -70,6 +70,18 @@ echo "admin ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/admin
 chmod 440 /etc/sudoers.d/admin
 ```
 
+Open firewall ports for HTTP/HTTPS (required for Let's Encrypt and web access):
+
+```bash
+iptables -I INPUT -p tcp --dport 80 -j ACCEPT
+iptables -I INPUT -p tcp --dport 443 -j ACCEPT
+```
+
+> **Tip:** If your server uses `nftables` instead of `iptables`, run:
+> ```bash
+> nft add rule inet filter input tcp dport {80, 443} accept
+> ```
+
 Then log out:
 
 ```bash
