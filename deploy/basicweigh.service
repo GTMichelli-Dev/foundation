@@ -3,7 +3,7 @@ Description=Basic Weigh Scale Application
 After=network.target
 
 [Service]
-Type=notify
+Type=simple
 WorkingDirectory=/opt/basicweigh
 ExecStart=/opt/basicweigh/BasicWeigh.Web --urls "http://127.0.0.1:5110"
 Restart=always
