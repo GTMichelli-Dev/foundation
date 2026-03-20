@@ -57,7 +57,14 @@ adduser admin
 usermod -aG sudo admin
 ```
 
-Set a password when prompted. Then log out:
+Set a password when prompted. Then enable passwordless `sudo` (required for the deploy script to install remotely):
+
+```bash
+echo "admin ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/admin
+chmod 440 /etc/sudoers.d/admin
+```
+
+Then log out:
 
 ```bash
 exit
