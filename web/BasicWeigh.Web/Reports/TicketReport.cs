@@ -1,18 +1,24 @@
 using System.Drawing;
+using DevExpress.Drawing;
+using DevExpress.Drawing.Printing;
 using DevExpress.XtraReports.UI;
 
 namespace BasicWeigh.Web.Reports;
 
 public class TicketReport : XtraReport
 {
+    private TopMarginBand topMarginBand1 = null!;
+    private DetailBand detailBand1 = null!;
+    private BottomMarginBand bottomMarginBand1 = null!;
+
     public TicketReport()
     {
         // 3" receipt paper (76mm = ~288 pixels at 96dpi, or 3 inches = 300 hundredths)
-        PaperKind = (DevExpress.Drawing.Printing.DXPaperKind)System.Drawing.Printing.PaperKind.Custom;
+        PaperKind = DXPaperKind.Custom;
         PageWidth = 300;  // 3 inches in hundredths of an inch
         PageHeight = 800; // tall enough for content
-        Margins = new System.Drawing.Printing.Margins(10, 10, 10, 10);
-        Font = new Font("Courier New", 9f);
+        Margins = new DXMargins(10, 10, 10, 10);
+        Font = new DXFont("Courier New", 9f);
         RollPaper = true;
 
         // Parameters for ticket data
@@ -28,7 +34,6 @@ public class TicketReport : XtraReport
         AddParameter("GrossWeight", typeof(string));
         AddParameter("TareWeight", typeof(string));
         AddParameter("NetWeight", typeof(string));
-        AddParameter("Comment", typeof(string));
         AddParameter("Notes", typeof(string));
         AddParameter("IsVoid", typeof(bool));
         AddParameter("Header1", typeof(string));
@@ -44,6 +49,20 @@ public class TicketReport : XtraReport
         Bands.Add(reportHeader);
 
         float y = 0;
+        float pageContentWidth = 280; // 300 - 10 left margin - 10 right margin
+
+        // Logo at the top, centered
+        float logoSize = 50;
+        float logoX = (pageContentWidth - logoSize) / 2f;
+        var logo = new XRPictureBox
+        {
+            Name = "picLogo",
+            LocationF = new PointF(logoX, y),
+            SizeF = new SizeF(logoSize, logoSize),
+            Sizing = DevExpress.XtraPrinting.ImageSizeMode.ZoomImage
+        };
+        reportHeader.Controls.Add(logo);
+        y += logoSize + 5;
 
         // Header lines (centered, bold)
         y = AddCenteredLabel(reportHeader, "Header1", y, 12f, true);
@@ -77,7 +96,7 @@ public class TicketReport : XtraReport
         // Weights
         y = AddLabelRow(reportHeader, "Gross Weight:", "GrossWeight", y, 10f);
         y = AddLabelRow(reportHeader, "Tare Weight:", "TareWeight", y, 10f);
-        y = AddLabelRow(reportHeader, "Net Weight:", "NetWeight", y, 13f, true);
+        y = AddLabelRow(reportHeader, "Net Weight:", "NetWeight", y, 13f, true, 22);
 
         // Weight separator
         y += 3;
@@ -85,8 +104,7 @@ public class TicketReport : XtraReport
         reportHeader.Controls.Add(sep3);
         y += 5;
 
-        // Comment & Notes
-        y = AddLabelRow(reportHeader, "Comment:", "Comment", y);
+        // Notes
         y = AddLabelRow(reportHeader, "Notes:", "Notes", y);
 
         // Void stamp
@@ -97,7 +115,7 @@ public class TicketReport : XtraReport
             Text = "*** VOID ***",
             LocationF = new PointF(0, y),
             SizeF = new SizeF(280, 30),
-            Font = new Font("Courier New", 18f, FontStyle.Bold),
+            Font = new DXFont("Courier New", 18f, DXFontStyle.Bold),
             ForeColor = Color.Red,
             TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleCenter
         };
@@ -127,7 +145,7 @@ public class TicketReport : XtraReport
             Name = "lbl" + paramName,
             LocationF = new PointF(0, y),
             SizeF = new SizeF(280, 18),
-            Font = new Font("Courier New", fontSize, bold ? FontStyle.Bold : FontStyle.Regular),
+            Font = new DXFont("Courier New", fontSize, bold ? DXFontStyle.Bold : DXFontStyle.Regular),
             TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleCenter
         };
         label.ExpressionBindings.Add(
@@ -136,15 +154,15 @@ public class TicketReport : XtraReport
         return y + 18;
     }
 
-    private float AddLabelRow(Band band, string caption, string paramName, float y, float fontSize = 9f, bool bold = false)
+    private float AddLabelRow(Band band, string caption, string paramName, float y, float fontSize = 9f, bool bold = false, float height = 16)
     {
         var captionLabel = new XRLabel
         {
             Name = "cap" + paramName,
             Text = caption,
             LocationF = new PointF(0, y),
-            SizeF = new SizeF(110, 16),
-            Font = new Font("Courier New", fontSize, bold ? FontStyle.Bold : FontStyle.Regular)
+            SizeF = new SizeF(110, height),
+            Font = new DXFont("Courier New", fontSize, bold ? DXFontStyle.Bold : DXFontStyle.Regular)
         };
         band.Controls.Add(captionLabel);
 
@@ -152,14 +170,14 @@ public class TicketReport : XtraReport
         {
             Name = "val" + paramName,
             LocationF = new PointF(110, y),
-            SizeF = new SizeF(170, 16),
-            Font = new Font("Courier New", fontSize, bold ? FontStyle.Bold : FontStyle.Regular)
+            SizeF = new SizeF(170, height),
+            Font = new DXFont("Courier New", fontSize, bold ? DXFontStyle.Bold : DXFontStyle.Regular)
         };
         valueLabel.ExpressionBindings.Add(
             new ExpressionBinding("BeforePrint", "Text", $"[Parameters.{paramName}]"));
         band.Controls.Add(valueLabel);
 
-        return y + 16;
+        return y + height;
     }
 
     private XRLine CreateLine(float y)
@@ -169,7 +187,37 @@ public class TicketReport : XtraReport
             Name = "line" + y.ToString("F0"),
             LocationF = new PointF(0, y),
             SizeF = new SizeF(280, 2),
-            LineStyle = (DevExpress.Drawing.DXDashStyle)System.Drawing.Drawing2D.DashStyle.Dash
+            LineStyle = DXDashStyle.Dash
         };
+    }
+
+    private void InitializeComponent()
+    {
+            this.topMarginBand1 = new DevExpress.XtraReports.UI.TopMarginBand();
+            this.detailBand1 = new DevExpress.XtraReports.UI.DetailBand();
+            this.bottomMarginBand1 = new DevExpress.XtraReports.UI.BottomMarginBand();
+            ((System.ComponentModel.ISupportInitialize)(this)).BeginInit();
+            //
+            // topMarginBand1
+            //
+            this.topMarginBand1.Name = "topMarginBand1";
+            //
+            // detailBand1
+            //
+            this.detailBand1.Name = "detailBand1";
+            //
+            // bottomMarginBand1
+            //
+            this.bottomMarginBand1.Name = "bottomMarginBand1";
+            //
+            // TicketReport
+            //
+            this.Bands.AddRange(new DevExpress.XtraReports.UI.Band[] {
+            this.topMarginBand1,
+            this.detailBand1,
+            this.bottomMarginBand1});
+            this.Version = "25.2";
+            ((System.ComponentModel.ISupportInitialize)(this)).EndInit();
+
     }
 }

@@ -1,4 +1,5 @@
 using BasicWeigh.Web.Data;
+using BasicWeigh.Web.Hubs;
 using BasicWeigh.Web.Services;
 using DevExpress.AspNetCore;
 using DevExpress.AspNetCore.Reporting;
@@ -27,6 +28,9 @@ builder.Services.AddDbContext<ScaleDbContext>(options =>
 builder.Services.AddSingleton<SimulatedScaleService>();
 builder.Services.AddSingleton<IScaleService>(sp => sp.GetRequiredService<SimulatedScaleService>());
 
+builder.Services.AddSignalR();
+builder.Services.AddHostedService<ScaleBroadcastService>();
+
 builder.Services.AddControllersWithViews();
 
 // DevExpress Reporting
@@ -37,12 +41,16 @@ builder.Services.ConfigureReportingServices(configurator =>
     {
         configurator.UseDevelopmentMode();
     }
-    configurator.ConfigureReportDesigner(designerConfigurator => { });
+    configurator.ConfigureReportDesigner(designerConfigurator =>
+    {
+        designerConfigurator.RegisterDataSourceWizardConfigFileConnectionStringsProvider();
+    });
     configurator.ConfigureWebDocumentViewer(viewerConfigurator =>
     {
         viewerConfigurator.UseCachedReportSourceBuilder();
     });
 });
+DevExpress.XtraReports.Web.Extensions.ReportStorageWebExtension.RegisterExtensionGlobal(new ReportStorageService());
 
 var app = builder.Build();
 
@@ -50,7 +58,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ScaleDbContext>();
-    context.Database.EnsureCreated();
+    context.Database.Migrate();
     DbInitializer.Seed(context);
 }
 
@@ -69,5 +77,6 @@ app.UseAuthorization();
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
+app.MapHub<ScaleHub>("/scaleHub");
 
 app.Run();

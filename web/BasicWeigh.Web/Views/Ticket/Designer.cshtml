@@ -1,6 +1,9 @@
-@model DevExpress.XtraReports.UI.XtraReport
+@model string
+@inject BasicWeigh.Web.Data.ScaleDbContext Db
 @{
     Layout = null;
+    var appSetup = Db.AppSetup.FirstOrDefault();
+    var designerAppName = appSetup?.Header1 ?? "Basic Weigh";
 }
 
 <!DOCTYPE html>
@@ -28,28 +31,19 @@
     <script src="~/js/devextreme/aspnet/dx.aspnet.data.js"></script>
     <script src="~/js/devextreme-license.js"></script>
     <script src="~/js/reporting/dx-analytics-core.min.js"></script>
-    <script>
-        // Diagnostic: check what analytics-core created
-        console.log('=== DIAGNOSTICS ===');
-        console.log('ko defined:', typeof ko);
-        console.log('DevExpress defined:', typeof DevExpress);
-        console.log('DevExpress.Analytics:', typeof DevExpress !== 'undefined' && typeof DevExpress.Analytics);
-        console.log('DevExpress.Analytics.Widgets:', typeof DevExpress !== 'undefined' && DevExpress.Analytics && typeof DevExpress.Analytics.Widgets);
-        console.log('DevExpress.Analytics.Widgets.Metadata:', typeof DevExpress !== 'undefined' && DevExpress.Analytics && DevExpress.Analytics.Widgets && typeof DevExpress.Analytics.Widgets.Metadata);
-        console.log('DevExpress.VERSION:', typeof DevExpress !== 'undefined' && DevExpress.VERSION);
-        if (typeof DevExpress !== 'undefined' && DevExpress.Analytics) {
-            console.log('Analytics keys:', Object.keys(DevExpress.Analytics));
-        }
-    </script>
     <script src="~/js/reporting/dx-querybuilder.min.js"></script>
+    <script src="~/js/reporting/dx-webdocumentviewer.min.js"></script>
     <script src="~/js/reporting/dx-reportdesigner.min.js"></script>
 </head>
 <body>
     <nav class="navbar navbar-expand-sm mb-3" style="background: #fff; border-bottom: 3px solid #2ea3f2; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
         <div class="container-fluid">
-            <a class="navbar-brand" href="/" style="color: #2ea3f2; font-size: 1.3rem;"><strong>Basic Weigh</strong></a>
+            <a class="navbar-brand d-flex align-items-center gap-2" href="/" style="color: #2ea3f2; font-size: 1.3rem;">
+                <img src="/api/setup/icon" alt="" style="height: 28px; width: 28px;" />
+                <strong>@designerAppName</strong>
+            </a>
             <span class="navbar-text ms-2" style="font-weight: 600;">Ticket Designer</span>
-            <a href="/" class="btn btn-outline-secondary btn-sm ms-auto">Back to Dashboard</a>
+            <a href="/Setup" class="btn btn-outline-secondary btn-sm ms-auto">Back to Setup</a>
         </div>
     </nav>
 

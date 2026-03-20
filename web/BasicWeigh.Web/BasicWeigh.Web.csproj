@@ -4,10 +4,15 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Version>1.1.42</Version>
+    <AssemblyVersion>1.1.42.0</AssemblyVersion>
+    <FileVersion>1.1.42.0</FileVersion>
+    <InformationalVersion>1.1.42</InformationalVersion>
+    <Product>Basic Weigh</Product>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="DevExpress.AspNetCore.Reporting" Version="25.2.4" />
+    <PackageReference Include="DevExpress.AspNetCore.Reporting" Version="25.2.5" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.*">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

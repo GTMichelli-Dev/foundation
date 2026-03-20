@@ -26,13 +26,52 @@ public class ScaleDbContext : DbContext
             e.HasIndex(t => t.Carrier);
         });
 
-        modelBuilder.Entity<Customer>().ToTable("Customers");
-        modelBuilder.Entity<Carrier>().ToTable("Carriers");
-        modelBuilder.Entity<Location>().ToTable("Locations");
-        modelBuilder.Entity<Destination>().ToTable("Destinations");
-        modelBuilder.Entity<Truck>().ToTable("Trucks");
-        modelBuilder.Entity<Commodity>().ToTable("Commodities");
-        modelBuilder.Entity<AppSetup>().ToTable("AppSetup");
+        modelBuilder.Entity<Customer>(e =>
+        {
+            e.ToTable("Customers");
+            e.HasIndex(c => c.CustomerName).IsUnique();
+            e.Property(c => c.UseAtKiosk).HasDefaultValue(true);
+        });
+        modelBuilder.Entity<Carrier>(e =>
+        {
+            e.ToTable("Carriers");
+            e.HasIndex(c => c.CarrierName).IsUnique();
+            e.Property(c => c.UseAtKiosk).HasDefaultValue(true);
+        });
+        modelBuilder.Entity<Location>(e =>
+        {
+            e.ToTable("Locations");
+            e.HasIndex(l => l.LocationName).IsUnique();
+            e.Property(l => l.UseAtKiosk).HasDefaultValue(true);
+        });
+        modelBuilder.Entity<Destination>(e =>
+        {
+            e.ToTable("Destinations");
+            e.HasIndex(d => d.DestinationName).IsUnique();
+            e.Property(d => d.UseAtKiosk).HasDefaultValue(true);
+        });
+        modelBuilder.Entity<Truck>(e =>
+        {
+            e.ToTable("Trucks");
+            e.HasIndex(t => new { t.TruckId, t.CarrierName }).IsUnique();
+            e.Property(t => t.UseAtKiosk).HasDefaultValue(true);
+        });
+        modelBuilder.Entity<Commodity>(e =>
+        {
+            e.ToTable("Commodities");
+            e.HasIndex(c => c.CommodityName).IsUnique();
+            e.Property(c => c.UseAtKiosk).HasDefaultValue(true);
+        });
+        modelBuilder.Entity<AppSetup>(e =>
+        {
+            e.ToTable("AppSetup");
+            e.Property(s => s.PromptKioskCommodity).HasDefaultValue(true);
+            e.Property(s => s.PromptKioskCustomer).HasDefaultValue(true);
+            e.Property(s => s.PromptKioskCarrier).HasDefaultValue(true);
+            e.Property(s => s.PromptKioskLocation).HasDefaultValue(true);
+            e.Property(s => s.PromptKioskTruckId).HasDefaultValue(true);
+            e.Property(s => s.PromptKioskDestinationOnOutbound).HasDefaultValue(true);
+        });
 
         modelBuilder.Entity<AppSetup>().HasData(new AppSetup
         {
@@ -42,7 +81,12 @@ public class ScaleDbContext : DbContext
             Header2 = "",
             Header3 = "",
             Header4 = "",
-            TicketsPerPage = 1
+            TicketsPerPage = 1,
+            DemoMode = false,
+            KioskCount = 0,
+            Icon = null,
+            IconContentType = null,
+            Theme = "default"
         });
     }
 }

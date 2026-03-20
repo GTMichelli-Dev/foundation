@@ -20,38 +20,81 @@ public class TransactionController : Controller
     private void PopulateDropdowns()
     {
         ViewBag.Customers = _db.Customers.Where(c => c.Active).OrderBy(c => c.CustomerName).ToList();
-        ViewBag.Carriers = _db.Carriers.Where(c => c.Active).OrderBy(c => c.CarrierName).ToList();
-        ViewBag.Trucks = _db.Trucks.OrderBy(t => t.TruckId).ToList();
+
+        // Carriers = dedicated carriers + all active customers (any customer can be a carrier)
+        var carrierNames = _db.Carriers.Where(c => c.Active).Select(c => c.CarrierName).ToList();
+        var customerNames = _db.Customers.Where(c => c.Active).Select(c => c.CustomerName).ToList();
+        ViewBag.CarrierOptions = carrierNames.Union(customerNames).OrderBy(n => n).ToList();
+
+        // Trucks loaded via AJAX based on selected carrier
         ViewBag.Commodities = _db.Commodities.Where(c => c.Active).OrderBy(c => c.CommodityName).ToList();
         ViewBag.Locations = _db.Locations.Where(l => l.Active).OrderBy(l => l.LocationName).ToList();
         ViewBag.Destinations = _db.Destinations.Where(d => d.Active).OrderBy(d => d.DestinationName).ToList();
     }
 
-    // GET: Transaction/WeighIn
-    public IActionResult WeighIn()
+    // GET: Transaction/WeighIn (new)
+    // GET: Transaction/WeighIn/5 (edit existing inbound)
+    public IActionResult WeighIn(string? id)
     {
+        PopulateDropdowns();
+        ViewBag.CurrentWeight = _scaleService.GetCurrentWeight();
+
+        if (!string.IsNullOrEmpty(id))
+        {
+            var existing = _db.Transactions.Find(id);
+            if (existing == null) return NotFound();
+            if (existing.DateOut != null) return RedirectToAction("Edit", new { id });
+
+            ViewBag.IsEdit = true;
+            return View(existing);
+        }
+
         var setup = _db.AppSetup.First();
         ViewBag.NextTicket = setup.TicketNumber.ToString();
-        ViewBag.CurrentWeight = _scaleService.GetCurrentWeight();
-        PopulateDropdowns();
-        return View();
+        ViewBag.IsEdit = false;
+        return View(new Transaction());
     }
 
     // POST: Transaction/WeighIn
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult WeighIn(Transaction transaction)
+    public IActionResult WeighIn(Transaction transaction, bool isEdit, bool goToWeighOut, bool manualWeight)
     {
-        var setup = _db.AppSetup.First();
-        transaction.Ticket = setup.TicketNumber.ToString();
-        transaction.DateIn = transaction.DateIn == default ? DateTime.Now : transaction.DateIn;
-        transaction.Void = false;
+        if (isEdit)
+        {
+            var existing = _db.Transactions.Find(transaction.Ticket);
+            if (existing == null) return NotFound();
 
-        setup.TicketNumber++;
-        _db.AppSetup.Update(setup);
+            existing.InWeight = transaction.InWeight;
+            existing.ManualInbound = manualWeight;
+            existing.DateIn = transaction.DateIn;
+            existing.Customer = transaction.Customer;
+            existing.Carrier = transaction.Carrier;
+            existing.TruckId = transaction.TruckId;
+            existing.Commodity = transaction.Commodity;
+            existing.Location = transaction.Location;
+            existing.Destination = transaction.Destination;
+            existing.Notes = transaction.Notes;
 
-        _db.Transactions.Add(transaction);
-        _db.SaveChanges();
+            _db.SaveChanges();
+
+            if (goToWeighOut)
+                return RedirectToAction("WeighOut", new { id = transaction.Ticket });
+        }
+        else
+        {
+            var setup = _db.AppSetup.First();
+            transaction.Ticket = setup.TicketNumber.ToString();
+            transaction.DateIn = transaction.DateIn == default ? DateTime.Now : transaction.DateIn;
+            transaction.Void = false;
+            transaction.ManualInbound = manualWeight;
+
+            setup.TicketNumber++;
+            _db.AppSetup.Update(setup);
+
+            _db.Transactions.Add(transaction);
+            _db.SaveChanges();
+        }
 
         return RedirectToAction("InboundTrucks");
     }
@@ -70,21 +113,28 @@ public class TransactionController : Controller
     // POST: Transaction/WeighOut/5
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult WeighOut(string id, int outWeight, DateTime? dateOut, string? destination, string? notes)
+    public IActionResult WeighOut(string id, Transaction transaction, bool manualOutWeight, bool manualInWeight)
     {
-        var transaction = _db.Transactions.Find(id);
-        if (transaction == null) return NotFound();
+        var existing = _db.Transactions.Find(id);
+        if (existing == null) return NotFound();
 
-        transaction.OutWeight = outWeight;
-        transaction.DateOut = dateOut ?? DateTime.Now;
-        if (!string.IsNullOrEmpty(destination))
-            transaction.Destination = destination;
-        if (!string.IsNullOrEmpty(notes))
-            transaction.Notes = notes;
+        existing.InWeight = transaction.InWeight;
+        existing.ManualInbound = manualInWeight;
+        existing.OutWeight = transaction.OutWeight;
+        existing.ManualOutbound = manualOutWeight;
+        existing.DateOut = transaction.DateOut ?? DateTime.Now;
+        existing.DateIn = transaction.DateIn;
+        existing.Customer = transaction.Customer;
+        existing.Carrier = transaction.Carrier;
+        existing.TruckId = transaction.TruckId;
+        existing.Commodity = transaction.Commodity;
+        existing.Location = transaction.Location;
+        existing.Destination = transaction.Destination;
+        existing.Notes = transaction.Notes;
 
         _db.SaveChanges();
 
-        return RedirectToAction("CompletedTrucks");
+        return RedirectToAction("View", "Ticket", new { id });
     }
 
     // GET: Transaction/InboundTrucks
@@ -143,6 +193,19 @@ public class TransactionController : Controller
         return Json(new { success = true, isVoid = transaction.Void });
     }
 
+// POST: Transaction/DeleteInbound/5
+    [HttpPost("Transaction/DeleteInbound/{id}")]
+    public IActionResult DeleteInbound(string id)
+    {
+        var transaction = _db.Transactions.Find(id);
+        if (transaction == null) return NotFound();
+
+        _db.Transactions.Remove(transaction);
+        _db.SaveChanges();
+
+        return Json(new { success = true });
+    }
+
     // GET: Transaction/Edit/5
     public IActionResult Edit(string id)
     {
@@ -173,7 +236,6 @@ public class TransactionController : Controller
         existing.Commodity = transaction.Commodity;
         existing.Location = transaction.Location;
         existing.Destination = transaction.Destination;
-        existing.Comment = transaction.Comment;
         existing.Notes = transaction.Notes;
         existing.Void = transaction.Void;
 
@@ -199,8 +261,9 @@ public class TransactionController : Controller
                 t.InWeight,
                 t.DateIn,
                 t.Location,
-                t.Comment,
-                t.Notes
+                t.Destination,
+                t.Notes,
+                t.ManualInbound
             })
             .ToList();
 
@@ -234,7 +297,6 @@ public class TransactionController : Controller
                 t.DateOut,
                 t.Location,
                 t.Destination,
-                t.Comment,
                 t.Notes,
                 t.Void
             })
@@ -260,7 +322,6 @@ public class TransactionController : Controller
         existing.Commodity = transaction.Commodity;
         existing.Location = transaction.Location;
         existing.Destination = transaction.Destination;
-        existing.Comment = transaction.Comment;
         existing.Notes = transaction.Notes;
         existing.Void = transaction.Void;
 

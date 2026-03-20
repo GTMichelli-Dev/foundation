@@ -14,19 +14,21 @@
         border-radius: 16px;
         margin-bottom: 30px;
         letter-spacing: 4px;
+        max-width: 520px;
+        margin-left: auto;
+        margin-right: auto;
     }
     .weight-unit {
         font-size: 2rem;
         color: #0a0;
         margin-left: 10px;
     }
-    .motion-indicator {
-        font-size: 1rem;
-        color: #ff0;
-        display: none;
-    }
-    .motion-indicator.active {
-        display: inline;
+    .scale-status {
+        font-size: 1.2rem;
+        font-weight: bold;
+        text-align: center;
+        letter-spacing: 2px;
+        min-height: 1.4em;
     }
     .dashboard-btn {
         font-size: 1.15rem;
@@ -39,18 +41,18 @@
         justify-content: center;
         gap: 12px;
         border-radius: 16px;
-        border: 2px solid #2ea3f2;
-        box-shadow: 0 4px 12px rgba(46,163,242,0.1);
+        border: 2px solid var(--bw-primary);
+        box-shadow: 0 4px 12px rgba(var(--bw-primary-rgb),0.1);
         transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
         text-decoration: none;
-        background: #f0f8ff;
-        color: #333;
+        background: var(--bw-primary-light);
+        color: var(--bw-text);
     }
     .dashboard-btn:hover {
         transform: translateY(-3px);
-        box-shadow: 0 8px 24px rgba(46,163,242,0.25);
-        background: #2ea3f2;
-        color: #fff;
+        box-shadow: 0 8px 24px rgba(var(--bw-primary-rgb),0.25);
+        background: var(--bw-primary);
+        color: var(--bw-text-on-primary);
     }
     .dashboard-btn:active {
         transform: translateY(0);
@@ -69,9 +71,9 @@
 <div class="row justify-content-center mb-4">
     <div class="col-md-8">
         <div class="weight-display" id="weightDisplay">
-            <span id="motionIndicator" class="motion-indicator">MOTION</span>
             <span id="weightValue">0</span>
-            <span class="weight-unit">lb</span>
+            <span class="weight-unit" id="weightUnit">lb</span>
+            <div class="scale-status" id="scaleStatus">&nbsp;</div>
         </div>
     </div>
 </div>
@@ -131,13 +133,28 @@
 @section Scripts {
 <script>
     $(function () {
+        var display = $('#weightDisplay');
+        var weightVal = $('#weightValue');
+        var weightUnit = $('#weightUnit');
+        var statusEl = $('#scaleStatus');
+
         function pollWeight() {
             $.getJSON('/api/scale/weight', function (data) {
-                $('#weightValue').text(data.weight);
-                if (data.motion) {
-                    $('#motionIndicator').addClass('active');
+                if (data.error) {
+                    weightVal.text('------');
+                    weightUnit.text('');
+                    display.css({ color: '#ff0000' });
+                    statusEl.css('color', '#ff0000').text('ERROR');
+                } else if (data.motion) {
+                    weightVal.text(data.weight.toLocaleString());
+                    weightUnit.text('lb');
+                    display.css({ color: '#ffff00' });
+                    statusEl.css('color', '#ffff00').text('MOTION');
                 } else {
-                    $('#motionIndicator').removeClass('active');
+                    weightVal.text(data.weight.toLocaleString());
+                    weightUnit.text('lb');
+                    display.css({ color: '#00ff41' });
+                    statusEl.html('&nbsp;');
                 }
             });
         }

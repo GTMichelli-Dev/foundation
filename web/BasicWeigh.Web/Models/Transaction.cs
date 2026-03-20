@@ -42,11 +42,14 @@ public class Transaction
     [StringLength(50)]
     public string? Destination { get; set; }
 
-    [StringLength(255)]
-    public string? Comment { get; set; }
-
     [StringLength(500)]
     public string? Notes { get; set; }
+
+    [Display(Name = "Manual Inbound")]
+    public bool ManualInbound { get; set; }
+
+    [Display(Name = "Manual Outbound")]
+    public bool ManualOutbound { get; set; }
 
     [NotMapped]
     public int GrossWeight => Math.Max(InWeight, OutWeight ?? 0);

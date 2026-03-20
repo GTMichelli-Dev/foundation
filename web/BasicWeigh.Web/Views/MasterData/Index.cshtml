@@ -1,5 +1,7 @@
 @{
     ViewData["Title"] = "Edit Tables";
+    var kioskCount = (int)ViewBag.KioskCount;
+    var showKiosk = kioskCount > 0;
 }
 
 <h3>Edit Tables</h3>
@@ -9,16 +11,13 @@
         <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#customersTab">Customers</button>
     </li>
     <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#carriersTab">Carriers</button>
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#carriersTab">Carriers & Trucks</button>
     </li>
     <li class="nav-item">
         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#locationsTab">Locations</button>
     </li>
     <li class="nav-item">
         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#destinationsTab">Destinations</button>
-    </li>
-    <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#trucksTab">Trucks</button>
     </li>
     <li class="nav-item">
         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#commoditiesTab">Commodities</button>
@@ -38,9 +37,6 @@
     <div class="tab-pane fade" id="destinationsTab">
         <div id="destinationsGrid"></div>
     </div>
-    <div class="tab-pane fade" id="trucksTab">
-        <div id="trucksGrid"></div>
-    </div>
     <div class="tab-pane fade" id="commoditiesTab">
         <div id="commoditiesGrid"></div>
     </div>
@@ -49,9 +45,11 @@
 @section Scripts {
 <script>
     $(function () {
-        function createNameActiveStore(endpoint, keyField) {
+        var showKiosk = @(showKiosk ? "true" : "false");
+
+        function createIdStore(endpoint) {
             return new DevExpress.data.CustomStore({
-                key: keyField,
+                key: 'id',
                 load: function () {
                     return $.getJSON('/api/masterdata/' + endpoint);
                 },
@@ -64,7 +62,7 @@
                     });
                 },
                 update: function (key, values) {
-                    values[keyField] = key;
+                    values.id = key;
                     return $.ajax({
                         url: '/api/masterdata/' + endpoint,
                         method: 'PUT',
@@ -74,16 +72,26 @@
                 },
                 remove: function (key) {
                     return $.ajax({
-                        url: '/api/masterdata/' + endpoint + '/' + encodeURIComponent(key),
+                        url: '/api/masterdata/' + endpoint + '/' + key,
                         method: 'DELETE'
                     });
                 }
             });
         }
 
-        function initNameActiveGrid(selector, endpoint, keyField, nameCaption) {
+        function initNameActiveGrid(selector, endpoint, nameField, nameCaption) {
+            var cols = [
+                { dataField: 'id', caption: 'ID', width: 60, allowEditing: false },
+                { dataField: nameField, caption: nameCaption, sortOrder: 'asc', validationRules: [{ type: 'required' }] },
+                { dataField: 'active', caption: 'Active', dataType: 'boolean', width: 100 }
+            ];
+            if (showKiosk) {
+                cols.push({ dataField: 'useAtKiosk', caption: 'Kiosk', dataType: 'boolean', width: 100 });
+            }
+
             $(selector).dxDataGrid({
-                dataSource: createNameActiveStore(endpoint, keyField),
+                hoverStateEnabled: true,
+                dataSource: createIdStore(endpoint),
                 showBorders: true,
                 filterRow: { visible: true },
                 headerFilter: { visible: true },
@@ -93,50 +101,57 @@
                     allowUpdating: true,
                     allowDeleting: true
                 },
-                columns: [
-                    { dataField: keyField, caption: nameCaption, validationRules: [{ type: 'required' }] },
-                    { dataField: 'active', caption: 'Active', dataType: 'boolean', width: 100 }
-                ]
+                columns: cols
             });
         }
 
         initNameActiveGrid('#customersGrid', 'customers', 'customerName', 'Customer Name');
-        initNameActiveGrid('#carriersGrid', 'carriers', 'carrierName', 'Carrier Name');
         initNameActiveGrid('#locationsGrid', 'locations', 'locationName', 'Location Name');
         initNameActiveGrid('#destinationsGrid', 'destinations', 'destinationName', 'Destination Name');
         initNameActiveGrid('#commoditiesGrid', 'commodities', 'commodityName', 'Commodity Name');
 
-        // Trucks grid (different columns)
-        $('#trucksGrid').dxDataGrid({
-            dataSource: new DevExpress.data.CustomStore({
-                key: 'truckId',
-                load: function () {
-                    return $.getJSON('/api/masterdata/trucks');
-                },
-                insert: function (values) {
-                    return $.ajax({
-                        url: '/api/masterdata/trucks',
-                        method: 'POST',
-                        contentType: 'application/json',
-                        data: JSON.stringify(values)
-                    });
-                },
-                update: function (key, values) {
-                    values.truckId = key;
-                    return $.ajax({
-                        url: '/api/masterdata/trucks',
-                        method: 'PUT',
-                        contentType: 'application/json',
-                        data: JSON.stringify(values)
-                    });
-                },
-                remove: function (key) {
-                    return $.ajax({
-                        url: '/api/masterdata/trucks/' + encodeURIComponent(key),
-                        method: 'DELETE'
-                    });
+        // Carriers grid with trucks sub-grid (master-detail)
+        var customerSuggestions = [];
+        $.getJSON('/api/masterdata/customers-not-carriers').done(function (data) {
+            customerSuggestions = data;
+        });
+
+        var carrierCols = [
+            { dataField: 'id', caption: 'ID', width: 60, allowEditing: false },
+            {
+                dataField: 'carrierName', caption: 'Carrier Name', sortOrder: 'asc', validationRules: [{ type: 'required' }],
+                editCellTemplate: function (cellElement, cellInfo) {
+                    if (cellInfo.row.isNewRow) {
+                        $('<div>').dxAutocomplete({
+                            dataSource: customerSuggestions,
+                            value: cellInfo.value || '',
+                            minSearchLength: 0,
+                            showDropDownButton: true,
+                            onValueChanged: function (e) {
+                                cellInfo.setValue(e.value);
+                            }
+                        }).appendTo(cellElement);
+                    } else {
+                        $('<div>').dxTextBox({
+                            value: cellInfo.value || '',
+                            onValueChanged: function (e) {
+                                cellInfo.setValue(e.value);
+                            }
+                        }).appendTo(cellElement);
+                    }
                 }
-            }),
+            },
+            { dataField: 'active', caption: 'Active', dataType: 'boolean', width: 100 }
+        ];
+        if (showKiosk) {
+            carrierCols.push({ dataField: 'useAtKiosk', caption: 'Kiosk', dataType: 'boolean', width: 100 });
+        }
+
+        var carrierStore = createIdStore('carriers');
+
+        $('#carriersGrid').dxDataGrid({
+            hoverStateEnabled: true,
+            dataSource: carrierStore,
             showBorders: true,
             filterRow: { visible: true },
             headerFilter: { visible: true },
@@ -146,11 +161,73 @@
                 allowUpdating: true,
                 allowDeleting: true
             },
-            columns: [
-                { dataField: 'truckId', caption: 'Truck ID', validationRules: [{ type: 'required' }] },
-                { dataField: 'phone', caption: 'Phone' },
-                { dataField: 'lot', caption: 'Lot' }
-            ]
+            columns: carrierCols,
+            onInitNewRow: function () {
+                $.getJSON('/api/masterdata/customers-not-carriers').done(function (data) {
+                    customerSuggestions = data;
+                });
+            },
+            masterDetail: {
+                enabled: true,
+                template: function (container, options) {
+                    var carrierData = options.data;
+                    var carrierName = carrierData.carrierName;
+
+                    var truckCols = [
+                        { dataField: 'id', caption: 'ID', width: 60, allowEditing: false },
+                        { dataField: 'truckId', caption: 'Truck ID', sortOrder: 'asc', validationRules: [{ type: 'required' }] },
+                        { dataField: 'description', caption: 'Description' },
+                        { dataField: 'notes', caption: 'Notes' }
+                    ];
+                    if (showKiosk) {
+                        truckCols.push({ dataField: 'useAtKiosk', caption: 'Kiosk', dataType: 'boolean', width: 100 });
+                    }
+
+                    $('<div>').dxDataGrid({
+                        hoverStateEnabled: true,
+                        dataSource: new DevExpress.data.CustomStore({
+                            key: 'id',
+                            load: function () {
+                                return $.getJSON('/api/masterdata/trucks/' + encodeURIComponent(carrierName));
+                            },
+                            insert: function (values) {
+                                values.carrierName = carrierName;
+                                return $.ajax({
+                                    url: '/api/masterdata/trucks',
+                                    method: 'POST',
+                                    contentType: 'application/json',
+                                    data: JSON.stringify(values)
+                                });
+                            },
+                            update: function (key, values) {
+                                values.id = key;
+                                values.carrierName = carrierName;
+                                return $.ajax({
+                                    url: '/api/masterdata/trucks',
+                                    method: 'PUT',
+                                    contentType: 'application/json',
+                                    data: JSON.stringify(values)
+                                });
+                            },
+                            remove: function (key) {
+                                return $.ajax({
+                                    url: '/api/masterdata/trucks/' + key,
+                                    method: 'DELETE'
+                                });
+                            }
+                        }),
+                        showBorders: true,
+                        columnAutoWidth: true,
+                        editing: {
+                            mode: 'batch',
+                            allowAdding: true,
+                            allowUpdating: true,
+                            allowDeleting: true
+                        },
+                        columns: truckCols
+                    }).appendTo(container);
+                }
+            }
         });
     });
 </script>

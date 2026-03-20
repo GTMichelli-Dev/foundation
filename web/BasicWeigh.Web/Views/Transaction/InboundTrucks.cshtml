@@ -2,14 +2,81 @@
     ViewData["Title"] = "Inbound Trucks";
 }
 
+<style>
+    .grid-action-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 70px;
+        padding: 4px 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border-radius: 8px;
+        border: 2px solid var(--bw-btn-action-border);
+        background: var(--bw-btn-action-bg);
+        color: var(--bw-btn-action-text);
+        text-decoration: none;
+        transition: background 0.15s ease, transform 0.1s ease, color 0.15s ease;
+        cursor: pointer;
+        line-height: 1.4;
+    }
+    .grid-action-btn:hover {
+        background: var(--bw-primary);
+        color: var(--bw-text-on-primary);
+        transform: translateY(-1px);
+        text-decoration: none;
+    }
+    .grid-action-btn:active {
+        transform: translateY(0);
+    }
+    .grid-action-btn.btn-weighout {
+        border-color: #2f855a;
+        background: #dcfce7;
+        color: #2f855a;
+    }
+    .grid-action-btn.btn-weighout:hover {
+        background: #2f855a;
+        color: #fff;
+    }
+    .grid-action-btn.btn-delete {
+        border-color: #c53030;
+        color: #c53030;
+    }
+    .grid-action-btn.btn-delete:hover {
+        background: #fee2e2;
+    }
+</style>
+
 <h3>Inbound Trucks</h3>
 
 <div id="inboundGrid"></div>
 
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Delete Ticket</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete ticket <strong id="deleteTicketId"></strong>? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
 <script>
     $(function () {
-        $('#inboundGrid').dxDataGrid({
+        var deleteTicketId = null;
+
+        var grid = $('#inboundGrid').dxDataGrid({
+            hoverStateEnabled: true,
             dataSource: new DevExpress.data.CustomStore({
                 key: 'ticket',
                 load: function () {
@@ -22,21 +89,58 @@
                 { dataField: 'carrier', caption: 'Carrier' },
                 { dataField: 'truckId', caption: 'Truck ID' },
                 { dataField: 'commodity', caption: 'Commodity' },
-                { dataField: 'inWeight', caption: 'In (lbs)', dataType: 'number', format: '#,##0', width: 90 },
+                { dataField: 'location', caption: 'Location' },
+                { dataField: 'destination', caption: 'Destination' },
+                {
+                    dataField: 'inWeight', caption: 'In (lbs)', dataType: 'number', format: '#,##0', width: 110,
+                    cellTemplate: function (container, options) {
+                        var text = DevExpress.localization.formatNumber(options.value, '#,##0');
+                        if (options.data.manualInbound) {
+                            $('<span>').text(text).appendTo(container);
+                            $('<span>').css({ marginLeft: '4px', fontSize: '0.7rem', color: '#d97706', fontWeight: 'bold' }).text('M').appendTo(container);
+                        } else {
+                            $('<span>').text(text).appendTo(container);
+                        }
+                    }
+                },
                 { dataField: 'dateIn', caption: 'Date In', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a' },
                 { dataField: 'notes', caption: 'Notes' },
                 {
                     caption: '',
-                    width: 120,
+                    width: 280,
+                    allowFiltering: false,
+                    allowSorting: false,
                     cellTemplate: function (container, options) {
                         $('<a>')
-                            .addClass('btn btn-sm btn-success')
+                            .addClass('grid-action-btn me-1')
+                            .attr('href', '/Transaction/WeighIn/' + options.data.ticket)
+                            .text('Edit')
+                            .appendTo(container);
+
+                        $('<a>')
+                            .addClass('grid-action-btn btn-weighout me-1')
                             .attr('href', '/Transaction/WeighOut/' + options.data.ticket)
                             .text('Weigh Out')
+                            .appendTo(container);
+
+                        $('<button>')
+                            .addClass('grid-action-btn btn-delete')
+                            .text('Delete')
+                            .on('click', function (e) {
+                                e.stopPropagation();
+                                deleteTicketId = options.data.ticket;
+                                $('#deleteTicketId').text(deleteTicketId);
+                                new bootstrap.Modal('#deleteModal').show();
+                            })
                             .appendTo(container);
                     }
                 }
             ],
+            onRowClick: function (e) {
+                if (e.rowType === 'data') {
+                    window.location.href = '/Transaction/WeighIn/' + e.data.ticket;
+                }
+            },
             showBorders: true,
             filterRow: { visible: true },
             headerFilter: { visible: true },
@@ -44,7 +148,25 @@
             columnAutoWidth: true,
             paging: { pageSize: 20 },
             pager: { showPageSizeSelector: true, allowedPageSizes: [10, 20, 50] }
+        }).dxDataGrid('instance');
+
+        $('#confirmDeleteBtn').on('click', function () {
+            if (!deleteTicketId) return;
+            $.post('/Transaction/DeleteInbound/' + deleteTicketId, function () {
+                bootstrap.Modal.getInstance('#deleteModal').hide();
+                grid.refresh();
+            });
         });
+
+        // SignalR: auto-refresh when tickets are created or completed
+        var connection = new signalR.HubConnectionBuilder()
+            .withUrl('/scaleHub')
+            .withAutomaticReconnect()
+            .build();
+        connection.on('TicketCreated', function () { grid.refresh(); });
+        connection.on('TicketCompleted', function () { grid.refresh(); });
+        connection.start().catch(function (err) { console.error('SignalR error:', err); });
     });
 </script>
+<script src="~/js/signalr/signalr.min.js"></script>
 }

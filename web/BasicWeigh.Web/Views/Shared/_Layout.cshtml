@@ -1,9 +1,18 @@
+@inject BasicWeigh.Web.Data.ScaleDbContext Db
+@{
+    var appSetup = Db.AppSetup.FirstOrDefault();
+    var appName = appSetup?.Header1 ?? "Basic Weigh";
+    var asm = System.Reflection.Assembly.GetExecutingAssembly();
+    var appVersion = asm.GetName().Version?.ToString(3) ?? "1.0.0";
+    var theme = appSetup?.Theme ?? "default";
+    var iconCacheBust = DateTime.UtcNow.Ticks;
+}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="@theme">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Basic Weigh</title>
+    <title>@ViewData["Title"] - @appName</title>
     <!-- DevExtreme -->
   
 
@@ -21,10 +30,11 @@
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm mb-3" style="background: #fff; border-bottom: 3px solid #2ea3f2; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+        <nav class="navbar navbar-expand-sm mb-3" style="background: var(--bw-nav-bg); border-bottom: 3px solid var(--bw-nav-border); box-shadow: 0 2px 8px var(--bw-nav-shadow);">
             <div class="container-fluid">
-                <a class="navbar-brand" asp-controller="Home" asp-action="Index" style="color: #2ea3f2; font-size: 1.3rem;">
-                    <strong>Basic Weigh</strong>
+                <a class="navbar-brand d-flex align-items-center gap-2" asp-controller="Home" asp-action="Index" style="color: var(--bw-primary); font-size: 1.3rem;">
+                    <img src="/api/setup/icon?v=@iconCacheBust" alt="" style="height: 28px; width: 28px;" />
+                    <strong>@appName</strong>
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse"
                         aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
@@ -53,26 +63,71 @@
                         <li class="nav-item">
                             <a class="nav-link" asp-controller="Setup" asp-action="Index">Setup</a>
                         </li>
+                        @if (appSetup?.DemoMode == true)
+                        {
                         <li class="nav-item">
-                            <a class="nav-link" asp-controller="Ticket" asp-action="Designer">Ticket Designer</a>
+                            <a class="nav-link" asp-controller="Kiosk" asp-action="Index" target="_blank">Kiosk</a>
                         </li>
+                        }
                     </ul>
+                    @if (appSetup?.DemoMode == true)
+                    {
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-sm btn-outline-warning fw-bold" id="simToggleBtn" type="button" data-bs-toggle="collapse" data-bs-target="#simPanel">
+                            Simulate
+                        </button>
+                    </div>
+                    }
                 </div>
             </div>
         </nav>
     </header>
+    @if (appSetup?.DemoMode == true)
+    {
+    <div class="collapse" id="simPanel">
+        <div class="container-fluid py-2 sim-panel-bg">
+            <div class="row align-items-center g-3">
+                <div class="col-auto">
+                    <span class="fw-bold text-warning">SCALE SIMULATOR</span>
+                </div>
+                <div class="col-auto">
+                    <div class="weight-display" id="simWeightDisplay" style="font-size: 2rem; padding: 8px 20px; margin: 0; width: 280px;">
+                        0 <span class="unit">lb</span>
+                    </div>
+                </div>
+                <div class="col">
+                    <label class="form-label mb-0 fw-bold">Weight: <span id="simWeightLabel">0</span> lb</label>
+                    <input type="range" class="form-range" id="simWeightSlider" min="0" max="200000" step="20" value="0" />
+                </div>
+                <div class="col-auto d-flex gap-3 align-items-center">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="simMotion" />
+                        <label class="form-check-label fw-bold" for="simMotion">Motion</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="simError" />
+                        <label class="form-check-label fw-bold text-danger" for="simError">Error</label>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <span id="simStatus" class="badge bg-success">OK</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    }
     <div class="container-fluid">
         <main role="main" class="pb-3">
             @RenderBody()
         </main>
     </div>
 
-    <footer class="border-top footer mt-3" style="background: #f8f9fa; border-top: 2px solid #2ea3f2 !important;">
+    <footer class="border-top footer mt-3" style="background: var(--bw-footer-bg); border-top: 2px solid var(--bw-footer-border) !important;">
         <div class="container d-flex align-items-center justify-content-center gap-3 py-2">
             <a href="https://www.michelli.com" target="_blank" rel="noopener noreferrer">
                 <img src="~/images/michelli-logo.png" alt="Michelli Weighing &amp; Measurement" style="height: 30px;" />
             </a>
-            <span style="color: #555;">Copyright &copy; @DateTime.Now.Year Michelli Weighing &amp; Measurement | We show the world what measurement can do.</span>
+            <span style="color: var(--bw-footer-text);">@appName v@(appVersion) | Copyright &copy; @DateTime.Now.Year Michelli Weighing &amp; Measurement | We show the world what measurement can do.</span>
         </div>
     </footer>
     @* Uncomment to use the Gantt control *@
@@ -113,6 +168,50 @@
     <script src="~/js/devextreme-license.js"></script>
 
     <script src="~/js/site.js" asp-append-version="true"></script>
+    @if (appSetup?.DemoMode == true)
+    {
+    <script>
+    $(function () {
+        var slider = $('#simWeightSlider');
+        var label = $('#simWeightLabel');
+        var display = $('#simWeightDisplay');
+        var motionCb = $('#simMotion');
+        var errorCb = $('#simError');
+        var status = $('#simStatus');
+
+        function updateSim() {
+            var weight = parseInt(slider.val());
+            var motion = motionCb.is(':checked');
+            var error = errorCb.is(':checked');
+
+            label.text(weight.toLocaleString());
+            display.html(weight.toLocaleString() + ' <span class="unit">lb</span>');
+
+            if (error) {
+                display.css({ background: '#8b0000', color: '#ff4444' });
+                status.removeClass('bg-success bg-warning').addClass('bg-danger').text('ERROR');
+            } else if (motion) {
+                display.css({ background: '#1a1a2e', color: '#ffff00' });
+                status.removeClass('bg-success bg-danger').addClass('bg-warning').text('MOTION');
+            } else {
+                display.css({ background: '#1a1a2e', color: '#00ff41' });
+                status.removeClass('bg-warning bg-danger').addClass('bg-success').text('OK');
+            }
+
+            $.ajax({
+                url: '/api/scale/simulate',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ weight: weight, motion: motion, error: error })
+            });
+        }
+
+        slider.on('input', updateSim);
+        motionCb.on('change', updateSim);
+        errorCb.on('change', updateSim);
+    });
+    </script>
+    }
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

@@ -3,6 +3,7 @@ using BasicWeigh.Web.Data;
 using BasicWeigh.Web.Models;
 using BasicWeigh.Web.Reports;
 using DevExpress.XtraReports.UI;
+using DevExpress.Drawing;
 
 namespace BasicWeigh.Web.Controllers;
 
@@ -53,7 +54,6 @@ public class TicketController : Controller
             grossWeight = transaction.GrossWeight,
             tareWeight = transaction.TareWeight,
             netWeight = transaction.NetWeight,
-            comment = transaction.Comment,
             notes = transaction.Notes,
             isVoid = transaction.Void,
             header1 = setup.Header1,
@@ -63,32 +63,14 @@ public class TicketController : Controller
         });
     }
 
-    // Report Designer - edit the ticket template
-    public IActionResult Designer()
+    // Report Designer - edit a ticket template
+    public IActionResult Designer(string reportName = "TicketReport")
     {
-        // Load existing .repx if saved, otherwise use default
-        XtraReport report;
-        if (System.IO.File.Exists(ReportPath))
-        {
-            report = XtraReport.FromFile(ReportPath);
-        }
-        else
-        {
-            report = new TicketReport();
-        }
-        return View(report);
-    }
-
-    // Save the report template from the designer
-    [HttpPost]
-    public IActionResult SaveReport()
-    {
-        // The DevExpress designer handles saving via its own API
-        return Ok();
+        return View("Designer", reportName);
     }
 
     // Document Viewer - preview/print a specific ticket
-    public IActionResult View(string id)
+    public new IActionResult View(string id)
     {
         var transaction = _db.Transactions.Find(id);
         if (transaction == null) return NotFound();
@@ -106,6 +88,9 @@ public class TicketController : Controller
             report = new TicketReport();
         }
 
+        // Set logo image on the picture box
+        SetLogoImage(report, setup);
+
         // Set parameters
         SetParam(report, "Ticket", transaction.Ticket);
         SetParam(report, "DateIn", transaction.DateIn.ToString("MM/dd/yyyy hh:mm tt"));
@@ -119,7 +104,6 @@ public class TicketController : Controller
         SetParam(report, "GrossWeight", transaction.GrossWeight.ToString("#,##0") + " lb");
         SetParam(report, "TareWeight", transaction.TareWeight.ToString("#,##0") + " lb");
         SetParam(report, "NetWeight", transaction.NetWeight.ToString("#,##0") + " lb");
-        SetParam(report, "Comment", transaction.Comment ?? "");
         SetParam(report, "Notes", transaction.Notes ?? "");
         SetParam(report, "IsVoid", transaction.Void);
         SetParam(report, "Header1", setup.Header1 ?? "");
@@ -129,6 +113,134 @@ public class TicketController : Controller
 
         ViewBag.TicketId = id;
         return View(report);
+    }
+
+    // Kiosk Ticket - print inbound kiosk ticket with barcode
+    public IActionResult KioskView(string id)
+    {
+        var transaction = _db.Transactions.Find(id);
+        if (transaction == null) return NotFound();
+
+        var setup = _db.AppSetup.First();
+
+        var kioskPath = Path.Combine(Directory.GetCurrentDirectory(), "Reports", "KioskTicketReport.repx");
+        XtraReport report;
+        if (System.IO.File.Exists(kioskPath))
+        {
+            report = XtraReport.FromFile(kioskPath);
+        }
+        else
+        {
+            report = new KioskTicketReport();
+        }
+
+        SetParam(report, "Ticket", transaction.Ticket);
+        SetParam(report, "DateIn", transaction.DateIn.ToString("MM/dd/yyyy hh:mm tt"));
+        SetParam(report, "Customer", transaction.Customer ?? "");
+        SetParam(report, "Carrier", transaction.Carrier ?? "");
+        SetParam(report, "TruckId", transaction.TruckId ?? "");
+        SetParam(report, "Commodity", transaction.Commodity ?? "");
+        SetParam(report, "Location", transaction.Location ?? "");
+        SetParam(report, "InWeight", transaction.InWeight.ToString("#,##0") + " lb");
+        SetParam(report, "Header1", setup.Header1 ?? "");
+        SetParam(report, "Header2", setup.Header2 ?? "");
+        SetParam(report, "Header3", setup.Header3 ?? "");
+        SetParam(report, "Header4", setup.Header4 ?? "");
+
+        ViewBag.TicketId = id;
+        return View(report);
+    }
+
+    [HttpGet("api/ticket/{id}/pdf")]
+    public IActionResult GetTicketPdf(string id)
+    {
+        var transaction = _db.Transactions.Find(id);
+        if (transaction == null) return NotFound();
+
+        var setup = _db.AppSetup.First();
+
+        // Use KioskTicketReport for inbound (not yet completed), TicketReport for completed
+        bool isInbound = transaction.DateOut == null;
+
+        XtraReport report;
+        if (isInbound)
+        {
+            var kioskPath = Path.Combine(Directory.GetCurrentDirectory(), "Reports", "KioskTicketReport.repx");
+            report = System.IO.File.Exists(kioskPath)
+                ? XtraReport.FromFile(kioskPath)
+                : new KioskTicketReport();
+
+            SetParam(report, "Ticket", transaction.Ticket);
+            SetParam(report, "DateIn", transaction.DateIn.ToString("MM/dd/yyyy hh:mm tt"));
+            SetParam(report, "Customer", transaction.Customer ?? "");
+            SetParam(report, "Carrier", transaction.Carrier ?? "");
+            SetParam(report, "TruckId", transaction.TruckId ?? "");
+            SetParam(report, "Commodity", transaction.Commodity ?? "");
+            SetParam(report, "Location", transaction.Location ?? "");
+            SetParam(report, "InWeight", transaction.InWeight.ToString("#,##0") + " lb");
+            SetParam(report, "Header1", setup.Header1 ?? "");
+            SetParam(report, "Header2", setup.Header2 ?? "");
+            SetParam(report, "Header3", setup.Header3 ?? "");
+            SetParam(report, "Header4", setup.Header4 ?? "");
+        }
+        else
+        {
+            report = System.IO.File.Exists(ReportPath)
+                ? XtraReport.FromFile(ReportPath)
+                : new TicketReport();
+
+            SetLogoImage(report, setup);
+            SetParam(report, "Ticket", transaction.Ticket);
+            SetParam(report, "DateIn", transaction.DateIn.ToString("MM/dd/yyyy hh:mm tt"));
+            SetParam(report, "DateOut", transaction.DateOut?.ToString("MM/dd/yyyy hh:mm tt") ?? "");
+            SetParam(report, "Customer", transaction.Customer ?? "");
+            SetParam(report, "Carrier", transaction.Carrier ?? "");
+            SetParam(report, "TruckId", transaction.TruckId ?? "");
+            SetParam(report, "Commodity", transaction.Commodity ?? "");
+            SetParam(report, "Location", transaction.Location ?? "");
+            SetParam(report, "Destination", transaction.Destination ?? "");
+            SetParam(report, "GrossWeight", transaction.GrossWeight.ToString("#,##0") + " lb");
+            SetParam(report, "TareWeight", transaction.TareWeight.ToString("#,##0") + " lb");
+            SetParam(report, "NetWeight", transaction.NetWeight.ToString("#,##0") + " lb");
+            SetParam(report, "Notes", transaction.Notes ?? "");
+            SetParam(report, "IsVoid", transaction.Void);
+            SetParam(report, "Header1", setup.Header1 ?? "");
+            SetParam(report, "Header2", setup.Header2 ?? "");
+            SetParam(report, "Header3", setup.Header3 ?? "");
+            SetParam(report, "Header4", setup.Header4 ?? "");
+        }
+
+        using var ms = new MemoryStream();
+        report.ExportToPdf(ms);
+        ms.Position = 0;
+        return File(ms.ToArray(), "application/pdf", $"ticket-{id}.pdf");
+    }
+
+    private void SetLogoImage(XtraReport report, AppSetup setup)
+    {
+        var picBox = report.FindControl("picLogo", true) as XRPictureBox;
+        if (picBox == null) return;
+
+        byte[]? iconBytes = setup.Icon;
+        if (iconBytes == null)
+        {
+            // Load default icon
+            var defaultPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "default-icon.svg");
+            if (System.IO.File.Exists(defaultPath))
+                iconBytes = System.IO.File.ReadAllBytes(defaultPath);
+        }
+
+        if (iconBytes != null)
+        {
+            try
+            {
+                picBox.ImageSource = new DevExpress.XtraPrinting.Drawing.ImageSource(iconBytes);
+            }
+            catch
+            {
+                // SVG or unsupported format - skip logo
+            }
+        }
     }
 
     private void SetParam(XtraReport report, string name, object value)

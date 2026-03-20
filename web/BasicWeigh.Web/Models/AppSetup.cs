@@ -32,4 +32,46 @@ public class AppSetup
 
     [Display(Name = "Tickets Per Page")]
     public int TicketsPerPage { get; set; } = 1;
+
+    [Display(Name = "Demo Mode")]
+    public bool DemoMode { get; set; }
+
+    [Display(Name = "Kiosk Count")]
+    public int KioskCount { get; set; }
+
+    [Display(Name = "Icon")]
+    public byte[]? Icon { get; set; }
+
+    [StringLength(50)]
+    [Display(Name = "Icon Content Type")]
+    public string? IconContentType { get; set; }
+
+    [StringLength(20)]
+    [Display(Name = "Theme")]
+    public string Theme { get; set; } = "default";
+
+    // Kiosk prompts
+    [Display(Name = "Prompt Commodity")]
+    public bool PromptKioskCommodity { get; set; } = true;
+
+    [Display(Name = "Prompt Customer")]
+    public bool PromptKioskCustomer { get; set; } = true;
+
+    [Display(Name = "Prompt Carrier")]
+    public bool PromptKioskCarrier { get; set; } = true;
+
+    [Display(Name = "Prompt Location")]
+    public bool PromptKioskLocation { get; set; } = true;
+
+    [Display(Name = "Prompt Truck ID")]
+    public bool PromptKioskTruckId { get; set; } = true;
+
+    [Display(Name = "Prompt Destination on Inbound")]
+    public bool PromptKioskDestinationOnInbound { get; set; }
+
+    [Display(Name = "Prompt Destination on Outbound")]
+    public bool PromptKioskDestinationOnOutbound { get; set; } = true;
+
+    [Display(Name = "Kiosk Dark Mode")]
+    public bool KioskDarkMode { get; set; } = true;
 }

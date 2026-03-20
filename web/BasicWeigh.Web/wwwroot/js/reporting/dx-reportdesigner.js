@@ -1,7 +1,7 @@
 ﻿/**
 * DevExpress HTML/JS Reporting (dist\js\dx-reportdesigner.js)
-* Version:  25.2.4
-* Build date: Jan 30, 2026
+* Version:  25.2.5
+* Build date: Feb 25, 2026
 * Copyright (c) 2012 - 2026 Developer Express Inc. ALL RIGHTS RESERVED
 * License: https://www.devexpress.com/Support/EULAs/universal.xml
 */
@@ -379,6 +379,7 @@ __webpack_require__.d(reporting_designer_controls_namespaceObject, {
   ImageAccessibleOptions: () => (ImageAccessibleOptions),
   ImageBase64Model: () => (ImageBase64Model),
   ImageEditOptions: () => (ImageEditOptions),
+  ImageResourceItem: () => (ImageResourceItem),
   NavigateToReportAction: () => (NavigateToReportAction),
   ParameterBinding: () => (ParameterBinding),
   ReportSurface: () => (ReportSurface),
@@ -1787,8 +1788,6 @@ function _getUnconvertiblePoint(propertyName, oldValue, newValue, points) {
     return points.filter(filter)[0] || null;
 }
 
-;// external "jQuery"
-const external_jQuery_namespaceObject = jQuery;
 ;// external "DevExpress.Analytics.Widgets.Internal"
 const external_DevExpress_Analytics_Widgets_Internal_namespaceObject = DevExpress.Analytics.Widgets.Internal;
 ;// ./dist/chart/internal/chartStructure/_chartTreeListDragDropHelper.js
@@ -1805,7 +1804,6 @@ class ChartTreeListDragDropHelper extends external_DevExpress_Analytics_Widgets_
 }
 
 ;// ./dist/chart/internal/chartStructure/_controller.js
-
 
 
 
@@ -1845,7 +1843,7 @@ class ChartDragDropHandler extends external_DevExpress_Analytics_Internal_namesp
         this.cursor = 'arrow';
         this.alwaysAlt = true;
         this.containment = '.dx-chart-left-panel';
-        this.parent = () => external_jQuery_namespaceObject.fn.constructor('.dxcd-designer');
+        this.parent = () => (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)('.dxcd-designer');
         this['cursorAt'] = {
             top: 0,
             left: 0
@@ -7968,6 +7966,18 @@ class FormattingRuleLink {
     }
 }
 
+;// ./dist/designer/controls/properties/imageResourceItem.js
+
+class ImageResourceItem {
+    getInfo() {
+        return [];
+    }
+    constructor(model, serializer) {
+        serializer = serializer || new external_DevExpress_Analytics_Utils_namespaceObject.ModelSerializer();
+        serializer.deserialize(this, model);
+    }
+}
+
 ;// external "DevExpress.Reporting.Viewer.Internal"
 const external_DevExpress_Reporting_Viewer_Internal_namespaceObject = DevExpress.Reporting.Viewer.Internal;
 ;// external "DevExpress.Reporting"
@@ -10964,7 +10974,7 @@ class XRControlViewModel extends XRReportElementViewModel {
             this._disposables.push(this.textUI = external_ko_namespaceObject.computed({
                 read: () => {
                     const textValue = this.text();
-                    if (!textValue)
+                    if (textValue === undefined || textValue === null)
                         return this._textUI();
                     const fieldName = this.getFieldName(textValue, FieldNameOptions.DisplayName);
                     if (!fieldName)
@@ -11254,6 +11264,7 @@ class XRControlSurfaceBase extends external_DevExpress_Analytics_Elements_namesp
                 isExpression: true,
                 dataSource: null,
                 dataMember: null,
+                summaryFunc: null,
                 dataMemberOffset: null,
                 allowMarkupText: false,
                 wordWrap: false,
@@ -11264,7 +11275,7 @@ class XRControlSurfaceBase extends external_DevExpress_Analytics_Elements_namesp
                 parameters.text = '';
                 return parameters;
             }
-            parameters.text = control['getExpressionBinding'] && control['getExpressionBinding']();
+            parameters.text = control['getExpressionBinding']?.();
             parameters.isExpression = !!parameters.text;
             parameters.allowMarkupText = control['allowMarkupText'] && control['allowMarkupText']();
             parameters.wordWrap = control['wordWrap'] && control['wordWrap']();
@@ -11295,6 +11306,10 @@ class XRControlSurfaceBase extends external_DevExpress_Analytics_Elements_namesp
                         parameters.dataMember = textBinding.dataMember();
                     }
                     parameters.dataSource = dataSource || rootDataSource;
+                    const runningSummary = control['Summary']?.['Running'];
+                    if (runningSummary && runningSummary() !== 'None') {
+                        parameters.summaryFunc = control['Summary']?.['Func']?.() || 'Sum';
+                    }
                     return parameters;
                 }
             }
@@ -11303,7 +11318,11 @@ class XRControlSurfaceBase extends external_DevExpress_Analytics_Elements_namesp
         });
         this.displayName = external_ko_namespaceObject.pureComputed(() => {
             const parameters = this.displayNameParameters();
-            return parameters.dataMember ? ('[' + parameters.dataMember + ']') : (parameters.text || '');
+            if (parameters.dataMember) {
+                const field = '[' + parameters.dataMember + ']';
+                return parameters.summaryFunc ? (parameters.summaryFunc + '(' + field + ')') : field;
+            }
+            return parameters.text || '';
         });
         this._disposables.push(this.contentSizes = external_ko_namespaceObject.pureComputed(() => this.cssCalculator.contentSizeCss(this.rect().width, this.rect().height, this._context.zoom())));
         this._disposables.push(this.contentHeightWithoutZoom = external_ko_namespaceObject.pureComputed(() => this.contentSizes().height / this._context.zoom()));
@@ -11876,6 +11895,7 @@ const reportSerializationInfo = [
     { propertyName: '_componentStorage', modelName: 'ComponentStorage', array: true },
     { propertyName: 'objectStorage' },
     { propertyName: 'extensions', modelName: 'Extensions', array: true },
+    { propertyName: 'imageResources', modelName: 'ImageResources', array: true },
     { propertyName: 'parameterPanelLayoutItems', modelName: 'ParameterPanelLayoutItems', array: true },
     formattingRuleSheet,
     formattingRuleLinks,
@@ -14261,7 +14281,7 @@ class TextElementSizeHelper {
         this._spaceSymbol = '&nbsp';
     }
     _$createElement(options, processElement) {
-        return processElement(external_jQuery_namespaceObject.fn.constructor('<div>').css(options)).appendTo(external_jQuery_namespaceObject.fn.constructor('body'));
+        return processElement((0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)(document.createElement('div')).css(options)).appendTo(document.body);
     }
     $createTextElement(text, options) {
         return this._$createElement(options, ($element) => { return $element.text(text); });
@@ -14346,7 +14366,7 @@ class FitBoundsToTextAction {
         return this.textElementHelper.getTextContainerSize(this._control.getText(), this._control.getCssContent(content));
     }
     _getTextHeight() {
-        const content = { width: this._control.getContentSize().width / this._control._context.zoom() };
+        const content = { width: this._control.getContentSize().width / this._control._context.zoom() + 'px' };
         return this._getTextContainerSize(content).height;
     }
     fitWidth() {
@@ -14426,7 +14446,7 @@ class FitTextToBoundsAction {
             font = Math.min(fontByHeight, fontByWidth);
         }
         else {
-            const $div = this.textElementHelper.$createTextElement(this._control.getText(), this._control.getCssContent({ width: containerSize.width / zoom }));
+            const $div = this.textElementHelper.$createTextElement(this._control.getText(), this._control.getCssContent({ width: containerSize.width / zoom + 'px' }));
             font = this._calculateFont($div, { size: font, unit: fontModel.unit() }, containerSize.height - 2 * zoom);
             $div.remove();
         }
@@ -15508,6 +15528,7 @@ class DetailReportBandSurface extends BandSurface {
 
 
 
+
 class ReportViewModel extends XRReportElementViewModel {
     static createObjectStorage(_componentStorage, _objectStorage, collectSubscription = (subscription) => void 0) {
         const objectStorage = external_ko_namespaceObject.observableArray([
@@ -15747,6 +15768,7 @@ class ReportViewModel extends XRReportElementViewModel {
         this.bands = (0,external_DevExpress_Analytics_Internal_namespaceObject.deserializeChildArray)(report.Bands, this, (item) => { return this.createControl(item, serializer); });
         this.bands().sort(sortBands);
         this.extensions = (0,external_DevExpress_Analytics_Utils_namespaceObject.deserializeArray)(report.Extensions, (item) => { return new ExtensionModel(item, serializer); });
+        this.imageResources = (0,external_DevExpress_Analytics_Utils_namespaceObject.deserializeArray)(report.ImageResources, (item) => { return new ImageResourceItem(item, serializer); });
         this.crossBandControls = (0,external_DevExpress_Analytics_Utils_namespaceObject.deserializeArray)(report.CrossBandControls, (item) => { return this.createControl(item, serializer); });
         this.calculatedFields = (0,external_DevExpress_Analytics_Utils_namespaceObject.deserializeArray)(report.CalculatedFields, (item) => { return new CalculatedField(item, serializer); });
         this.watermarks = (0,external_DevExpress_Analytics_Utils_namespaceObject.deserializeArray)(report.Watermarks, (item) => { return new WatermarkModel(item, serializer); });
@@ -19950,6 +19972,16 @@ class XRCrossTabCellViewModel extends XRControlViewModel {
         }));
         this.rowAutoHeightMode = parent._rowDefinitions()[this._rowIndex()].autoHeightMode;
         this.columnAutoWidthMode = parent._columnDefinitions()[this._columnIndex()].autoWidthMode;
+        this._disposables.push(this.rowAutoHeightMode.subscribe((newValue) => {
+            if ((0,external_DevExpress_Analytics_Internal_namespaceObject.checkModelReady)(this.parent)) {
+                parent._rowDefinitions()[this._rowIndex()].autoHeightMode(newValue);
+            }
+        }));
+        this._disposables.push(this.columnAutoWidthMode.subscribe((newValue) => {
+            if ((0,external_DevExpress_Analytics_Internal_namespaceObject.checkModelReady)(this.parent)) {
+                parent._columnDefinitions()[this._columnIndex()].autoWidthMode(newValue);
+            }
+        }));
         this.crossTabSortBySummaryInfo.getPath = (propertyName) => this.getPath(propertyName);
     }
     reset() {
@@ -20686,7 +20718,7 @@ class XRPageBreakSurface extends XRControlSurfaceBase {
         }));
         this.contentCss = external_ko_namespaceObject.observable({
             'stroke': 'black',
-            'strokeWidth': 1,
+            'strokeWidth': '1',
             'strokeDasharray': '4px, 4px'
         });
         this._disposables.push(this.lineHeight = external_ko_namespaceObject.pureComputed(() => {
@@ -21779,6 +21811,7 @@ function subreportControlCollector(target, subreportControls = []) {
 
 
 
+
 function recalculateUnit(value, dpi) {
     return Math.round(value * dpi) / 100;
 }
@@ -21850,12 +21883,12 @@ function isNotParameter(control) {
     return !(control instanceof Parameter);
 }
 function isControl(control) {
-    return isNotParameter(control) && !(control instanceof StyleModel || control instanceof FormattingRule || control instanceof ComponentsModel || control instanceof CalculatedField);
+    return isNotParameter(control) && !(control instanceof StyleModel || control instanceof FormattingRule || control instanceof ComponentsModel || control instanceof CalculatedField || control instanceof WatermarkModel);
 }
 function updateSurfaceContentSizeLocalizationMode(surfaceSize, root, rtl) {
     return () => {
-        const $root = external_jQuery_namespaceObject.fn.constructor(root).find('.dxrd-designer').eq(0);
-        const leftLocalizationPanel = external_jQuery_namespaceObject.fn.constructor(root).find('.dxrd-left-localization-panel:visible').outerWidth() || 0;
+        const $root = (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)(root).find('.dxrd-designer').eq(0);
+        const leftLocalizationPanel = (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)(root).find('.dxrd-left-localization-panel:visible').outerWidth() || 0;
         const otherWidth = leftLocalizationPanel + 50;
         const surfaceWidth = $root.width() - (otherWidth);
         $root.find('.dxrd-surface-wrapper').eq(0).css({
@@ -22220,7 +22253,6 @@ const tocSerializationsInfo = [xrTableOfContents_formattingRuleLinks, xrTableOfC
 
 
 
-
 class TableOfContentsLevel extends external_DevExpress_Analytics_Elements_namespaceObject.ElementViewModel {
     dispose() {
         super.dispose();
@@ -22297,7 +22329,7 @@ class TableOfContentsLevelSurface extends XRControlSurfaceBase {
         super(control, context, TableOfContentsLevelSurface._unitProperties);
         this._leaderSymbolWidth = external_ko_namespaceObject.pureComputed(() => {
             if (!TableOfContentsLevelSurface._$leaderSymbol)
-                TableOfContentsLevelSurface._$leaderSymbol = external_jQuery_namespaceObject.fn.constructor('<span />').hide().appendTo('body');
+                TableOfContentsLevelSurface._$leaderSymbol = (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)('<span />').hide().appendTo('body');
             TableOfContentsLevelSurface._$leaderSymbol.html(this.getControlModel().leaderSymbol()).css(this.contentCss());
             return TableOfContentsLevelSurface._$leaderSymbol.width();
         });
@@ -22321,7 +22353,7 @@ class TableOfContentsLevelSurface extends XRControlSurfaceBase {
     resizable(resizeHandler, element) {
         return (0,external_DevExpress_Analytics_Internal_namespaceObject.extend)({}, resizeHandler, {
             handles: 's',
-            $selectedNodes: external_jQuery_namespaceObject.fn.constructor(element),
+            $selectedNodes: (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)(element),
             minimumHeight: 10
         });
     }
@@ -22632,6 +22664,8 @@ class XRZipCodeSurface extends XRControlSurface {
 
 
 
+
+
 ;// ./dist/designer/bands/metadata/xrDetailReportBandMetaData.js
 
 
@@ -22820,7 +22854,7 @@ const characterCombFont = { propertyName: 'font', modelName: '@Font', displayNam
 const characterCombBorders = { propertyName: 'borders', modelName: '@Borders', displayName: 'Borders', localizationId: 'DevExpress.XtraReports.UI.XRControl.Borders', defaultVal: 'All', editor: external_DevExpress_Analytics_Widgets_namespaceObject.editorTemplates.getEditor('borders') };
 const characterCombBorderDashStyle = (0,external_DevExpress_Analytics_Internal_namespaceObject.extend)({}, borderDashStyle, { valuesArray: borderDashStyleValues });
 const characterCombSerializationsInfo = [
-    accessibleRole, styleName, evenStyleName, oddStyleName, stylePriority, canPublishOptions, metadata_backColor, autoWidth, action,
+    accessibleDescription, accessibleRole, styleName, evenStyleName, oddStyleName, stylePriority, canPublishOptions, metadata_backColor, autoWidth, action,
     formattingRuleLinks, cellSizeMode, xrCharactercomb_wordWrap, cellWidth, cellHeight, cellVerticalSpacing, cellHorizontalSpacing, dataBindings(['Text']),
     metadata_textAlignment, metadata_text, textFormatString, metadata_textArea, nullValueText, keepTogetherDefaultValueFalse, summary, multiline, xrCharactercomb_wordWrap,
     xlsxFormatString, rtl, characterCombBorders, borderWidth, characterCombBorderDashStyle, metadata_borderColor, characterCombFont, foreColor, editOptions, interactiveSorting
@@ -22846,7 +22880,7 @@ const controlParametersInfo = {
 const chartRtl = (0,external_DevExpress_Analytics_Internal_namespaceObject.extend)(true, {}, rtl);
 chartRtl.defaultVal = undefined;
 const xrChartSerializationInfo = [appearanceName, paletteName, xrChart_chart, stylePriority, chartDataSource, imageType, chartScripts,
-    controlParametersInfo, chartRtl, action,
+    controlParametersInfo, chartRtl, action, accessibleDescription,
     { propertyName: 'dataMember', displayName: 'Data Member', localizationId: 'DevExpress.XtraReports.UI.XRChart.DataMember', defaultVal: '', editor: external_DevExpress_Analytics_Widgets_namespaceObject.editorTemplates.getEditor('dataMember') }
 ].concat(baseControlProperties, sizeLocation, bordersProperties, navigationGroup);
 
@@ -25611,7 +25645,6 @@ class TableCellActions extends TableRowActions {
 
 
 
-
 class TableCellGroupActions extends external_DevExpress_Analytics_Internal_namespaceObject.BaseActionsProvider {
     constructor(selectionProvider) {
         super();
@@ -25713,14 +25746,14 @@ class TableCellGroupActions extends external_DevExpress_Analytics_Internal_names
     _calculateTextHeight(cell) {
         if (!(cell.text && cell.text()))
             return 0;
-        const wordWrap = external_ko_namespaceObject.unwrap(cell['wordWrap']), width = wordWrap ? Math.max(1, cell.width() - this._calculatePaddingsWidth(cell)) + 'px' : 'auto', $div = external_jQuery_namespaceObject.fn.constructor('<div>')
+        const wordWrap = external_ko_namespaceObject.unwrap(cell['wordWrap']), width = wordWrap ? Math.max(1, cell.width() - this._calculatePaddingsWidth(cell)) + 'px' : 'auto', $div = (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)('<div>')
             .css((0,external_DevExpress_Analytics_Internal_namespaceObject.extend)({
             'height': 'auto',
             'width': width,
             'overflow': 'hidden'
         }, cell.surface.cssCalculator.createFont(external_ko_namespaceObject.unwrap(cell['font'])), cell.surface.cssCalculator.createWordWrap(wordWrap, cell.multiline())))
             .html(cell.text())
-            .appendTo(external_jQuery_namespaceObject.fn.constructor('body'));
+            .appendTo((0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)('body'));
         try {
             return (0,external_DevExpress_Analytics_Internal_namespaceObject.pixelToUnits)(Math.ceil($div[0].getBoundingClientRect().height) + 2, cell.root.measureUnit(), 1);
         }
@@ -26588,7 +26621,7 @@ class JsonDataSourceEditor extends DataSourceEditorBase {
 
 const createChartDesignerOptions = (designerModel, dataSourceHelper, model, parameters, chartValueBindingProvider, accessibilityProvider) => {
     const chartDesignerOptionsVisible = external_ko_namespaceObject.observable(false);
-    let chartIsDirty;
+    let shouldSaveChanges = false;
     const currentChart = external_ko_namespaceObject.observable(null);
     let disposables = [];
     let chartDisposables = [];
@@ -26600,15 +26633,13 @@ const createChartDesignerOptions = (designerModel, dataSourceHelper, model, para
         else {
             chartDisposables.forEach((x) => x.dispose());
             chartDisposables = [];
-            designerModel.undoEngine().end();
-            const isDirty = chartIsDirty();
             chartDesignerOptions.options.data.chart(null);
-            if (isDirty) {
-                const undoEngine = designerModel.undoEngine();
-                undoEngine.undo();
-                undoEngine.redoEnabled(false);
-                undoEngine._observers.pop();
+            const hasChanges = designerModel.undoEngine()._hasSessionChanges();
+            designerModel.undoEngine().end();
+            if (!shouldSaveChanges && hasChanges) {
+                designerModel.undoEngine().undo(true);
             }
+            shouldSaveChanges = false;
             currentChart().designTime(false);
             currentChart(null);
         }
@@ -26625,7 +26656,7 @@ const createChartDesignerOptions = (designerModel, dataSourceHelper, model, para
         buttons: [{
                 toolbar: 'bottom', location: 'after', widget: 'dxButton', options: {
                     text: (0,external_DevExpress_Analytics_Utils_namespaceObject.getLocalization)('OK', 'PivotGridStringId.FilterOk'), type: 'default', stylingMode: 'contained', onClick: () => {
-                        chartIsDirty(false);
+                        shouldSaveChanges = true;
                         chartDesignerOptionsVisible(false);
                     }
                 }
@@ -26655,14 +26686,6 @@ const createChartDesignerOptions = (designerModel, dataSourceHelper, model, para
                             }
                         },
                         init: function (chartModel) {
-                            chartDisposables.push(chartIsDirty = external_ko_namespaceObject.computed({
-                                read: () => {
-                                    return chartModel.undoEngine().isDirty();
-                                },
-                                write: (newVal) => {
-                                    chartModel.undoEngine().isDirty(newVal);
-                                }
-                            }));
                             chartModel.displayNameProvider = designerModel.displayNameProvider;
                             chartModel.dataSourceHelper = dataSourceHelper;
                             chartDisposables.push(chartModel.reportParameters = external_ko_namespaceObject.computed(() => { return parameters().parameters(); }));
@@ -27278,7 +27301,7 @@ class ObjectExplorerDragDropHelper extends external_DevExpress_Analytics_Widgets
     }
     setNewDropTarget(elementModel, element, mouseLocationY) {
         this.drag(elementModel, element);
-        const $targetElement = external_jQuery_namespaceObject.fn.constructor(this._targetElement);
+        const $targetElement = (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)(this._targetElement);
         if ($targetElement && $targetElement.length) {
             let isInTopOrderArea, isInBottomOrderArea;
             if (mouseLocationY && this._shouldCheckAreas()) {
@@ -28527,7 +28550,6 @@ class ParametersLayoutItemsProvider extends external_DevExpress_Analytics_Intern
 
 
 
-
 class ParameterLayoutDragDropHelper extends ObjectExplorerDragDropHelper {
     constructor(_selectedItem, dragHelperContent) {
         super(dragHelperContent);
@@ -28601,12 +28623,12 @@ class ParameterLayoutDragDropHandler extends ObjectExplorerDragDropHandler {
     constructor(selectedItem) {
         super(external_ko_namespaceObject.observable(false), null, null, external_ko_namespaceObject.observable(null), new external_DevExpress_Analytics_Internal_namespaceObject.DragHelperContent(null));
         this.containment = 'parent';
-        this.parent = () => external_jQuery_namespaceObject.fn.constructor('.dx-designer-viewport .dxrd-parameters-edit-dialog .dxrd-parameters-content-list');
+        this.parent = () => (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)('.dx-designer-viewport .dxrd-parameters-edit-dialog .dxrd-parameters-content-list');
         this.reportControlsDragDropHelper = new ParameterLayoutDragDropHelper(selectedItem, this.dragHelperContent);
         this.helper = (draggable, event) => {
             this.reportControlsDragDropHelper.helper(draggable, event);
             const templateHtml = (0,external_DevExpress_Analytics_Widgets_namespaceObject.getTemplate)(this.dragHelperContent.template);
-            const $container = external_jQuery_namespaceObject.fn.constructor(templateHtml).css({ 'display': 'block' });
+            const $container = (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)(templateHtml).css({ 'display': 'block' });
             $container.prependTo(this.parent());
             external_ko_namespaceObject.applyBindingsToDescendants(this.dragHelperContent, $container[0]);
             return $container;
@@ -30802,7 +30824,6 @@ class ReportPreviewServiceHelper {
 ;// ./dist/designer/localization/localizationService.js
 
 
-
 class TranslationFactory {
     constructor() {
         this._services = {};
@@ -30825,7 +30846,7 @@ class TranslationFactory {
             return;
         const $deferred = new external_DevExpress_Analytics_Internal_namespaceObject.DxDeferred();
         const request = this._services[name].onRequest(texts, destinationLanguage, destinationLanguageText);
-        const promise = (0,external_DevExpress_Analytics_Internal_namespaceObject.isPromise)(request) ? request : external_jQuery_namespaceObject.ajax(request);
+        const promise = (0,external_DevExpress_Analytics_Internal_namespaceObject.isPromise)(request) ? request : (0,external_DevExpress_Analytics_Internal_namespaceObject.ajax)(request);
         promise.done((result) => {
             $deferred.resolve({ name, texts: this._services[name].onResponse(result) });
         }).fail(() => $deferred.reject());
@@ -32493,7 +32514,6 @@ const translateExpression = (expression) => {
 
 
 
-
 class StylesEditorHeaderModel {
     get styles() {
         return this._report()?.styles;
@@ -32540,9 +32560,9 @@ StylesEditorHeaderModel.newItemTextId = 'ASPxReportsStringId.ReportDesigner_Styl
 external_ko_namespaceObject.bindingHandlers['dxStylesEditor'] = {
     init: function (element, valueAccessor, allBindings, viewModel, bindingContext) {
         let _subscriptionNewStyle;
-        external_jQuery_namespaceObject.fn.constructor(element).children().remove();
+        (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)(element).children().remove();
         const templateHtml = (0,external_DevExpress_Analytics_Widgets_namespaceObject.getTemplate)('dx-propertieseditor');
-        let $element = external_jQuery_namespaceObject.fn.constructor(element).append(templateHtml);
+        let $element = (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)(element).append(templateHtml);
         const style = external_ko_namespaceObject.pureComputed(() => {
             const value = valueAccessor(), styles = value.styles && value.styles(), filtered = styles && styles.filter((item) => {
                 return item.name() === value.styleName();
@@ -42521,14 +42541,14 @@ class dxEventDropDownEditor extends (external_DevExpress_ui_dxSelectBox_default(
     _init() {
         super['_init'].apply(this);
         this._initSecondAction();
-        const $element = external_jQuery_namespaceObject.fn.constructor(this['element']());
+        const $element = (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)(this['element']());
         this._koContext = external_ko_namespaceObject.contextFor($element[0]);
     }
     _initSecondAction() {
         this._secondAction = this['_createAction'](this.option('secondAction'));
     }
     _render() {
-        const $element = external_jQuery_namespaceObject.fn.constructor(this['element']());
+        const $element = (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)(this['element']());
         $element.addClass(EDITOR_CLASS);
         super['_render'].apply(this);
     }
@@ -42543,9 +42563,9 @@ class dxEventDropDownEditor extends (external_DevExpress_ui_dxSelectBox_default(
         this._attachEllipsisButtonClickHandler();
     }
     _createEllipsisButton() {
-        const $buttonIcon = external_jQuery_namespaceObject.fn.constructor('<div>').addClass(EDITOR_ELLIPSIS_BUTTON_ICON_CLASS).append(external_DevExpress_Analytics_Widgets_Internal_namespaceObject.SvgTemplatesEngine.templates[EDITOR_ELLIPSIS_BUTTON_ICON_TEMPLATE]);
+        const $buttonIcon = (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)('<div>').addClass(EDITOR_ELLIPSIS_BUTTON_ICON_CLASS).append(external_DevExpress_Analytics_Widgets_Internal_namespaceObject.SvgTemplatesEngine.templates[EDITOR_ELLIPSIS_BUTTON_ICON_TEMPLATE]);
         external_ko_namespaceObject.applyBindingsToDescendants(this._koContext, $buttonIcon[0]);
-        const $button = external_jQuery_namespaceObject.fn.constructor('<div>')['dxButton']({
+        const $button = (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)('<div>')['dxButton']({
             focusStateEnabled: false,
             disabled: this.option('readOnly')
         })['removeClass']('dx-button');
@@ -42576,10 +42596,8 @@ external_DevExpress_registerComponent_default()('dxEventDropDownEditor', dxEvent
 
 
 
-
 external_ko_namespaceObject.bindingHandlers['dxAutoScrolling'] = {
     init: function (element, valueAccessor, allBindingsAccessor, viewModel, bindingContext) {
-        const $element = external_jQuery_namespaceObject.fn.constructor(element);
         let rect = null;
         const values = valueAccessor();
         const scrollView = external_DevExpress_ui_dxScrollView_default().getInstance(element);
@@ -42648,7 +42666,6 @@ class BandLevelEditor extends external_DevExpress_QueryBuilder_Widgets_Internal_
 
 
 
-
 class CoordinateGridViewModel extends external_DevExpress_Analytics_Utils_namespaceObject.Disposable {
     _initGrid(length, gridSize, gridLines, flip = false) {
         const lines = gridLines.peek();
@@ -42705,8 +42722,8 @@ class CoordinateGridViewModel extends external_DevExpress_Analytics_Utils_namesp
 }
 external_ko_namespaceObject.bindingHandlers['coordinateGrid'] = {
     init: function (element, valueAccessor) {
-        external_jQuery_namespaceObject.fn.constructor(element).children().remove();
-        const values = valueAccessor(), gridViewModel = new CoordinateGridViewModel(values), templateHtml = (0,external_DevExpress_Analytics_Widgets_namespaceObject.getTemplate)('dxrd-coordinategrid'), $element = external_jQuery_namespaceObject.fn.constructor(element).append(templateHtml);
+        (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)(element).children().remove();
+        const values = valueAccessor(), gridViewModel = new CoordinateGridViewModel(values), templateHtml = (0,external_DevExpress_Analytics_Widgets_namespaceObject.getTemplate)('dxrd-coordinategrid'), $element = (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)(element).append(templateHtml);
         external_ko_namespaceObject.applyBindings(gridViewModel, $element.children()[0]);
         (0,external_DevExpress_Analytics_Internal_namespaceObject.addDisposeCallback)($element.children()[0], () => {
             gridViewModel.dispose();
@@ -42849,7 +42866,7 @@ class ValueConverter {
                 if (!!escapeTag) {
                     _fullmatch = _fullmatch.slice(escapeTag.length);
                 }
-                const $spanEscape = external_jQuery_namespaceObject.fn.constructor('<span>');
+                const $spanEscape = (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)('<span>');
                 replacedStr = $spanEscape.text(_fullmatch)[0].innerHTML;
             }
             str = str.replace(fullmatch, replacedStr);
@@ -42910,29 +42927,31 @@ ValueConverter.ValueAttrName = 'value';
 
 
 
-
 external_ko_namespaceObject.bindingHandlers['controlDisplayName'] = {
     update: function (element, valueAccessor, allBindings, viewModel, bindingContext) {
         const value = valueAccessor(), surface = external_ko_namespaceObject.unwrap(value);
         const parameters = surface.displayNameParameters();
-        const setElementText = (value) => external_jQuery_namespaceObject.fn.constructor(element).text(value ? ('[' + value + ']') : '');
         if (parameters.isExpression) {
-            external_jQuery_namespaceObject.fn.constructor(element).text(parameters.text);
+            (0,external_DevExpress_Analytics_Internal_namespaceObject.$dx)(element).text(parameters.text);
             const expressionConverter = new external_DevExpress_Analytics_Internal_namespaceObject.DisplayExpressionConverter(bindingContext.$root.displayNameProvider());
             expressionConverter.toDisplayExpression(parameters.dataMember, parameters.text).done(result => {
-                external_jQuery_namespaceObject.fn.constructor(element).text(result);
+                (0,external_DevExpress_Analytics_Internal_namespaceObject.$dx)(element).text(result);
             });
         }
         else if (parameters.dataMember) {
-            setElementText(parameters.dataMember);
+            const wrapFieldName = (name) => {
+                const field = name ? ('[' + name + ']') : '';
+                return parameters.summaryFunc ? (parameters.summaryFunc + '(' + field + ')') : field;
+            };
+            (0,external_DevExpress_Analytics_Internal_namespaceObject.$dx)(element).text(wrapFieldName(parameters.dataMember));
             bindingContext.$root.displayNameProvider()
                 .getDisplayName(parameters.dataSource, parameters.dataMember, parameters.dataMemberOffset, false)
-                .done(data => setElementText(data))
-                .fail(() => setElementText(parameters.dataMember));
+                .done(data => (0,external_DevExpress_Analytics_Internal_namespaceObject.$dx)(element).text(wrapFieldName(data)))
+                .fail(() => (0,external_DevExpress_Analytics_Internal_namespaceObject.$dx)(element).text(wrapFieldName(parameters.dataMember)));
         }
         else {
             if (!parameters.allowMarkupText) {
-                external_jQuery_namespaceObject.fn.constructor(element).text(parameters.text || '');
+                (0,external_DevExpress_Analytics_Internal_namespaceObject.$dx)(element).text(parameters.text || '');
             }
             else {
                 new ValueConverter(parameters).appendTo(element);
@@ -46939,7 +46958,6 @@ registerRichEditInline((selection) => {
 
 
 
-
 class RichEditVirtualScroll extends external_DevExpress_Analytics_Utils_namespaceObject.Disposable {
     constructor() {
         super(...arguments);
@@ -46961,7 +46979,7 @@ class RichEditVirtualScroll extends external_DevExpress_Analytics_Utils_namespac
     registerRichEditControl(element, model) {
         this.isDisposing = false;
         if (!this._viewPort) {
-            this.registerViewPort(external_jQuery_namespaceObject.fn.constructor(element).closest('.dxrd-viewport')[0]);
+            this.registerViewPort((0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)(element).closest('.dxrd-viewport')[0]);
         }
         const richItem = { element, model };
         this.updateRich(richItem, this._viewPort.getBoundingClientRect());
@@ -47011,15 +47029,15 @@ class RichEditVirtualScroll extends external_DevExpress_Analytics_Utils_namespac
 const virtualScroll = new RichEditVirtualScroll();
 external_ko_namespaceObject.bindingHandlers['dxRichSurface'] = {
     init: function (element, valueAccessor, allBindings, viewModel, bindingContext) {
-        external_jQuery_namespaceObject.fn.constructor(element).children().remove();
+        (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)(element).children().remove();
         const model = viewModel;
         if (model.controller && model.controller.richEdit) {
             const _richElement = model.controller.richEdit._element;
             if (external_ko_namespaceObject.dataFor(_richElement) && document.getElementById(_richElement.id)) {
-                external_jQuery_namespaceObject.fn.constructor(element).closest('.dxrd-control').css('display', 'none');
+                (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)(element).closest('.dxrd-control').css('display', 'none');
             }
             else {
-                external_jQuery_namespaceObject.fn.constructor(element).append(_richElement);
+                (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)(element).append(_richElement);
                 external_ko_namespaceObject.applyBindings({ rich: model.controller.richEdit, getPopupContainer: external_DevExpress_Analytics_Internal_namespaceObject.getParentContainer }, _richElement);
                 virtualScroll.registerRichEditControl(_richElement, model.controller.richEdit);
                 (0,external_DevExpress_Analytics_Internal_namespaceObject.addDisposeCallback)(element, () => {
@@ -47031,7 +47049,7 @@ external_ko_namespaceObject.bindingHandlers['dxRichSurface'] = {
             const editorOptions = valueAccessor();
             const templateHtml = (0,external_DevExpress_Analytics_Widgets_namespaceObject.getTemplate)('dxrd-rich-edit');
             const inlineControl = editorOptions.inlineEdit;
-            const richElement = external_jQuery_namespaceObject.fn.constructor(element).append(templateHtml).children()[0];
+            const richElement = (0,external_DevExpress_Analytics_Internal_namespaceObject.createJQueryElement)(element).append(templateHtml).children()[0];
             const richEditModel = new XRRichEditControlModel(richElement, inlineControl, model.selected);
             model.createController(richEditModel);
             external_ko_namespaceObject.applyBindings({ rich: richEditModel, getPopupContainer: external_DevExpress_Analytics_Internal_namespaceObject.getParentContainer }, richElement);

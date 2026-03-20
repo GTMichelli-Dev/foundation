@@ -1,5 +1,9 @@
+@inject BasicWeigh.Web.Data.ScaleDbContext SetupDb
 @{
     ViewData["Title"] = "Completed Trucks";
+    var setup = SetupDb.AppSetup.FirstOrDefault();
+    var kioskCount = setup?.KioskCount ?? 0;
+    var demoMode = setup?.DemoMode ?? false;
 }
 
 <style>
@@ -12,17 +16,17 @@
         font-size: 0.8rem;
         font-weight: 600;
         border-radius: 8px;
-        border: 2px solid #2ea3f2;
-        background: #f0f8ff;
-        color: #333;
+        border: 2px solid var(--bw-btn-action-border);
+        background: var(--bw-btn-action-bg);
+        color: var(--bw-btn-action-text);
         text-decoration: none;
         transition: background 0.15s ease, transform 0.1s ease, color 0.15s ease;
         cursor: pointer;
         line-height: 1.4;
     }
     .grid-action-btn:hover {
-        background: #2ea3f2;
-        color: #fff;
+        background: var(--bw-primary);
+        color: var(--bw-text-on-primary);
         transform: translateY(-1px);
         text-decoration: none;
     }
@@ -70,6 +74,19 @@
 <h3>Completed Trucks</h3>
 
 <div id="completedGrid"></div>
+
+<!-- Print Options Modal -->
+<div class="modal fade" id="printModal" tabindex="-1">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title fw-bold">Print Ticket</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="printModalBody"></div>
+        </div>
+    </div>
+</div>
 
 @section Scripts {
 <script>
@@ -133,11 +150,7 @@
             doc.line(x, y, x + w, y);
             y += 5;
 
-            // Comment & Notes
-            if (t.comment) {
-                doc.setFont('courier', 'normal');
-                addRow('Comment:', t.comment);
-            }
+            // Notes
             if (t.notes) {
                 doc.setFont('courier', 'normal');
                 addRow('Notes:', t.notes);
@@ -196,6 +209,7 @@
         }
 
         var grid = $('#completedGrid').dxDataGrid({
+            hoverStateEnabled: true,
             remoteOperations: false,
             dataSource: new DevExpress.data.CustomStore({
                 key: 'ticket',
@@ -316,11 +330,10 @@
                             })
                             .appendTo(container);
 
-                        $('<a>')
+                        $('<button>')
                             .addClass('grid-action-btn')
-                            .attr('href', '/Ticket/View/' + options.data.ticket)
-                            .attr('target', '_blank')
                             .text('Print')
+                            .on('click', function () { showPrintOptions(options.data.ticket); })
                             .appendTo(container);
                     }
                 }
@@ -336,11 +349,87 @@
             pager: { showPageSizeSelector: true, allowedPageSizes: [10, 20, 50] },
             onRowPrepared: function (e) {
                 if (e.rowType === 'data' && e.data.void) {
-                    e.rowElement.css('background-color', '#fff0f0');
+                    e.rowElement.css('background-color', 'var(--bw-grid-void-bg)');
                 }
             },
             export: { enabled: false }
         }).dxDataGrid('instance');
+        // ===== PRINT OPTIONS =====
+        var kioskCount = @kioskCount;
+        var demoMode = @(demoMode.ToString().ToLower());
+
+        function showPrintOptions(ticketId) {
+            if (kioskCount === 0) {
+                // No kiosks - print to browser directly
+                window.open('/Ticket/View/' + ticketId, '_blank');
+                return;
+            }
+
+            // Build popup options
+            var $modal = $('#printModal');
+            var $body = $('#printModalBody');
+            $body.empty();
+
+            if (kioskCount === 2) {
+                $body.append(
+                    $('<button>').addClass('btn btn-primary w-100 mb-2 py-2')
+                        .text('Inbound Kiosk')
+                        .on('click', function () { sendToKiosk(ticketId, 1); })
+                );
+                $body.append(
+                    $('<button>').addClass('btn btn-primary w-100 mb-2 py-2')
+                        .text('Outbound Kiosk')
+                        .on('click', function () { sendToKiosk(ticketId, 2); })
+                );
+            } else {
+                $body.append(
+                    $('<button>').addClass('btn btn-primary w-100 mb-2 py-2')
+                        .text('Kiosk')
+                        .on('click', function () { sendToKiosk(ticketId, 1); })
+                );
+            }
+
+            $body.append(
+                $('<button>').addClass('btn btn-outline-secondary w-100 py-2')
+                    .text('Print to Browser')
+                    .on('click', function () {
+                        window.open('/Ticket/View/' + ticketId, '_blank');
+                        bootstrap.Modal.getInstance($modal[0]).hide();
+                    })
+            );
+
+            new bootstrap.Modal($modal[0]).show();
+        }
+
+        function sendToKiosk(ticketId, printerId) {
+            var $modal = $('#printModal');
+            bootstrap.Modal.getInstance($modal[0]).hide();
+
+            if (demoMode) {
+                // In demo mode, print to browser instead of kiosk
+                window.open('/Ticket/View/' + ticketId, '_blank');
+            } else {
+                $.ajax({
+                    url: '/api/kiosk/reprint/' + encodeURIComponent(ticketId) + '?printerId=' + printerId,
+                    method: 'POST',
+                    success: function () {
+                        DevExpress.ui.notify('Print sent to kiosk', 'success', 2000);
+                    },
+                    error: function () {
+                        DevExpress.ui.notify('Failed to send print', 'error', 2000);
+                    }
+                });
+            }
+        }
+
+        // SignalR: auto-refresh when tickets are completed
+        var connection = new signalR.HubConnectionBuilder()
+            .withUrl('/scaleHub')
+            .withAutomaticReconnect()
+            .build();
+        connection.on('TicketCompleted', function () { grid.refresh(); });
+        connection.start().catch(function (err) { console.error('SignalR error:', err); });
     });
 </script>
+<script src="~/js/signalr/signalr.min.js"></script>
 }

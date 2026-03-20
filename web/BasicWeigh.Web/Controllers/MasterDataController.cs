@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BasicWeigh.Web.Data;
@@ -16,6 +17,8 @@ public class MasterDataController : Controller
 
     public IActionResult Index()
     {
+        var setup = _db.AppSetup.First();
+        ViewBag.KioskCount = setup.KioskCount;
         return View();
     }
 
@@ -35,23 +38,39 @@ public class MasterDataController : Controller
     }
 
     [HttpPut("api/masterdata/customers")]
-    public IActionResult UpdateCustomer([FromBody] Customer customer)
+    public IActionResult UpdateCustomer([FromBody] JsonElement body)
     {
-        var existing = _db.Customers.Find(customer.CustomerName);
+        var id = body.GetProperty("id").GetInt32();
+        var existing = _db.Customers.Find(id);
         if (existing == null) return NotFound();
-        existing.Active = customer.Active;
+        if (body.TryGetProperty("customerName", out var name)) existing.CustomerName = name.GetString()!;
+        if (body.TryGetProperty("active", out var active)) existing.Active = active.GetBoolean();
+        if (body.TryGetProperty("useAtKiosk", out var kiosk)) existing.UseAtKiosk = kiosk.GetBoolean();
         _db.SaveChanges();
         return Json(existing);
     }
 
-    [HttpDelete("api/masterdata/customers/{key}")]
-    public IActionResult DeleteCustomer(string key)
+    [HttpDelete("api/masterdata/customers/{id:int}")]
+    public IActionResult DeleteCustomer(int id)
     {
-        var entity = _db.Customers.Find(key);
+        var entity = _db.Customers.Find(id);
         if (entity == null) return NotFound();
         _db.Customers.Remove(entity);
         _db.SaveChanges();
         return Json(new { success = true });
+    }
+
+    // ---- Customers not already carriers (for carrier name suggestions) ----
+    [HttpGet("api/masterdata/customers-not-carriers")]
+    public IActionResult GetCustomersNotCarriers()
+    {
+        var carrierNames = _db.Carriers.Select(c => c.CarrierName).ToHashSet();
+        var customers = _db.Customers
+            .Where(c => c.Active && !carrierNames.Contains(c.CustomerName))
+            .OrderBy(c => c.CustomerName)
+            .Select(c => c.CustomerName)
+            .ToList();
+        return Json(customers);
     }
 
     // ---- Carriers ----
@@ -70,19 +89,22 @@ public class MasterDataController : Controller
     }
 
     [HttpPut("api/masterdata/carriers")]
-    public IActionResult UpdateCarrier([FromBody] Carrier carrier)
+    public IActionResult UpdateCarrier([FromBody] JsonElement body)
     {
-        var existing = _db.Carriers.Find(carrier.CarrierName);
+        var id = body.GetProperty("id").GetInt32();
+        var existing = _db.Carriers.Find(id);
         if (existing == null) return NotFound();
-        existing.Active = carrier.Active;
+        if (body.TryGetProperty("carrierName", out var name)) existing.CarrierName = name.GetString()!;
+        if (body.TryGetProperty("active", out var active)) existing.Active = active.GetBoolean();
+        if (body.TryGetProperty("useAtKiosk", out var kiosk)) existing.UseAtKiosk = kiosk.GetBoolean();
         _db.SaveChanges();
         return Json(existing);
     }
 
-    [HttpDelete("api/masterdata/carriers/{key}")]
-    public IActionResult DeleteCarrier(string key)
+    [HttpDelete("api/masterdata/carriers/{id:int}")]
+    public IActionResult DeleteCarrier(int id)
     {
-        var entity = _db.Carriers.Find(key);
+        var entity = _db.Carriers.Find(id);
         if (entity == null) return NotFound();
         _db.Carriers.Remove(entity);
         _db.SaveChanges();
@@ -105,19 +127,22 @@ public class MasterDataController : Controller
     }
 
     [HttpPut("api/masterdata/locations")]
-    public IActionResult UpdateLocation([FromBody] Location location)
+    public IActionResult UpdateLocation([FromBody] JsonElement body)
     {
-        var existing = _db.Locations.Find(location.LocationName);
+        var id = body.GetProperty("id").GetInt32();
+        var existing = _db.Locations.Find(id);
         if (existing == null) return NotFound();
-        existing.Active = location.Active;
+        if (body.TryGetProperty("locationName", out var name)) existing.LocationName = name.GetString()!;
+        if (body.TryGetProperty("active", out var active)) existing.Active = active.GetBoolean();
+        if (body.TryGetProperty("useAtKiosk", out var kiosk)) existing.UseAtKiosk = kiosk.GetBoolean();
         _db.SaveChanges();
         return Json(existing);
     }
 
-    [HttpDelete("api/masterdata/locations/{key}")]
-    public IActionResult DeleteLocation(string key)
+    [HttpDelete("api/masterdata/locations/{id:int}")]
+    public IActionResult DeleteLocation(int id)
     {
-        var entity = _db.Locations.Find(key);
+        var entity = _db.Locations.Find(id);
         if (entity == null) return NotFound();
         _db.Locations.Remove(entity);
         _db.SaveChanges();
@@ -140,19 +165,22 @@ public class MasterDataController : Controller
     }
 
     [HttpPut("api/masterdata/destinations")]
-    public IActionResult UpdateDestination([FromBody] Destination destination)
+    public IActionResult UpdateDestination([FromBody] JsonElement body)
     {
-        var existing = _db.Destinations.Find(destination.DestinationName);
+        var id = body.GetProperty("id").GetInt32();
+        var existing = _db.Destinations.Find(id);
         if (existing == null) return NotFound();
-        existing.Active = destination.Active;
+        if (body.TryGetProperty("destinationName", out var name)) existing.DestinationName = name.GetString()!;
+        if (body.TryGetProperty("active", out var active)) existing.Active = active.GetBoolean();
+        if (body.TryGetProperty("useAtKiosk", out var kiosk)) existing.UseAtKiosk = kiosk.GetBoolean();
         _db.SaveChanges();
         return Json(existing);
     }
 
-    [HttpDelete("api/masterdata/destinations/{key}")]
-    public IActionResult DeleteDestination(string key)
+    [HttpDelete("api/masterdata/destinations/{id:int}")]
+    public IActionResult DeleteDestination(int id)
     {
-        var entity = _db.Destinations.Find(key);
+        var entity = _db.Destinations.Find(id);
         if (entity == null) return NotFound();
         _db.Destinations.Remove(entity);
         _db.SaveChanges();
@@ -163,32 +191,55 @@ public class MasterDataController : Controller
     [HttpGet("api/masterdata/trucks")]
     public IActionResult GetTrucks()
     {
-        return Json(_db.Trucks.OrderBy(t => t.TruckId).ToList());
+        return Json(_db.Trucks.OrderBy(t => t.CarrierName).ThenBy(t => t.TruckId).ToList());
+    }
+
+    [HttpGet("api/masterdata/trucks/{carrierName}")]
+    public IActionResult GetTrucksByCarrier(string carrierName)
+    {
+        var trucks = _db.Trucks
+            .Where(t => t.CarrierName == carrierName)
+            .OrderBy(t => t.TruckId)
+            .ToList();
+        return Json(trucks);
     }
 
     [HttpPost("api/masterdata/trucks")]
     public IActionResult AddTruck([FromBody] Truck truck)
     {
+        var existing = _db.Trucks.FirstOrDefault(t => t.TruckId == truck.TruckId && t.CarrierName == truck.CarrierName);
+        if (existing != null)
+            return Json(existing);
+
+        // Auto-create carrier if it doesn't exist (customer used as carrier)
+        if (!_db.Carriers.Any(c => c.CarrierName == truck.CarrierName))
+        {
+            _db.Carriers.Add(new Carrier { CarrierName = truck.CarrierName, Active = true });
+        }
+
         _db.Trucks.Add(truck);
         _db.SaveChanges();
         return Json(truck);
     }
 
     [HttpPut("api/masterdata/trucks")]
-    public IActionResult UpdateTruck([FromBody] Truck truck)
+    public IActionResult UpdateTruck([FromBody] JsonElement body)
     {
-        var existing = _db.Trucks.Find(truck.TruckId);
+        var id = body.GetProperty("id").GetInt32();
+        var existing = _db.Trucks.Find(id);
         if (existing == null) return NotFound();
-        existing.Phone = truck.Phone;
-        existing.Lot = truck.Lot;
+        if (body.TryGetProperty("truckId", out var truckId)) existing.TruckId = truckId.GetString()!;
+        if (body.TryGetProperty("description", out var desc)) existing.Description = desc.ValueKind == JsonValueKind.Null ? null : desc.GetString();
+        if (body.TryGetProperty("notes", out var notes)) existing.Notes = notes.ValueKind == JsonValueKind.Null ? null : notes.GetString();
+        if (body.TryGetProperty("useAtKiosk", out var kiosk)) existing.UseAtKiosk = kiosk.GetBoolean();
         _db.SaveChanges();
         return Json(existing);
     }
 
-    [HttpDelete("api/masterdata/trucks/{key}")]
-    public IActionResult DeleteTruck(string key)
+    [HttpDelete("api/masterdata/trucks/{id:int}")]
+    public IActionResult DeleteTruck(int id)
     {
-        var entity = _db.Trucks.Find(key);
+        var entity = _db.Trucks.Find(id);
         if (entity == null) return NotFound();
         _db.Trucks.Remove(entity);
         _db.SaveChanges();
@@ -211,19 +262,22 @@ public class MasterDataController : Controller
     }
 
     [HttpPut("api/masterdata/commodities")]
-    public IActionResult UpdateCommodity([FromBody] Commodity commodity)
+    public IActionResult UpdateCommodity([FromBody] JsonElement body)
     {
-        var existing = _db.Commodities.Find(commodity.CommodityName);
+        var id = body.GetProperty("id").GetInt32();
+        var existing = _db.Commodities.Find(id);
         if (existing == null) return NotFound();
-        existing.Active = commodity.Active;
+        if (body.TryGetProperty("commodityName", out var name)) existing.CommodityName = name.GetString()!;
+        if (body.TryGetProperty("active", out var active)) existing.Active = active.GetBoolean();
+        if (body.TryGetProperty("useAtKiosk", out var kiosk)) existing.UseAtKiosk = kiosk.GetBoolean();
         _db.SaveChanges();
         return Json(existing);
     }
 
-    [HttpDelete("api/masterdata/commodities/{key}")]
-    public IActionResult DeleteCommodity(string key)
+    [HttpDelete("api/masterdata/commodities/{id:int}")]
+    public IActionResult DeleteCommodity(int id)
     {
-        var entity = _db.Commodities.Find(key);
+        var entity = _db.Commodities.Find(id);
         if (entity == null) return NotFound();
         _db.Commodities.Remove(entity);
         _db.SaveChanges();

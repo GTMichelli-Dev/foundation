@@ -1,7 +1,7 @@
 ﻿/**
 * DevExpress Analytics (dist\js\dx-analytics-core.js)
-* Version:  25.2.4
-* Build date: Jan 30, 2026
+* Version:  25.2.5
+* Build date: Feb 25, 2026
 * Copyright (c) 2012 - 2026 Developer Express Inc. ALL RIGHTS RESERVED
 * License: https://www.devexpress.com/Support/EULAs/universal.xml
 */
@@ -61,8 +61,11 @@ __webpack_require__.r(analytics_internal_namespaceObject);
 __webpack_require__.d(analytics_internal_namespaceObject, {
   $createFromHtml: () => ($createFromHtml),
   $dx: () => ($dx),
+  $each: () => ($each),
   $map: () => ($map),
+  $promiseAdapter: () => ($promiseAdapter),
   $unwrap: () => ($unwrap),
+  $wrap: () => ($wrap),
   AccessibilityControlElementBase: () => (AccessibilityControlElementBase),
   AccessibilityKeyboardHelperBase: () => (AccessibilityKeyboardHelperBase),
   AccordionKeyboardHelper: () => (AccordionKeyboardHelper),
@@ -164,13 +167,17 @@ __webpack_require__.d(analytics_internal_namespaceObject, {
   _muteWarnings: () => (_muteWarnings),
   _processError: () => (_processError),
   _replaceUploadFile: () => (_replaceUploadFile),
+  _resetAjax: () => (_resetAjax),
   _resetShowMessageFunc: () => (_resetShowMessageFunc),
+  _setAjax: () => (_setAjax),
   _setIsDarkTheme: () => (_setIsDarkTheme),
   _setShowMessageFunc: () => (_setShowMessageFunc),
   _unmuteWarnings: () => (_unmuteWarnings),
   _wrapModelInObservable: () => (_wrapModelInObservable),
+  accessJQueryData: () => (accessJQueryData),
   accessibilityFontSizeZoomFactor: () => (accessibilityFontSizeZoomFactor),
   addDisposeCallback: () => (addDisposeCallback),
+  ajax: () => (ajax),
   appendStaticContextToRootViewModel: () => (appendStaticContextToRootViewModel),
   assignObj: () => (assignObj),
   assignTroubleshootingPage: () => (assignTroubleshootingPage),
@@ -195,7 +202,10 @@ __webpack_require__.d(analytics_internal_namespaceObject, {
   createBaseActionViewModel: () => (createBaseActionViewModel),
   createDeferred: () => (createDeferred),
   createDesigner: () => (createDesigner),
+  createDxDeferred: () => (createDxDeferred),
   createGlobalModuleVariableFunc: () => (createGlobalModuleVariableFunc),
+  createJQueryCallbacks: () => (createJQueryCallbacks),
+  createJQueryElement: () => (createJQueryElement),
   createObservableArrayMapCollection: () => (createObservableArrayMapCollection),
   createObservableReverseArrayMapCollection: () => (createObservableReverseArrayMapCollection),
   createPasswordSerializationInfo: () => (createPasswordSerializationInfo),
@@ -206,6 +216,7 @@ __webpack_require__.d(analytics_internal_namespaceObject, {
   custom_localization_values: () => (custom_localization_values),
   cutRefs: () => (cutRefs),
   defaultAccessibilityProvider: () => (defaultAccessibilityProvider),
+  delay: () => (delay),
   deleteSelection: () => (deleteSelection),
   deserializeChildArray: () => (deserializeChildArray),
   dxButtonWithTemplate: () => (dxButtonWithTemplate),
@@ -218,6 +229,7 @@ __webpack_require__.d(analytics_internal_namespaceObject, {
   escapeToRegExp: () => (escapeToRegExp),
   extend: () => (extend),
   find: () => (find),
+  findClosestElement: () => (findClosestElement),
   findFirstItemMatchesCondition: () => (findFirstItemMatchesCondition),
   findMatchesInString: () => (findMatchesInString),
   findSurface: () => (findSurface),
@@ -232,6 +244,13 @@ __webpack_require__.d(analytics_internal_namespaceObject, {
   getControlRect: () => (getControlRect),
   getControlTypeName: () => (getControlTypeName),
   getEditorType: () => (getEditorType),
+  getElementBoxExtraHeight: () => (getElementBoxExtraHeight),
+  getElementBoxExtraWidth: () => (getElementBoxExtraWidth),
+  getElementHeight: () => (getElementHeight),
+  getElementOffset: () => (getElementOffset),
+  getElementOuterHeight: () => (getElementOuterHeight),
+  getElementOuterWidth: () => (getElementOuterWidth),
+  getElementWidth: () => (getElementWidth),
   getErrorMessage: () => (_infoMessageHelpers_getErrorMessage),
   getFirstItemByPropertyValue: () => (getFirstItemByPropertyValue),
   getFullPath: () => (getFullPath),
@@ -256,9 +275,11 @@ __webpack_require__.d(analytics_internal_namespaceObject, {
   initializeMutationObserver: () => (initializeMutationObserver),
   initializeResize: () => (initializeResize),
   integerValueConverter: () => (integerValueConverter),
+  isBorderBox: () => (isBorderBox),
   isCustomizedWithUpdateLocalizationMethod: () => (isCustomizedWithUpdateLocalizationMethod),
   isDarkTheme: () => (isDarkTheme),
   isDefined: () => (isDefined),
+  isElementVisible: () => (isElementVisible),
   isEmptyObject: () => (isEmptyObject),
   isFunction: () => (isFunction),
   isList: () => (isList),
@@ -266,6 +287,7 @@ __webpack_require__.d(analytics_internal_namespaceObject, {
   isNumeric: () => (isNumeric),
   isPlainObject: () => (isPlainObject),
   isPromise: () => (isPromise),
+  jqueryStatic: () => (jqueryStatic),
   knockoutArrayWrapper: () => (knockoutArrayWrapper),
   koUtils: () => (koUtils),
   loadMessages: () => (loadMessages),
@@ -311,7 +333,9 @@ __webpack_require__.d(analytics_internal_namespaceObject, {
   uploadFile: () => (uploadFile),
   useKoIntegration: () => (useKoIntegration),
   validateExpression: () => (validateExpression),
-  validateName: () => (validateName)
+  validateName: () => (validateName),
+  wrapInner: () => (wrapInner),
+  wrapPublicElement: () => (wrapPublicElement)
 });
 
 // NAMESPACE OBJECT: ./dist/analytics-utils.js
@@ -521,6 +545,7 @@ __webpack_require__.d(analytics_criteria_namespaceObject, {
   ConstantValue: () => (ConstantValue),
   CriteriaOperator: () => (CriteriaOperator),
   CriteriaOperatorPreprocessor: () => (CriteriaOperatorPreprocessor),
+  ENUM_TYPE_SEPARATOR: () => (ENUM_TYPE_SEPARATOR),
   FunctionOperator: () => (FunctionOperator),
   FunctionOperatorType: () => (FunctionOperatorType),
   GroupOperator: () => (GroupOperator),
@@ -716,9 +741,85 @@ class DisposableViewModel {
     }
 }
 
+;// ./dist/core/utils/_dimensions.js
+const parseFloatSafe = (value) => {
+    const parsed = value ? parseFloat(value) : 0;
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+const isBorderBox = (element) => getComputedStyle(element).boxSizing === 'border-box';
+const getElementContentWidth = (element) => {
+    const styles = getComputedStyle(element);
+    return parseFloatSafe(styles.width);
+};
+const getElementContentHeight = (element) => {
+    const styles = getComputedStyle(element);
+    return parseFloatSafe(styles.height);
+};
+const getElementBoxExtraWidth = (element) => {
+    if (!(element instanceof Element))
+        return undefined;
+    const styles = getComputedStyle(element);
+    const horizontalPadding = parseFloatSafe(styles.paddingLeft) + parseFloatSafe(styles.paddingRight);
+    const horizontalBorder = parseFloatSafe(styles.borderLeftWidth) + parseFloatSafe(styles.borderRightWidth);
+    return horizontalPadding + horizontalBorder;
+};
+const getElementBoxExtraHeight = (element) => {
+    if (!(element instanceof Element))
+        return undefined;
+    const styles = getComputedStyle(element);
+    const verticalPadding = parseFloatSafe(styles.paddingTop) + parseFloatSafe(styles.paddingBottom);
+    const verticalBorder = parseFloatSafe(styles.borderTopWidth) + parseFloatSafe(styles.borderBottomWidth);
+    return verticalPadding + verticalBorder;
+};
+const getElementWidth = (element) => {
+    if (element instanceof Element) {
+        const width = getElementContentWidth(element);
+        const extras = getElementBoxExtraWidth(element);
+        return isBorderBox(element) ? Math.max(0, width - extras) : width;
+    }
+    if (element instanceof Window) {
+        return document.documentElement.clientWidth;
+    }
+};
+const getElementOuterWidth = (element) => {
+    if (!(element instanceof Element))
+        return undefined;
+    if (element.offsetWidth)
+        return element.offsetWidth;
+    const extras = getElementBoxExtraWidth(element);
+    const width = getElementContentWidth(element);
+    return isBorderBox(element) ? width : width + extras;
+};
+const getElementHeight = (element) => {
+    if (element instanceof Element) {
+        const height = getElementContentHeight(element);
+        const extras = getElementBoxExtraHeight(element);
+        return isBorderBox(element) ? Math.max(0, height - extras) : height;
+    }
+    if (element instanceof Window) {
+        return document.documentElement.clientHeight;
+    }
+};
+const getElementOuterHeight = (element) => {
+    if (!(element instanceof Element))
+        return undefined;
+    if (element.offsetHeight)
+        return element.offsetHeight;
+    const extras = getElementBoxExtraHeight(element);
+    const height = getElementContentHeight(element);
+    return isBorderBox(element) ? height : height + extras;
+};
+const getElementOffset = (element) => {
+    if (!element)
+        return undefined;
+    const rect = element.getBoundingClientRect();
+    return { left: rect.left + window.scrollX, top: rect.top + window.scrollY };
+};
+
 ;// ./dist/core/utils/_jqueryUtils.js
+
 function $unwrap(_element) {
-    if (!!_element && 'length' in _element && _element instanceof Window === false) {
+    if (!!_element && 'length' in _element && _element instanceof Window === false || _element?.dxRenderer) {
         return _element[0];
     }
     return _element;
@@ -728,14 +829,57 @@ function $createFromHtml(html) {
     element.innerHTML = html.trim();
     return $dx(element.firstChild);
 }
+function isArrayLike(target) {
+    const length = target?.length;
+    if (!target || typeof target !== 'object')
+        return false;
+    return Array.isArray(target) || length === 0 ||
+        typeof length === 'number' && length > 0 && (length - 1) in target;
+}
 function $map(target, predicate) {
     if (!target || typeof target !== 'object')
         return [];
-    if (Array.isArray(target)) {
-        return target.map(predicate);
+    if (isArrayLike(target)) {
+        for (let i = 0; i < target.length; i++) {
+            predicate(target[i], i);
+        }
     }
     return Object.keys(target).map((key) => predicate(target[key], key));
 }
+function $each(target, predicate) {
+    if (!target || typeof target !== 'object')
+        return;
+    const runPredicate = (key) => {
+        const element = target[key];
+        return predicate.call(element, key, element);
+    };
+    if (isArrayLike(target)) {
+        for (let key = 0; key < target.length; key++) {
+            const shouldContinue = runPredicate(key);
+            if (shouldContinue === false)
+                break;
+        }
+    }
+    else {
+        for (const key of Object.keys(target)) {
+            const shouldContinue = runPredicate(key);
+            if (shouldContinue === false)
+                break;
+        }
+    }
+}
+const isElementVisible = (element) => {
+    if (!element)
+        return undefined;
+    const rectsLen = element.getClientRects?.()?.length ?? 0;
+    return element.offsetWidth > 0 || element.offsetHeight > 0 || rectsLen > 0;
+};
+const findClosestElement = (element, selector) => {
+    if (element instanceof Element) {
+        return element.closest(selector);
+    }
+    return element?.parentElement?.closest(selector);
+};
 const slideToggle = (el, duration, callback, isDown) => {
     if (typeof duration === 'undefined')
         duration = 400;
@@ -802,11 +946,23 @@ const $dx = (_element) => {
     let element = null;
     let length = 0;
     const indexer = {};
-    if (typeof _unwrapedElement === 'string') {
-        element = document.querySelector(_unwrapedElement);
-        const matched = Array.from(document.querySelectorAll(_unwrapedElement));
-        matched.forEach((htmlElement, i) => indexer[i] = htmlElement);
-        length = matched.length;
+    if (typeof _element === 'string') {
+        const str = _element.trim();
+        const isHtml = str.startsWith('<') && str.endsWith('>');
+        if (isHtml) {
+            const temp = document.createElement('div');
+            temp.innerHTML = str;
+            const created = Array.from(temp.children);
+            created.forEach((htmlElement, i) => indexer[i] = htmlElement);
+            element = created[0] || null;
+            length = created.length;
+        }
+        else {
+            element = document.querySelector(_element);
+            const matched = Array.from(document.querySelectorAll(_element));
+            matched.forEach((htmlElement, i) => indexer[i] = htmlElement);
+            length = matched.length;
+        }
     }
     else if (Array.isArray(_unwrapedElement)) {
         element = _unwrapedElement[0];
@@ -822,14 +978,14 @@ const $dx = (_element) => {
         ...indexer,
         length: length,
         element: element,
-        isVisible: () => {
-            if (!element)
-                return undefined;
-            const style = getComputedStyle(element);
-            return style.display !== 'none' && style.visibility !== 'hidden';
-        },
         is: (target) => {
             if (typeof target === 'string') {
+                if (target === ':input') {
+                    return $dx(element).isInput();
+                }
+                if (target === ':visible') {
+                    return isElementVisible(element);
+                }
                 return element?.matches(target);
             }
             else {
@@ -844,43 +1000,36 @@ const $dx = (_element) => {
                 return undefined;
             return element.classList.contains(className);
         },
-        width: (value) => {
-            if (value && element)
-                element.style.width = value + 'px';
-            if (element instanceof Element)
-                return element?.getBoundingClientRect().width;
-            if (_element instanceof Window)
-                return _element.innerWidth;
-        },
-        height: (value) => {
-            if (value && element)
-                element.style.height = value + 'px';
-            if (element instanceof Element)
-                return element?.getBoundingClientRect().height;
-            if (_element instanceof Window)
-                return _element.innerHeight;
-        },
-        outerWidth: () => {
-            if (!element)
-                return undefined;
-            const totalWidth = element.offsetWidth;
-            const horizontalPadding = parseFloat(getComputedStyle(element).paddingLeft) +
-                parseFloat(getComputedStyle(element).paddingRight);
-            const horizontalBorder = parseFloat(getComputedStyle(element).borderLeftWidth) +
-                parseFloat(getComputedStyle(element).borderRightWidth);
-            return totalWidth + horizontalPadding + horizontalBorder;
-        },
-        outerHeight: () => {
-            if (!element)
-                return undefined;
-            const totalHeight = element.offsetHeight;
-            const verticalPadding = parseFloat(getComputedStyle(element).paddingTop) +
-                parseFloat(getComputedStyle(element).paddingBottom);
-            const verticalBorder = parseFloat(getComputedStyle(element).borderTopWidth) +
-                parseFloat(getComputedStyle(element).borderBottomWidth);
-            const outerHeight = totalHeight + verticalPadding + verticalBorder;
-            return outerHeight;
-        },
+        width: ((value) => {
+            if (value !== undefined && element) {
+                const newValue = typeof value === 'number' ? value + 'px' : value;
+                element.style.width = newValue;
+                return $dx(element);
+            }
+            return getElementWidth(element);
+        }),
+        height: ((value) => {
+            if (value !== undefined && element) {
+                const newValue = typeof value === 'number' ? value + 'px' : value;
+                element.style.height = newValue;
+                return $dx(element);
+            }
+            return getElementHeight(element);
+        }),
+        outerWidth: ((value) => {
+            if (value !== undefined && element) {
+                const contentWidth = Math.max(0, value - getElementBoxExtraWidth(element));
+                return isBorderBox(element) ? $dx(element).width(value) : $dx(element).width(contentWidth);
+            }
+            return getElementOuterWidth(element);
+        }),
+        outerHeight: ((value) => {
+            if (value !== undefined && element) {
+                const contentHeight = Math.max(0, value - getElementBoxExtraHeight(element));
+                return isBorderBox(element) ? $dx(element).height(value) : $dx(element).height(contentHeight);
+            }
+            return getElementOuterHeight(element);
+        }),
         empty: () => {
             while (element?.firstChild) {
                 element.removeChild(element.firstChild);
@@ -891,6 +1040,14 @@ const $dx = (_element) => {
             element.style.display = 'none'; return $dx(element); },
         show: () => { if (element)
             element.style.display = 'block'; return $dx(element); },
+        focus: () => {
+            if (!element)
+                return $dx(element);
+            if (typeof element.focus === 'function') {
+                element.focus();
+            }
+            return $dx(element);
+        },
         find: (selector, filterVisible = false) => {
             if (!element)
                 return $dx(undefined);
@@ -905,38 +1062,44 @@ const $dx = (_element) => {
                 filterVisible = true;
                 selector = selector.split(':visible')[0];
             }
-            const visibleElements = Array.from(element.querySelectorAll(selector));
-            let result = visibleElements.map(x => $dx(x));
+            let result = [];
+            if (selector === ':input') {
+                result = Array.from(element.querySelectorAll('input, select, textarea, button'));
+            }
+            else {
+                result = Array.from(element.querySelectorAll(selector));
+            }
             if (filterVisible)
-                result = result.filter(x => x.isVisible());
-            return result[0] || $dx(undefined);
+                result = result.filter(x => isElementVisible(x));
+            return $dx(result);
         },
         eq: (index) => {
             return $dx(indexer[index]);
         },
         closest: (selector) => {
-            let currentElement = element;
-            while (currentElement) {
-                if (currentElement.matches?.(selector)) {
-                    return $dx(currentElement);
-                }
-                currentElement = currentElement.parentElement;
-            }
-            return $dx(undefined);
+            return $dx(findClosestElement(element, selector));
         },
         css: (styles, value) => {
-            if (!element)
-                return undefined;
             if (typeof styles === 'string') {
-                value && element.style.setProperty(styles, value.toString());
+                if (!element)
+                    return undefined;
+                if (value !== undefined)
+                    element.style.setProperty(styles, value.toString());
                 return getComputedStyle(element)[styles] || '';
             }
             else if (typeof styles === 'object') {
+                if (!element)
+                    return $dx(element);
                 for (const property in styles) {
+                    const value = styles[property];
+                    if (typeof value !== 'string') {
+                        throw new Error('The value must be a string');
+                    }
                     if (styles.hasOwnProperty(property)) {
-                        element.style.setProperty(property, styles[property]);
+                        element.style[property] = value.trim();
                     }
                 }
+                return $dx(element);
             }
         },
         children: (selector) => {
@@ -977,10 +1140,7 @@ const $dx = (_element) => {
             return $dx(parents);
         },
         offset: () => {
-            if (!element)
-                return undefined;
-            const rect = element.getBoundingClientRect();
-            return { left: rect.left + window.scrollX, top: rect.top + window.scrollY };
+            return getElementOffset(element);
         },
         position: () => {
             if (!element)
@@ -1036,40 +1196,72 @@ const $dx = (_element) => {
         prepend: (topElement) => {
             if (!element)
                 return;
-            element.prepend(topElement);
+            const topEl = $unwrap(topElement);
+            topEl && element.prepend(topEl);
+        },
+        first: () => {
+            return $dx(element);
         },
         prependTo: (parent) => {
-            if (!element || !parent)
+            if (!parent)
                 return;
-            parent.prepend(element);
-            return $dx(element);
+            if (length > 1) {
+                for (let i = length - 1; i >= 0; i--) {
+                    const el = indexer[i];
+                    el && parent.prepend(el);
+                }
+                return $dx(indexer[0]);
+            }
+            else if (element) {
+                parent.prepend(element);
+                return $dx(element);
+            }
         },
-        prev: () => {
-            return $dx(element?.previousSibling);
+        prev: (selector) => {
+            const sibling = element?.previousSibling;
+            if (selector) {
+                return $dx(sibling?.matches(selector) ? sibling : undefined);
+            }
+            return $dx(sibling);
         },
         appendTo: (parent) => {
-            if (!element)
+            if (!parent)
                 return;
-            parent.appendChild(element);
-            return $dx(element);
+            if (length > 1) {
+                for (let i = 0; i < length; i++) {
+                    const el = indexer[i];
+                    el && parent.appendChild(el);
+                }
+                return $dx(indexer[0]);
+            }
+            else if (element) {
+                parent.appendChild(element);
+                return $dx(element);
+            }
         },
         remove: () => {
             if (!element)
                 return;
             element.remove();
         },
-        text: (text) => {
+        text: ((text) => {
             if (!element)
                 return;
+            if (text === undefined) {
+                return element.textContent;
+            }
             element.textContent = text;
             return $dx(element);
-        },
-        html: (markup) => {
+        }),
+        html: ((markup) => {
             if (!element)
                 return;
+            if (markup === undefined) {
+                return element.innerHTML;
+            }
             element.innerHTML = markup;
             return $dx(element);
-        },
+        }),
         slideToggle: (duration = 400, callback = () => void (0)) => {
             if (!element)
                 return;
@@ -1200,22 +1392,26 @@ class DxDeferred {
         });
     }
     static when(deferreds) {
-        const remain = [...deferreds];
         const rootDeferred = new DxDeferred();
-        const resultArray = [];
-        deferreds.forEach((deferred) => {
-            deferred.done((result) => {
-                resultArray.push(result);
-                remain.splice(remain.indexOf(deferred), 1);
-                if (remain.length === 0) {
-                    rootDeferred.resolve(resultArray);
+        const count = deferreds.length;
+        if (count === 0) {
+            rootDeferred.resolve([]);
+            return rootDeferred;
+        }
+        const results = new Array(count);
+        let remaining = count;
+        deferreds.forEach((deferred, index) => {
+            deferred.done((value) => {
+                results[index] = value;
+                remaining -= 1;
+                if (remaining === 0) {
+                    rootDeferred.resolve(results);
                 }
             });
-            deferred.fail(() => rootDeferred.reject());
+            deferred.fail((reason) => {
+                rootDeferred.reject(reason);
+            });
         });
-        if (remain.length === 0) {
-            rootDeferred.resolve(resultArray);
-        }
         return rootDeferred;
     }
 }
@@ -1227,6 +1423,31 @@ function createPromiseWithResolvers() {
     });
     return { promise, resolve, reject };
 }
+function delay(timeout, signal) {
+    return new Promise((resolve, reject) => {
+        const rejectPromise = () => {
+            reject(signal?.reason ?? new DOMException('Aborted', 'AbortError'));
+        };
+        const cleanUp = () => {
+            signal?.removeEventListener('abort', onAbort);
+        };
+        const onAbort = () => {
+            clearTimeout(id);
+            cleanUp();
+            rejectPromise();
+        };
+        if (signal?.aborted) {
+            rejectPromise();
+            return;
+        }
+        const id = setTimeout(() => {
+            cleanUp();
+            resolve();
+        }, timeout);
+        signal?.addEventListener('abort', onAbort, { once: true });
+    });
+}
+function createDxDeferred() { return new DxDeferred(); }
 function unwrapImmidiatePromise(promise) {
     let result;
     promise.done((value) => {
@@ -3919,11 +4140,43 @@ function isDefined(object) {
     return null !== object && void 0 !== object && Object.keys(object).length > 0;
 }
 
+;// external "DevExpress.config"
+const external_DevExpress_config_namespaceObject = DevExpress.config;
+var external_DevExpress_config_default = /*#__PURE__*/__webpack_require__.n(external_DevExpress_config_namespaceObject);
 ;// external "jQuery"
 const external_jQuery_namespaceObject = jQuery;
+var external_jQuery_default = /*#__PURE__*/__webpack_require__.n(external_jQuery_namespaceObject);
+;// ./dist/core/utils/_jqueryWrapper.js
+
+
+const jqueryStatic = (external_jQuery_default()) || external_jQuery_namespaceObject;
+function createJQueryElement(element, contextOrOptions) {
+    return jqueryStatic.fn.constructor(element, contextOrOptions);
+}
+const createJQueryCallbacks = () => jqueryStatic.Callbacks();
+const $promiseAdapter = (promise) => promise;
+const $wrap = (element) => createJQueryElement(element);
+const wrapPublicElement = (element) => (external_DevExpress_config_default()().useJQuery ? $wrap(element) : element);
+const wrapInner = (element, wrappingElement) => createJQueryElement(element).wrapInner(wrappingElement);
+const accessJQueryData = function (element, key, value) {
+    if (arguments.length > 2) {
+        createJQueryElement(element).data(key, value);
+    }
+    else {
+        return createJQueryElement(element).data(key);
+    }
+};
+
 ;// ./dist/core/internal/_ajaxRequestManager.js
 
 
+let ajax = jqueryStatic?.ajax;
+const _setAjax = (func) => {
+    ajax = func;
+};
+const _resetAjax = () => {
+    ajax = jqueryStatic?.ajax;
+};
 class AjaxRequestManager {
     constructor(ajaxSttingsFn, getRequestBodyFn) {
         this.getAjaxSettings = ajaxSttingsFn;
@@ -3932,7 +4185,7 @@ class AjaxRequestManager {
     sendRequest(settings) {
         settings.data = this.getRequestBody(settings.data);
         const requestSettings = this._prepareRequestSettings(settings);
-        return external_jQuery_namespaceObject.ajax(requestSettings);
+        return ajax(requestSettings);
     }
     _prepareRequestSettings(settings) {
         return extend({}, this.getAjaxSettings(), settings);
@@ -4664,7 +4917,7 @@ class ToolboxDragDropHandler extends DragDropHandler {
 class WizardDragDropHandler extends DragDropHandler {
     constructor(options) {
         super(null, null, external_ko_namespaceObject.observable(null), null, options.dragHelperContent);
-        this.parent = () => external_jQuery_namespaceObject.fn.constructor(options.parent);
+        this.parent = () => createJQueryElement(options.parent);
         this.containment = options.containment;
         this._target = options.target;
         this._addHandler = options.addHandler;
@@ -4672,7 +4925,7 @@ class WizardDragDropHandler extends DragDropHandler {
     helper(draggable, event) {
         this._dropTarget = null;
         const item = draggable;
-        const target = external_jQuery_namespaceObject.fn.constructor(event.target).closest('.ui-draggable');
+        const target = createJQueryElement(event.target).closest('.ui-draggable');
         const rect = new Rectangle(6, 6, target.width(), target.height());
         rect.className = 'dxrd-image-ghost-report';
         this.dragHelperContent.reset();
@@ -4685,7 +4938,7 @@ class WizardDragDropHandler extends DragDropHandler {
             }
         });
         const templateHtml = getTemplate(this.dragHelperContent.template);
-        const $container = external_jQuery_namespaceObject.fn.constructor(templateHtml).css({ 'display': 'block' });
+        const $container = createJQueryElement(templateHtml).css({ 'display': 'block' });
         $container.prependTo(this.parent());
         external_ko_namespaceObject.applyBindingsToDescendants(this.dragHelperContent, $container[0]);
         return $container;
@@ -4697,7 +4950,7 @@ class WizardDragDropHandler extends DragDropHandler {
         }
     }
     drag(event, ui) {
-        const $target = external_jQuery_namespaceObject.fn.constructor(this.getTarget(event));
+        const $target = createJQueryElement(this.getTarget(event));
         const page = $target.closest(this._target);
         this._dropTarget = null;
         if (page.length && (!this._target || $target.closest(this._target)[0])) {
@@ -4709,17 +4962,14 @@ class WizardDragDropHandler extends DragDropHandler {
 ;// external "DevExpress.VERSION"
 const external_DevExpress_VERSION_namespaceObject = DevExpress.VERSION;
 ;// ./dist/analytics-version.js
-const version = '25.2.4';
+const version = '25.2.5';
 
 ;// ./dist/core/internal/dxtTemplate.js
 function dxtTemplate() {
-    const template = 'eyJsaWNlbnNlS2V5IjoiZXdvZ0lDSm1iM0p0WVhRaU9pQXhMQW9nSUNKcGJuUmxjbTVoYkZWellXZGxTV1FpT2lBaU1saDJiRWxOYkZFd1NWSnJWMWwwVVZBM1MwUnVkQ0lLZlE9PS5lTElCclp2dGFXNlh2dXR2d2RHT0U2cVQzREVjakhXZ08wcS9VZjI1bTE2dXhiRDhNSTZsQXl6Titza255R25HbmVUUlQrSitGZlFBYmpIVU9VZHUzeU1JTWF4MTRRdVVyRXdPcHBLWVVKUmdoUFZjYzhQblJRYmxqWjJvRTNTek1PUHlYQT09In0=';
+    const template = 'eyJsaWNlbnNlS2V5IjoiZXdvZ0lDSm1iM0p0WVhRaU9pQXhMQW9nSUNKcGJuUmxjbTVoYkZWellXZGxTV1FpT2lBaVJrdEhhMGMxYUdSVVNrVnBWRWRVYldZd09GSnZUeUlLZlE9PS5uajdxK2FZVytHUUF0K21WN2JrMjFSYk5RdkhNVjduNFNEY0lTNFc2MDdvenRWOUd0aUNjZUdtTTdUc3pEZVdJSy85NDhIVlVEaTJKVEpFdm81bjl3bjhkQnFOTVZqbCsyY1c3VFNVaWRpeVBOUmd5YkZWZlBHTnBSck5mWTBGbWJ6Y05adz09In0=';
     return template ? JSON.parse(atob(template)) : null;
 }
 
-;// external "DevExpress.config"
-const external_DevExpress_config_namespaceObject = DevExpress.config;
-var external_DevExpress_config_default = /*#__PURE__*/__webpack_require__.n(external_DevExpress_config_namespaceObject);
 ;// ./dist/core/internal/dx-versions.js
 
 
@@ -5424,7 +5674,7 @@ class CssCalculator {
     createBorder(dashStyle, width, color, positions, position) {
         let line = {};
         positions = positions || 'All';
-        line = { stroke: 'Silver', strokeWidth: 2 };
+        line = { stroke: 'Silver', strokeWidth: '2' };
         const dash = this.createStrokeDashArray(dashStyle, width);
         if (positions.indexOf(position) !== -1 || positions.indexOf('All') !== -1) {
             line['stroke'] = color;
@@ -6615,7 +6865,7 @@ class Selectable extends Disposable {
                     if (this.shouldStartSelect(event)) {
                         this._options.start(event);
                         Selectable.inProcess = true;
-                        this._$selectionContent = external_jQuery_namespaceObject.fn.constructor('<div />').appendTo(document.body);
+                        this._$selectionContent = createJQueryElement('<div />').appendTo(document.body);
                         this._$selectionContent.addClass('dxrd-selection-content ui-selectable-helper');
                         if ((external_DevExpress_ui_dxPopup_default()).prototype['_zIndexInitValue'])
                             this._$selectionContent.css('z-index', external_DevExpress_ui_dxPopup_default().prototype['_zIndexInitValue']() + 100);
@@ -6669,7 +6919,7 @@ class Selectable extends Disposable {
         this._element.addEventListener('mousemove', mousemove);
         this._element.addEventListener('mouseup', mouseup);
         this._element.addEventListener('mousedown', mousedown);
-        this._$window = external_jQuery_namespaceObject.fn.constructor(window);
+        this._$window = createJQueryElement(window);
         this._disposables.push({
             dispose: () => {
                 this._element.removeEventListener('mousemove', mousemove);
@@ -6700,12 +6950,12 @@ Selectable.disabled = false;
 external_ko_namespaceObject.bindingHandlers['resizable'] = {
     init: function (element, valueAccessor, allBindings, viewModel, bindingContext) {
         const values = valueAccessor();
-        const $element = external_jQuery_namespaceObject.fn.constructor(element), $parent = $element.closest('.dx-designer'), resizableDirections = { 'north': 'n', 'east': 'e', 'south': 's', 'west': 'w' };
+        const $element = createJQueryElement(element), $parent = $element.closest('.dx-designer'), resizableDirections = { 'north': 'n', 'east': 'e', 'south': 's', 'west': 'w' };
         let currentDirection = null, $selectedNodes = null, calculateSizes = [], absolutePosition = null;
         const options = extend(initializeBaseResizableOptions(valueAccessor()), {
             stop: function (event) {
                 $selectedNodes.each((_, el) => {
-                    const context = external_ko_namespaceObject.contextFor(el), control = context.$data, surface = context.$root.surface(), $el = external_jQuery_namespaceObject.fn.constructor(el);
+                    const context = external_ko_namespaceObject.contextFor(el), control = context.$data, surface = context.$root.surface(), $el = createJQueryElement(el);
                     const rect = control.rect();
                     let newRect = getControlRect($el, control, surface);
                     newRect = {
@@ -6753,10 +7003,10 @@ external_ko_namespaceObject.bindingHandlers['resizable'] = {
                 currentDirection = getResizeDirection(event.target.classList);
                 values.started = true;
                 values.starting(event, container);
-                $selectedNodes = values.$selectedNodes || external_jQuery_namespaceObject.fn.constructor('.dxrd-viewport .dxrd-selected').filter(':visible');
+                $selectedNodes = values.$selectedNodes || createJQueryElement('.dxrd-viewport .dxrd-selected').filter(':visible');
                 $selectedNodes
                     .each((_, el) => {
-                    const $el = external_jQuery_namespaceObject.fn.constructor(el);
+                    const $el = createJQueryElement(el);
                     const bounds = el.getBoundingClientRect();
                     el.dataset.originalLeftPosition = $el.css('left');
                     el.dataset.originalTopPosition = $el.css('top');
@@ -9872,6 +10122,7 @@ const requiredValidationRules = [requiredValidationRule];
 
 
 
+const ENUM_TYPE_SEPARATOR = ',';
 class OperandValue extends CriteriaOperator {
     _processStringValue(value) {
         let result = value.slice(1, value.length - 1);
@@ -9910,8 +10161,18 @@ class OperandValue extends CriteriaOperator {
         else if (String(value).toLowerCase() === 'true' || String(value).toLowerCase() === 'false') {
             result = String(value).toLowerCase() === 'true' ? 'True' : 'False';
         }
-        else if (isSomeType) {
-            this.specifics = value.match(/\#\w+\#/g)[0].replace(/\#/g, '').toLowerCase();
+        else if (isSomeType && !!value) {
+            const valueParts = value.match(/\#(\w+)\#(.*?)\#/);
+            if (valueParts) {
+                const valueSpecifics = valueParts[1].toLowerCase();
+                if (valueSpecifics === 'enum' || valueSpecifics === 'tostring') {
+                    this.specifics = 'enum';
+                    result = valueParts[2] ?? '';
+                }
+                else {
+                    this.specifics = valueSpecifics;
+                }
+            }
         }
         this.value = result;
     }
@@ -10598,7 +10859,8 @@ var $0 = $$.length - 1;
 switch (yystate) {
 case 1:
  return $$[$0-1]; 
-break;
+// removed by dead control flow
+
 case 2:
  this.$ = criteriaCreator.process("const", { value: $$[$0] }); 
 break;
@@ -11291,107 +11553,157 @@ performAction: function anonymous(yy,yy_,$avoiding_name_collisions,YY_START) {
 var YYSTATE=YY_START;
 switch($avoiding_name_collisions) {
 case 0: this.begin('INITIAL'); return 45; 
-break;
+// removed by dead control flow
+
 case 1: this.begin('INITIAL'); return 51; 
-break;
+// removed by dead control flow
+
 case 2:return 53;
-break;
+// removed by dead control flow
+
 case 3:return 52;
-break;
+// removed by dead control flow
+
 case 4:return 'INVALID';
-break;
+// removed by dead control flow
+
 case 5:return 39
-break;
+// removed by dead control flow
+
 case 6:return 43
-break;
+// removed by dead control flow
+
 case 7:return 8
-break;
+// removed by dead control flow
+
 case 8:return 41
-break;
+// removed by dead control flow
+
 case 9:return 40
-break;
+// removed by dead control flow
+
 case 10:return 42
-break;
+// removed by dead control flow
+
 case 11:return 42
-break;
+// removed by dead control flow
+
 case 12:/* skip whitespace */
 break;
 case 13:return 36
-break;
+// removed by dead control flow
+
 case 14:return 34
-break;
+// removed by dead control flow
+
 case 15:return 27
-break;
+// removed by dead control flow
+
 case 16:return 32
-break;
+// removed by dead control flow
+
 case 17:return 33
-break;
+// removed by dead control flow
+
 case 18:return 10
-break;
+// removed by dead control flow
+
 case 19:return 11
-break;
+// removed by dead control flow
+
 case 20:return 13
-break;
+// removed by dead control flow
+
 case 21:return 12
-break;
+// removed by dead control flow
+
 case 22:return 17
-break;
+// removed by dead control flow
+
 case 23:return 19
-break;
+// removed by dead control flow
+
 case 24:return 21
-break;
+// removed by dead control flow
+
 case 25:return 18
-break;
+// removed by dead control flow
+
 case 26:return 14
-break;
+// removed by dead control flow
+
 case 27:return 21
-break;
+// removed by dead control flow
+
 case 28:return 24
-break;
+// removed by dead control flow
+
 case 29:return 25
-break;
+// removed by dead control flow
+
 case 30:return 22
-break;
+// removed by dead control flow
+
 case 31:return 23
-break;
+// removed by dead control flow
+
 case 32:return 29
-break;
+// removed by dead control flow
+
 case 33:return 28
-break;
+// removed by dead control flow
+
 case 34:return 20
-break;
+// removed by dead control flow
+
 case 35:return 20
-break;
+// removed by dead control flow
+
 case 36:return 26
-break;
+// removed by dead control flow
+
 case 37:return 28
-break;
+// removed by dead control flow
+
 case 38:return 29
-break;
+// removed by dead control flow
+
 case 39:return 16
-break;
+// removed by dead control flow
+
 case 40:return 15
-break;
+// removed by dead control flow
+
 case 41: this.begin('fieldname'); return 54; 
-break;
+// removed by dead control flow
+
 case 42:return 46;
-break;
+// removed by dead control flow
+
 case 43:return 30
-break;
+// removed by dead control flow
+
 case 44:return 31
-break;
+// removed by dead control flow
+
 case 45:return 47
-break;
+// removed by dead control flow
+
 case 46:return 37
-break;
+// removed by dead control flow
+
 case 47:return 55
-break;
+// removed by dead control flow
+
 case 48:return 38
-break;
+// removed by dead control flow
+
 case 49:return 'INVALID'
-break;
+// removed by dead control flow
+
 case 50:return 5
-break;
+// removed by dead control flow
+
 }
 },
 rules: [/^(?:\]\s*\[)/i,/^(?:\])/i,/^(?:\\.)/i,/^(?:.)/i,/^(?:$)/i,/^(?:'(?:[^\']|(?:('')))*')/i,/^(?:\{[0-9A-Fa-f]{8}[-]?(?:[0-9A-Fa-f]{4}[-]?){3}[0-9A-Fa-f]{12}\})/i,/^(?:##\w+#(?:[^\#]|(?:\.))*#)/i,/^(?:#(?:[^\\\#]|(?:\\.))*#)/i,/^(?:[0-9]+(\.[0-9]+([mfMF]{1})?|[bsiluBSILU]{1})?|\.([0-9]+[mfMF]?))/i,/^(?:True\b)/i,/^(?:False\b)/i,/^(?:\s+)/i,/^(?:Between\b)/i,/^(?:In\b)/i,/^(?:Not\b)/i,/^(?:Is\b)/i,/^(?:Null\b)/i,/^(?:\*)/i,/^(?:\/)/i,/^(?:-)/i,/^(?:\+)/i,/^(?:\^)/i,/^(?:~)/i,/^(?:!=)/i,/^(?:!)/i,/^(?:%)/i,/^(?:<>)/i,/^(?:>=)/i,/^(?:<=)/i,/^(?:>)/i,/^(?:<)/i,/^(?:\|\|)/i,/^(?:&&)/i,/^(?:==)/i,/^(?:=)/i,/^(?:Like\b)/i,/^(?:And\b)/i,/^(?:Or\b)/i,/^(?:&)/i,/^(?:\|)/i,/^(?:\[)/i,/^(?:\])/i,/^(?:\()/i,/^(?:\))/i,/^(?:\.)/i,/^(?:,)/i,/^(?:\?)/i,/^(?:[_\u0041-\u005A\u0061-\u007A\u00AA\u00B5\u00BA\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02C1\u02C6-\u02D1\u02E0-\u02E4\u02EC\u02EE\u0370-\u0374\u0376-\u0377\u037A-\u037D\u037F\u0386\u0388-\u038A\u038C\u038E-\u03A1\u03A3-\u03F5\u03F7-\u0481\u048A-\u052F\u0531-\u0556\u0559\u0561-\u0587\u05D0-\u05EA\u05F0-\u05F2\u0620-\u064A\u066E-\u066F\u0671-\u06D3\u06D5\u06E5-\u06E6\u06EE-\u06EF\u06FA-\u06FC\u06FF\u0710\u0712-\u072F\u074D-\u07A5\u07B1\u07CA-\u07EA\u07F4-\u07F5\u07FA\u0800-\u0815\u081A\u0824\u0828\u0840-\u0858\u08A0-\u08B4\u0904-\u0939\u093D\u0950\u0958-\u0961\u0971-\u0980\u0985-\u098C\u098F-\u0990\u0993-\u09A8\u09AA-\u09B0\u09B2\u09B6-\u09B9\u09BD\u09CE\u09DC-\u09DD\u09DF-\u09E1\u09F0-\u09F1\u0A05-\u0A0A\u0A0F-\u0A10\u0A13-\u0A28\u0A2A-\u0A30\u0A32-\u0A33\u0A35-\u0A36\u0A38-\u0A39\u0A59-\u0A5C\u0A5E\u0A72-\u0A74\u0A85-\u0A8D\u0A8F-\u0A91\u0A93-\u0AA8\u0AAA-\u0AB0\u0AB2-\u0AB3\u0AB5-\u0AB9\u0ABD\u0AD0\u0AE0-\u0AE1\u0AF9\u0B05-\u0B0C\u0B0F-\u0B10\u0B13-\u0B28\u0B2A-\u0B30\u0B32-\u0B33\u0B35-\u0B39\u0B3D\u0B5C-\u0B5D\u0B5F-\u0B61\u0B71\u0B83\u0B85-\u0B8A\u0B8E-\u0B90\u0B92-\u0B95\u0B99-\u0B9A\u0B9C\u0B9E-\u0B9F\u0BA3-\u0BA4\u0BA8-\u0BAA\u0BAE-\u0BB9\u0BD0\u0C05-\u0C0C\u0C0E-\u0C10\u0C12-\u0C28\u0C2A-\u0C39\u0C3D\u0C58-\u0C5A\u0C60-\u0C61\u0C85-\u0C8C\u0C8E-\u0C90\u0C92-\u0CA8\u0CAA-\u0CB3\u0CB5-\u0CB9\u0CBD\u0CDE\u0CE0-\u0CE1\u0CF1-\u0CF2\u0D05-\u0D0C\u0D0E-\u0D10\u0D12-\u0D3A\u0D3D\u0D4E\u0D5F-\u0D61\u0D7A-\u0D7F\u0D85-\u0D96\u0D9A-\u0DB1\u0DB3-\u0DBB\u0DBD\u0DC0-\u0DC6\u0E01-\u0E30\u0E32-\u0E33\u0E40-\u0E46\u0E81-\u0E82\u0E84\u0E87-\u0E88\u0E8A\u0E8D\u0E94-\u0E97\u0E99-\u0E9F\u0EA1-\u0EA3\u0EA5\u0EA7\u0EAA-\u0EAB\u0EAD-\u0EB0\u0EB2-\u0EB3\u0EBD\u0EC0-\u0EC4\u0EC6\u0EDC-\u0EDF\u0F00\u0F40-\u0F47\u0F49-\u0F6C\u0F88-\u0F8C\u1000-\u102A\u103F\u1050-\u1055\u105A-\u105D\u1061\u1065-\u1066\u106E-\u1070\u1075-\u1081\u108E\u10A0-\u10C5\u10C7\u10CD\u10D0-\u10FA\u10FC-\u1248\u124A-\u124D\u1250-\u1256\u1258\u125A-\u125D\u1260-\u1288\u128A-\u128D\u1290-\u12B0\u12B2-\u12B5\u12B8-\u12BE\u12C0\u12C2-\u12C5\u12C8-\u12D6\u12D8-\u1310\u1312-\u1315\u1318-\u135A\u1380-\u138F\u13A0-\u13F5\u13F8-\u13FD\u1401-\u166C\u166F-\u167F\u1681-\u169A\u16A0-\u16EA\u16F1-\u16F8\u1700-\u170C\u170E-\u1711\u1720-\u1731\u1740-\u1751\u1760-\u176C\u176E-\u1770\u1780-\u17B3\u17D7\u17DC\u1820-\u1877\u1880-\u18A8\u18AA\u18B0-\u18F5\u1900-\u191E\u1950-\u196D\u1970-\u1974\u1980-\u19AB\u19B0-\u19C9\u1A00-\u1A16\u1A20-\u1A54\u1AA7\u1B05-\u1B33\u1B45-\u1B4B\u1B83-\u1BA0\u1BAE-\u1BAF\u1BBA-\u1BE5\u1C00-\u1C23\u1C4D-\u1C4F\u1C5A-\u1C7D\u1CE9-\u1CEC\u1CEE-\u1CF1\u1CF5-\u1CF6\u1D00-\u1DBF\u1E00-\u1F15\u1F18-\u1F1D\u1F20-\u1F45\u1F48-\u1F4D\u1F50-\u1F57\u1F59\u1F5B\u1F5D\u1F5F-\u1F7D\u1F80-\u1FB4\u1FB6-\u1FBC\u1FBE\u1FC2-\u1FC4\u1FC6-\u1FCC\u1FD0-\u1FD3\u1FD6-\u1FDB\u1FE0-\u1FEC\u1FF2-\u1FF4\u1FF6-\u1FFC\u2071\u207F\u2090-\u209C\u2102\u2107\u210A-\u2113\u2115\u2119-\u211D\u2124\u2126\u2128\u212A-\u212D\u212F-\u2139\u213C-\u213F\u2145-\u2149\u214E\u2183-\u2184\u2C00-\u2C2E\u2C30-\u2C5E\u2C60-\u2CE4\u2CEB-\u2CEE\u2CF2-\u2CF3\u2D00-\u2D25\u2D27\u2D2D\u2D30-\u2D67\u2D6F\u2D80-\u2D96\u2DA0-\u2DA6\u2DA8-\u2DAE\u2DB0-\u2DB6\u2DB8-\u2DBE\u2DC0-\u2DC6\u2DC8-\u2DCE\u2DD0-\u2DD6\u2DD8-\u2DDE\u2E2F\u3005-\u3006\u3031-\u3035\u303B-\u303C\u3041-\u3096\u309D-\u309F\u30A1-\u30FA\u30FC-\u30FF\u3105-\u312D\u3131-\u318E\u31A0-\u31BA\u31F0-\u31FF\u3400-\u4DB5\u4E00-\u9FD5\uA000-\uA48C\uA4D0-\uA4FD\uA500-\uA60C\uA610-\uA61F\uA62A-\uA62B\uA640-\uA66E\uA67F-\uA69D\uA6A0-\uA6E5\uA717-\uA71F\uA722-\uA788\uA78B-\uA7AD\uA7B0-\uA7B7\uA7F7-\uA801\uA803-\uA805\uA807-\uA80A\uA80C-\uA822\uA840-\uA873\uA882-\uA8B3\uA8F2-\uA8F7\uA8FB\uA8FD\uA90A-\uA925\uA930-\uA946\uA960-\uA97C\uA984-\uA9B2\uA9CF\uA9E0-\uA9E4\uA9E6-\uA9EF\uA9FA-\uA9FE\uAA00-\uAA28\uAA40-\uAA42\uAA44-\uAA4B\uAA60-\uAA76\uAA7A\uAA7E-\uAAAF\uAAB1\uAAB5-\uAAB6\uAAB9-\uAABD\uAAC0\uAAC2\uAADB-\uAADD\uAAE0-\uAAEA\uAAF2-\uAAF4\uAB01-\uAB06\uAB09-\uAB0E\uAB11-\uAB16\uAB20-\uAB26\uAB28-\uAB2E\uAB30-\uAB5A\uAB5C-\uAB65\uAB70-\uABE2\uAC00-\uD7A3\uD7B0-\uD7C6\uD7CB-\uD7FB\uF900-\uFA6D\uFA70-\uFAD9\uFB00-\uFB06\uFB13-\uFB17\uFB1D\uFB1F-\uFB28\uFB2A-\uFB36\uFB38-\uFB3C\uFB3E\uFB40-\uFB41\uFB43-\uFB44\uFB46-\uFBB1\uFBD3-\uFD3D\uFD50-\uFD8F\uFD92-\uFDC7\uFDF0-\uFDFB\uFE70-\uFE74\uFE76-\uFEFC\uFF21-\uFF3A\uFF41-\uFF5A\uFF66-\uFFBE\uFFC2-\uFFC7\uFFCA-\uFFCF\uFFD2-\uFFD7\uFFDA-\uFFDC][\d_\u0041-\u005A\u0061-\u007A\u00AA\u00B5\u00BA\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02C1\u02C6-\u02D1\u02E0-\u02E4\u02EC\u02EE\u0370-\u0374\u0376-\u0377\u037A-\u037D\u037F\u0386\u0388-\u038A\u038C\u038E-\u03A1\u03A3-\u03F5\u03F7-\u0481\u048A-\u052F\u0531-\u0556\u0559\u0561-\u0587\u05D0-\u05EA\u05F0-\u05F2\u0620-\u064A\u066E-\u066F\u0671-\u06D3\u06D5\u06E5-\u06E6\u06EE-\u06EF\u06FA-\u06FC\u06FF\u0710\u0712-\u072F\u074D-\u07A5\u07B1\u07CA-\u07EA\u07F4-\u07F5\u07FA\u0800-\u0815\u081A\u0824\u0828\u0840-\u0858\u08A0-\u08B4\u0904-\u0939\u093D\u0950\u0958-\u0961\u0971-\u0980\u0985-\u098C\u098F-\u0990\u0993-\u09A8\u09AA-\u09B0\u09B2\u09B6-\u09B9\u09BD\u09CE\u09DC-\u09DD\u09DF-\u09E1\u09F0-\u09F1\u0A05-\u0A0A\u0A0F-\u0A10\u0A13-\u0A28\u0A2A-\u0A30\u0A32-\u0A33\u0A35-\u0A36\u0A38-\u0A39\u0A59-\u0A5C\u0A5E\u0A72-\u0A74\u0A85-\u0A8D\u0A8F-\u0A91\u0A93-\u0AA8\u0AAA-\u0AB0\u0AB2-\u0AB3\u0AB5-\u0AB9\u0ABD\u0AD0\u0AE0-\u0AE1\u0AF9\u0B05-\u0B0C\u0B0F-\u0B10\u0B13-\u0B28\u0B2A-\u0B30\u0B32-\u0B33\u0B35-\u0B39\u0B3D\u0B5C-\u0B5D\u0B5F-\u0B61\u0B71\u0B83\u0B85-\u0B8A\u0B8E-\u0B90\u0B92-\u0B95\u0B99-\u0B9A\u0B9C\u0B9E-\u0B9F\u0BA3-\u0BA4\u0BA8-\u0BAA\u0BAE-\u0BB9\u0BD0\u0C05-\u0C0C\u0C0E-\u0C10\u0C12-\u0C28\u0C2A-\u0C39\u0C3D\u0C58-\u0C5A\u0C60-\u0C61\u0C85-\u0C8C\u0C8E-\u0C90\u0C92-\u0CA8\u0CAA-\u0CB3\u0CB5-\u0CB9\u0CBD\u0CDE\u0CE0-\u0CE1\u0CF1-\u0CF2\u0D05-\u0D0C\u0D0E-\u0D10\u0D12-\u0D3A\u0D3D\u0D4E\u0D5F-\u0D61\u0D7A-\u0D7F\u0D85-\u0D96\u0D9A-\u0DB1\u0DB3-\u0DBB\u0DBD\u0DC0-\u0DC6\u0E01-\u0E30\u0E32-\u0E33\u0E40-\u0E46\u0E81-\u0E82\u0E84\u0E87-\u0E88\u0E8A\u0E8D\u0E94-\u0E97\u0E99-\u0E9F\u0EA1-\u0EA3\u0EA5\u0EA7\u0EAA-\u0EAB\u0EAD-\u0EB0\u0EB2-\u0EB3\u0EBD\u0EC0-\u0EC4\u0EC6\u0EDC-\u0EDF\u0F00\u0F40-\u0F47\u0F49-\u0F6C\u0F88-\u0F8C\u1000-\u102A\u103F\u1050-\u1055\u105A-\u105D\u1061\u1065-\u1066\u106E-\u1070\u1075-\u1081\u108E\u10A0-\u10C5\u10C7\u10CD\u10D0-\u10FA\u10FC-\u1248\u124A-\u124D\u1250-\u1256\u1258\u125A-\u125D\u1260-\u1288\u128A-\u128D\u1290-\u12B0\u12B2-\u12B5\u12B8-\u12BE\u12C0\u12C2-\u12C5\u12C8-\u12D6\u12D8-\u1310\u1312-\u1315\u1318-\u135A\u1380-\u138F\u13A0-\u13F5\u13F8-\u13FD\u1401-\u166C\u166F-\u167F\u1681-\u169A\u16A0-\u16EA\u16F1-\u16F8\u1700-\u170C\u170E-\u1711\u1720-\u1731\u1740-\u1751\u1760-\u176C\u176E-\u1770\u1780-\u17B3\u17D7\u17DC\u1820-\u1877\u1880-\u18A8\u18AA\u18B0-\u18F5\u1900-\u191E\u1950-\u196D\u1970-\u1974\u1980-\u19AB\u19B0-\u19C9\u1A00-\u1A16\u1A20-\u1A54\u1AA7\u1B05-\u1B33\u1B45-\u1B4B\u1B83-\u1BA0\u1BAE-\u1BAF\u1BBA-\u1BE5\u1C00-\u1C23\u1C4D-\u1C4F\u1C5A-\u1C7D\u1CE9-\u1CEC\u1CEE-\u1CF1\u1CF5-\u1CF6\u1D00-\u1DBF\u1E00-\u1F15\u1F18-\u1F1D\u1F20-\u1F45\u1F48-\u1F4D\u1F50-\u1F57\u1F59\u1F5B\u1F5D\u1F5F-\u1F7D\u1F80-\u1FB4\u1FB6-\u1FBC\u1FBE\u1FC2-\u1FC4\u1FC6-\u1FCC\u1FD0-\u1FD3\u1FD6-\u1FDB\u1FE0-\u1FEC\u1FF2-\u1FF4\u1FF6-\u1FFC\u2071\u207F\u2090-\u209C\u2102\u2107\u210A-\u2113\u2115\u2119-\u211D\u2124\u2126\u2128\u212A-\u212D\u212F-\u2139\u213C-\u213F\u2145-\u2149\u214E\u2183-\u2184\u2C00-\u2C2E\u2C30-\u2C5E\u2C60-\u2CE4\u2CEB-\u2CEE\u2CF2-\u2CF3\u2D00-\u2D25\u2D27\u2D2D\u2D30-\u2D67\u2D6F\u2D80-\u2D96\u2DA0-\u2DA6\u2DA8-\u2DAE\u2DB0-\u2DB6\u2DB8-\u2DBE\u2DC0-\u2DC6\u2DC8-\u2DCE\u2DD0-\u2DD6\u2DD8-\u2DDE\u2E2F\u3005-\u3006\u3031-\u3035\u303B-\u303C\u3041-\u3096\u309D-\u309F\u30A1-\u30FA\u30FC-\u30FF\u3105-\u312D\u3131-\u318E\u31A0-\u31BA\u31F0-\u31FF\u3400-\u4DB5\u4E00-\u9FD5\uA000-\uA48C\uA4D0-\uA4FD\uA500-\uA60C\uA610-\uA61F\uA62A-\uA62B\uA640-\uA66E\uA67F-\uA69D\uA6A0-\uA6E5\uA717-\uA71F\uA722-\uA788\uA78B-\uA7AD\uA7B0-\uA7B7\uA7F7-\uA801\uA803-\uA805\uA807-\uA80A\uA80C-\uA822\uA840-\uA873\uA882-\uA8B3\uA8F2-\uA8F7\uA8FB\uA8FD\uA90A-\uA925\uA930-\uA946\uA960-\uA97C\uA984-\uA9B2\uA9CF\uA9E0-\uA9E4\uA9E6-\uA9EF\uA9FA-\uA9FE\uAA00-\uAA28\uAA40-\uAA42\uAA44-\uAA4B\uAA60-\uAA76\uAA7A\uAA7E-\uAAAF\uAAB1\uAAB5-\uAAB6\uAAB9-\uAABD\uAAC0\uAAC2\uAADB-\uAADD\uAAE0-\uAAEA\uAAF2-\uAAF4\uAB01-\uAB06\uAB09-\uAB0E\uAB11-\uAB16\uAB20-\uAB26\uAB28-\uAB2E\uAB30-\uAB5A\uAB5C-\uAB65\uAB70-\uABE2\uAC00-\uD7A3\uD7B0-\uD7C6\uD7CB-\uD7FB\uF900-\uFA6D\uFA70-\uFAD9\uFB00-\uFB06\uFB13-\uFB17\uFB1D\uFB1F-\uFB28\uFB2A-\uFB36\uFB38-\uFB3C\uFB3E\uFB40-\uFB41\uFB43-\uFB44\uFB46-\uFBB1\uFBD3-\uFD3D\uFD50-\uFD8F\uFD92-\uFDC7\uFDF0-\uFDFB\uFE70-\uFE74\uFE76-\uFEFC\uFF21-\uFF3A\uFF41-\uFF5A\uFF66-\uFFBE\uFFC2-\uFFC7\uFFCA-\uFFCF\uFFD2-\uFFD7\uFFDA-\uFFDC]*)/i,/^(?:.)/i,/^(?:$)/i],
@@ -12407,7 +12719,7 @@ class ContextMenuProvider extends Disposable {
         };
         this.onInitialized = (e) => {
             this.component = e.component;
-            this._menuElement = e.element;
+            this._menuElement = $unwrap(e.element);
         };
         this.onOptionChanged = (e) => {
             if (e.name === 'visible' && e.value)
@@ -13667,7 +13979,6 @@ class ControlProperties extends ObjectProperties {
 
 
 
-
 function copyObservables(from, to) {
     Object.keys(from || {}).forEach((name) => {
         if (external_ko_namespaceObject.isObservable(from[name])) {
@@ -13731,24 +14042,24 @@ function getFullPath(path, dataMember) {
     return path + (dataMember ? '.' + dataMember : '');
 }
 function loadTemplates() {
-    const promises = external_jQuery_namespaceObject.fn.constructor("script[type='text/html']").map(function (_, script) {
+    const promises = Array.from(document.querySelectorAll("script[type='text/html']")).map((script) => {
         if (script.src) {
             const deffered = new DxDeferred();
-            external_jQuery_namespaceObject.get(script.src)
-                .done(function (tmpl) {
+            fetch(script.src).then(response => response.text())
+                .then((tmpl) => {
                 script.text = tmpl;
                 if (tmpl.indexOf('type="text/html"') !== -1 || tmpl.indexOf("type='text/html'") !== -1) {
-                    external_jQuery_namespaceObject.fn.constructor(document.body).append(tmpl);
+                    document.body.append(tmpl);
                 }
                 deffered.resolve();
             })
-                .fail(function (jqXHR, textStatus, errorThrown) {
+                .catch(() => {
                 deffered.reject();
             });
             return deffered.promise();
         }
     });
-    return external_jQuery_namespaceObject.when.apply(external_jQuery_namespaceObject.when, promises);
+    return DxDeferred.when(promises);
 }
 function cutRefs(model) {
     objectsVisitor(model, (target) => {
@@ -14731,6 +15042,7 @@ tabInfo_decorate([
 
 
 
+
 function createDesigner(model, surface, controlsFactory, groups = {}, editors = [], parts, rtl, selection, designControlsHelper, undoEngine, customMerge, snapLinesCollector, groupLocalizationIDs) {
     const context = new DesignerContextGenerator(rtl)
         .addModel(model)
@@ -14801,8 +15113,8 @@ function createDesigner(model, surface, controlsFactory, groups = {}, editors = 
         settings.toggleAppMenu = function () {
             settings.appMenuVisible(!settings.appMenuVisible());
         };
-        settings.getMenuPopupContainer = (el) => $.fn.constructor(el).closest('.dxrd-menu-button').prev('.dxrd-menu-container');
-        settings.getMenuPopupTarget = (el) => $.fn.constructor(el).closest('.dxrd-menu-button').find('.dxrd-menu-place');
+        settings.getMenuPopupContainer = (el) => createJQueryElement(el).closest('.dxrd-menu-button').prev('.dxrd-menu-container');
+        settings.getMenuPopupTarget = (el) => createJQueryElement(el).closest('.dxrd-menu-button').find('.dxrd-menu-place');
     })
         .addElement('inlineTextEdit', () => new InlineTextEdit(designerGenerator.getModel().selection))
         .addElement('actionsGroupTitle', () => () => localization_utils_getLocalization('Actions', 'AnalyticsCoreStringId.Actions'))
@@ -15009,7 +15321,7 @@ function _wrapModelInObservable(model) {
 ;// ./dist/core/utils/_createDeferred.js
 
 function createDeferred() {
-    return external_jQuery_namespaceObject.Deferred();
+    return jqueryStatic.Deferred();
 }
 
 ;// ./dist/core/widgets/bordereditor/_bordereditor.js
@@ -15263,7 +15575,7 @@ external_ko_namespaceObject.bindingHandlers['selectable'] = {
                 const _event = { control: modelAccessor(selectionElement), cancel: false, ctrlKey: event.ctrlKey };
                 selection.selecting(_event);
                 if (_event.cancel) {
-                    external_jQuery_namespaceObject.fn.constructor(selectionElement).removeClass('ui-selecting');
+                    createJQueryElement(selectionElement).removeClass('ui-selecting');
                 }
             },
             start: (event, element) => {
@@ -15297,7 +15609,7 @@ external_ko_namespaceObject.bindingHandlers['selectable'] = {
 external_ko_namespaceObject.bindingHandlers['updateTop'] = {
     init: function (element, valueAccessor, allBindings, viewModel, bindingContext) {
         const value = valueAccessor();
-        const $element = external_jQuery_namespaceObject.fn.constructor(element);
+        const $element = createJQueryElement(element);
         const updateTop = (value) => {
             const scaleY = element.getBoundingClientRect().height / element.offsetHeight;
             const top = (value === 0 || !!value) ? value : ($element.prev().position().top / scaleY) + $element.prev().outerHeight();
@@ -15341,7 +15653,7 @@ function initUpdateDraggability(element, valueAccessor, allBindingsAccessor, vie
     const values = valueAccessor();
     if (!values)
         return;
-    const $element = external_jQuery_namespaceObject.fn.constructor(element), $parent = values.parent && values.parent() || $element.closest('.dx-designer-viewport'), containment = values.containment || '.dxrd-ghost-container';
+    const $element = createJQueryElement(element), $parent = values.parent && values.parent() || $element.closest('.dx-designer-viewport'), containment = values.containment || '.dxrd-ghost-container';
     let $viewport, $ghostContainerOffset, $containmentOffset;
     const initialScroll = { left: 0, top: 0 }, attachDelta = (ui) => {
         ui['delta'] = {
@@ -15385,7 +15697,7 @@ function initUpdateDraggability(element, valueAccessor, allBindingsAccessor, vie
             }
             const templateHtml = getTemplate(bindingContext.$root.dragHelperContent.template);
             const draggableModel = modelAccessor(uiElement);
-            $container = external_jQuery_namespaceObject.fn.constructor(templateHtml).css({ 'display': values.helper ? 'block' : 'none', 'position': 'absolute' });
+            $container = createJQueryElement(templateHtml).css({ 'display': values.helper ? 'block' : 'none', 'position': 'absolute' });
             $container[0].dataset.startLeftPosition = convertToCssPixelUnits(draggableModel.absolutePosition ? draggableModel.absolutePosition.x() : event.pageX - parentOffset.left);
             $container[0].dataset.startTopPosition = convertToCssPixelUnits(draggableModel.absolutePosition ? draggableModel.absolutePosition.y() : event.pageY - parentOffset.top);
             $container.prependTo(_getContainment($parent, options.containment));
@@ -15421,7 +15733,7 @@ const trackCursorSelector = '.' + trackCursorClass;
 const dragHelperLineClass = 'dxrd-drag-helper-item';
 external_ko_namespaceObject.bindingHandlers['trackCursor'] = {
     init: function (element, valueAccessor, allBindingsAccessor, viewModel, bindingContext) {
-        const $element = external_jQuery_namespaceObject.fn.constructor(element);
+        const $element = createJQueryElement(element);
         $element.addClass(trackCursorClass);
         let value = valueAccessor();
         let recalculateBounds = false;
@@ -15429,7 +15741,7 @@ external_ko_namespaceObject.bindingHandlers['trackCursor'] = {
             recalculateBounds = value['recalculateBounds'];
             value = value['underCursor'];
         }
-        let bounds = element.getBoundingClientRect();
+        let bounds;
         const body = document.body, docElem = document.documentElement, overHandler = (event) => {
             if (!(bindingContext.$root.selection.started && bindingContext.$root.resizeHandler.started)) {
                 if (!value().isNotDropTarget) {
@@ -15448,7 +15760,7 @@ external_ko_namespaceObject.bindingHandlers['trackCursor'] = {
         }, leaveHandler = (event) => {
             value(extend(value(), { isOver: false }));
         }, handler = (event) => {
-            if (recalculateBounds)
+            if (!bounds || recalculateBounds)
                 bounds = element.getBoundingClientRect();
             if (!(bindingContext.$root.selection.started && bindingContext.$root.resizeHandler.started)) {
                 const scrollTop = window.pageYOffset || docElem.scrollTop || body.scrollTop, scrollLeft = window.pageXOffset || docElem.scrollLeft || body.scrollLeft, clientTop = docElem.clientTop || body.clientTop || 0, clientLeft = docElem.clientLeft || body.clientLeft || 0, y = event.pageY - (bounds.top + scrollTop - clientTop), x = event.pageX - (bounds.left + scrollLeft - clientLeft);
@@ -15472,8 +15784,8 @@ external_ko_namespaceObject.bindingHandlers['trackCursor'] = {
 };
 external_ko_namespaceObject.bindingHandlers['templates'] = {
     init: function (element, valueAccessor) {
-        const templateHtml = external_jQuery_namespaceObject.fn.constructor(valueAccessor()).text(), $templateHtml = external_jQuery_namespaceObject.fn.constructor(templateHtml);
-        external_jQuery_namespaceObject.fn.constructor(element).append($templateHtml);
+        const templateHtml = createJQueryElement(valueAccessor()).text(), $templateHtml = createJQueryElement(templateHtml);
+        createJQueryElement(element).append($templateHtml);
         return { controlsDescendantBindings: true };
     }
 };
@@ -16728,6 +17040,13 @@ class FilterEditorSerializer {
             result = result.replace(/'/g, "''");
             return result ? "'" + result + "'" : '?';
         }
+        else if (operandValue.specifics === 'enum' && !!result) {
+            const [enumType, enumValue] = result.split(ENUM_TYPE_SEPARATOR);
+            if (enumType && enumValue) {
+                return `##Enum#${result}#`;
+            }
+            return `##ToString#${result}#`;
+        }
         return result ? result : '?';
     }
     serializeOperandParameter(operandParameter) {
@@ -17134,6 +17453,10 @@ function base64DecodeUnicode(base64string) {
 }
 
 ;// ./dist/analytics-internal.js
+
+
+
+
 
 
 
@@ -18831,15 +19154,15 @@ external_ko_namespaceObject.bindingHandlers['dxCollectionEditor'] = {
         }
         const collectionEditorModel = engineType === 'multiplatform' ?
             wrapModelWithKo(valueAccessor(), viewModel) :
-            new CollectionEditorViewModel(wrapOptions(viewModel)), templateHtml = getTemplate(options.editorTemplate || '#dx-collectioneditor'), $templateHtml = external_jQuery_namespaceObject.fn.constructor(templateHtml), info = external_ko_namespaceObject.unwrap(options.info), itemTemplateName = info && info['template'] || options.template;
+            new CollectionEditorViewModel(wrapOptions(viewModel)), templateHtml = getTemplate(options.editorTemplate || '#dx-collectioneditor'), $templateHtml = createJQueryElement(templateHtml), info = external_ko_namespaceObject.unwrap(options.info), itemTemplateName = info && info['template'] || options.template;
         if (itemTemplateName) {
             const itemTemplateHtml = getTemplate(itemTemplateName);
-            $templateHtml.find('.dx-collection-item').append(external_jQuery_namespaceObject.fn.constructor(itemTemplateHtml));
+            $templateHtml.find('.dx-collection-item').append(createJQueryElement(itemTemplateHtml));
         }
         else {
-            $templateHtml.find('.dx-collection-item').append(external_jQuery_namespaceObject.fn.constructor(element).children());
+            $templateHtml.find('.dx-collection-item').append(createJQueryElement(element).children());
         }
-        const $element = external_jQuery_namespaceObject.fn.constructor(element).append($templateHtml);
+        const $element = createJQueryElement(element).append($templateHtml);
         const childContext = bindingContext.createChildContext(collectionEditorModel.getViewModel());
         external_ko_namespaceObject.cleanNode($element.children()[0]);
         external_ko_namespaceObject.applyBindings(childContext, $element.children()[0]);
@@ -19015,10 +19338,10 @@ class dxFileImagePicker extends dxEllipsisEditor {
         this.option('value', result.content);
     }
     _renderInput(inputContainer) {
-        const $inputContainer = inputContainer && external_jQuery_namespaceObject.fn.constructor(inputContainer) || external_jQuery_namespaceObject.fn.constructor('<div />');
+        const $inputContainer = inputContainer && createJQueryElement(inputContainer) || createJQueryElement('<div />');
         $inputContainer.addClass(EDITOR_INPUT_WRAPPER_CLASS);
         this['_inputContainer'] = $inputContainer.get(0);
-        external_jQuery_namespaceObject.fn.constructor(this.element()).append(this['_inputContainer']);
+        createJQueryElement(this.element()).append(this['_inputContainer']);
         super['_renderInput'].apply(this, [inputContainer]);
     }
     _attachButtonEvents() {
@@ -19404,7 +19727,7 @@ class ExpressionEditorTreeListController extends TreeListController {
             super.select(value);
     }
     getActions(item) {
-        return [{ clickAction: (element) => this.putSelectionHandler(item, external_jQuery_namespaceObject.fn.constructor(element)) }];
+        return [{ clickAction: (element) => this.putSelectionHandler(item, createJQueryElement(element)) }];
     }
     canSelect(value) {
         return true;
@@ -19427,7 +19750,7 @@ class ExpressionEditorParametersTreeListController extends TreeListController {
         return [{
                 clickAction: (element) => {
                     if (item && !item.hasItems)
-                        this.putSelectionHandler(item.path, external_jQuery_namespaceObject.fn.constructor(element));
+                        this.putSelectionHandler(item.path, createJQueryElement(element));
                 }
             }];
     }
@@ -20182,6 +20505,7 @@ class OperandPropertySurface extends OperandSurfaceBase {
 
 
 
+
 class OperandValueSurface extends OperandSurfaceBase {
     get items() {
         return this.values();
@@ -20225,6 +20549,7 @@ class OperandValueSurface extends OperandSurfaceBase {
                 onFocusIn: () => this.scrollTo(element)
             };
         };
+        this.getDropDownOptions = (element, $root) => { return { container: $root.getPopupContainer(element) }; };
         this.getNumberEditorOptions = (element) => {
             return ValueEditorHelper.getNumberEditorOptions(this.dataType(), this.specifics(), this._getBaseOptions(element));
         };
@@ -20248,7 +20573,7 @@ class OperandValueSurface extends OperandSurfaceBase {
             return {
                 closeOnValueChange: true,
                 type: specifics,
-                dropDownOptions: { container: $root.getPopupContainer(element) },
+                dropDownOptions: this.getDropDownOptions(element, $root),
                 ...this._getBaseOptions(element)
             };
         };
@@ -20261,7 +20586,18 @@ class OperandValueSurface extends OperandSurfaceBase {
                 displayExpr: !isCustomValue ? 'display' : undefined,
                 useItemTextAsTitle: true,
                 searchEnabled: true,
-                dropDownOptions: { container: $root.getPopupContainer(element) },
+                dropDownOptions: this.getDropDownOptions(element, $root),
+                ...this._getBaseOptions(element)
+            };
+        };
+        this.getEnumEditOptions = (element, $root) => {
+            return {
+                dataSource: this.dataSource,
+                valueExpr: 'value',
+                displayExpr: 'display',
+                useItemTextAsTitle: true,
+                searchEnabled: true,
+                dropDownOptions: this.getDropDownOptions(element, $root),
                 ...this._getBaseOptions(element)
             };
         };
@@ -20288,7 +20624,7 @@ class OperandValueSurface extends OperandSurfaceBase {
             this.isUpdated = parent.isUpdated;
             this.dataType = parent.dataType;
         }
-        if (operator.specifics && external_ko_namespaceObject.isWritableObservable(this.specifics))
+        if (operator.specifics && external_ko_namespaceObject.isWritableObservable(this.specifics) && external_ko_namespaceObject.unwrap(this.specifics) !== 'enum')
             this.specifics(operator.specifics);
         this._disposables.push(this.specifics.subscribe((newVal) => {
             if (!this.isUpdated || !this.isUpdated()) {
@@ -20336,14 +20672,11 @@ class OperandValueSurface extends OperandSurfaceBase {
             }
         }));
         this._disposables.push(external_ko_namespaceObject.computed(() => {
-            const itemsProvider = external_ko_namespaceObject.unwrap(fieldListProvider);
-            if (itemsProvider && itemsProvider.getValues && this.parent.leftPart instanceof OperandPropertySurface) {
-                if (this.parent.leftPart.propertyName()) {
-                    itemsProvider.getValues(new PathRequest(external_ko_namespaceObject.unwrap(this.path) + '.' + this.parent.leftPart.propertyName())).done((result) => {
-                        this.values(result);
-                    });
-                }
+            if (this.specifics() === 'enum') {
+                this.collectEnumValues();
+                return;
             }
+            this.collectValues();
         }));
         operator.specifics = this.specifics();
     }
@@ -20363,6 +20696,38 @@ class OperandValueSurface extends OperandSurfaceBase {
             this._scroll = external_DevExpress_ui_dxScrollView_default().getInstance(scrollElement);
         }
         this._scroll.scrollToElement(element);
+    }
+    collectValues() {
+        const itemsProvider = external_ko_namespaceObject.unwrap(this.fieldListProvider);
+        if (itemsProvider && itemsProvider.getValues && this.parent.leftPart instanceof OperandPropertySurface) {
+            if (this.parent.leftPart.propertyName()) {
+                itemsProvider.getValues(new PathRequest(external_ko_namespaceObject.unwrap(this.path) + '.' + this.parent.leftPart.propertyName())).done((result) => {
+                    this.values(result);
+                });
+            }
+        }
+    }
+    collectEnumValues() {
+        const itemsProvider = external_ko_namespaceObject.unwrap(this.fieldListProvider);
+        if (itemsProvider && itemsProvider.getItems && this.parent.leftPart instanceof OperandPropertySurface) {
+            const propertyFullName = this.parent.leftPart.propertyName();
+            if (propertyFullName) {
+                const parts = propertyFullName.split('.');
+                const propertyName = parts.pop();
+                const fullPath = [external_ko_namespaceObject.unwrap(this.path), ...parts].join('.');
+                itemsProvider.getItems(new PathRequest(fullPath)).done((result) => {
+                    const property = result.find(item => item.name === propertyName);
+                    let values = [];
+                    if (property && property.enumValues) {
+                        values = property.enumValues.map(({ name, displayName }) => ({
+                            value: [property.enumRegisteredType, name].filter(Boolean).join(ENUM_TYPE_SEPARATOR),
+                            display: displayName
+                        }));
+                    }
+                    this.values(values);
+                });
+            }
+        }
     }
 }
 
@@ -20554,7 +20919,8 @@ class FilterEditorHelper {
             list: [],
             group: [],
             bool: [],
-            custom: []
+            custom: [],
+            enum: []
         };
         this.onChange = () => { };
         this.onEditorFocusOut = (criteria) => { };
@@ -20695,6 +21061,12 @@ class FilterEditorHelper {
             { name: 'Or', _type: 'group', insertVal: 'Or', value: GroupOperatorType.Or, type: GroupOperatorType, localizationId: 'StringId.FilterGroupOr' },
             { name: 'Not And', _type: 'group', value: GroupOperatorType.And, reverse: true, type: GroupOperatorType, localizationId: 'StringId.FilterGroupNotAnd' },
             { name: 'Not Or', _type: 'group', value: GroupOperatorType.Or, reverse: true, type: GroupOperatorType, localizationId: 'StringId.FilterGroupNotOr' },
+        ];
+        this.filterEditorOperators.enum = [
+            { name: 'Equals', _type: 'binary', insertVal: '==', value: BinaryOperatorType.Equal, type: BinaryOperatorType, localizationId: 'StringId.FilterClauseEquals' },
+            { name: 'Does not equal', _type: 'binary', hidden: true, reverse: true, value: BinaryOperatorType.Equal, type: BinaryOperatorType, localizationId: 'StringId.FilterClauseDoesNotEqual' },
+            { name: 'Does not equal', _type: 'binary', insertVal: '!=', value: BinaryOperatorType.NotEqual, type: BinaryOperatorType, localizationId: 'StringId.FilterClauseDoesNotEqual' },
+            { name: 'Equals', _type: 'binary', reverse: true, hidden: true, value: BinaryOperatorType.NotEqual, type: BinaryOperatorType, localizationId: 'StringId.FilterClauseEquals' },
         ];
         this.filterEditorOperators.custom = [];
         FilterEditorHelper._customExpressions.forEach(customExpression => customExpression && this.registrateOperator(customExpression.category?.toLowerCase() ?? 'custom', FunctionOperatorType, customExpression.name, customExpression.description, 'function', false, customExpression.localizationId, `${customExpression.name}()`));
@@ -20893,7 +21265,7 @@ class ResizeHelper {
         let oldDelta = 0;
         return extend({}, resizeHandler, {
             handles: handles,
-            $selectedNodes: external_jQuery_namespaceObject.fn.constructor(),
+            $selectedNodes: createJQueryElement([]),
             stopped: () => { oldDelta = 0; },
             resize: (event, element, boundsDiff) => {
                 oldDelta = this._resize(-boundsDiff.width, boundsDiff.height, oldDelta, element);
@@ -21005,7 +21377,7 @@ external_ko_namespaceObject.bindingHandlers['treelist'] = {
             values: valueAccessor(),
             createChildContext: (viewModel) => {
                 const treeListTemplate = options.templateHtml || getTemplate('dx-treelist');
-                const $element = external_jQuery_namespaceObject.fn.constructor(element).html(treeListTemplate);
+                const $element = createJQueryElement(element).html(treeListTemplate);
                 const childContext = bindingContext.createChildContext(viewModel);
                 external_ko_namespaceObject.applyBindings(childContext, $element.children()[0]);
             },
@@ -21083,7 +21455,7 @@ class ReorderTreeListDragDropHelper extends Disposable {
     drag(elementModel, element) {
         this.clearDroppableClasses();
         this._target = elementModel.getModel();
-        this._targetElement = external_jQuery_namespaceObject.fn.constructor(element).closest('.dx-treelist-item').get(0);
+        this._targetElement = createJQueryElement(element).closest('.dx-treelist-item').get(0);
         this._targetModel = this._getElementViewModel(this._target);
     }
     stop() {
@@ -21091,7 +21463,7 @@ class ReorderTreeListDragDropHelper extends Disposable {
         this.started = false;
     }
     helper(draggable, event) {
-        const target = external_jQuery_namespaceObject.fn.constructor(event.target).closest('.ui-draggable');
+        const target = createJQueryElement(event.target).closest('.ui-draggable');
         const rect = new Rectangle(6, 6, null, target.height());
         rect.className = 'dxrd-image-ghost-report';
         this.dragHelperContent.reset();
@@ -21109,10 +21481,10 @@ class ReorderTreeListDragDropHelper extends Disposable {
         if (this.canDrop()) {
             className = className + ' ' + this.approveClassName + ' ' + this.getDroppablePosition();
         }
-        external_jQuery_namespaceObject.fn.constructor(this._targetElement).addClass(className);
+        createJQueryElement(this._targetElement).addClass(className);
     }
     _removeClass(target) {
-        external_jQuery_namespaceObject.fn.constructor(target).removeClass(this.droppableClassName + ' ' + this.approveClassName + ' ' + this.classDropBefore + ' ' + this.classDropAfter);
+        createJQueryElement(target).removeClass(this.droppableClassName + ' ' + this.approveClassName + ' ' + this.classDropBefore + ' ' + this.classDropAfter);
     }
 }
 
@@ -21611,6 +21983,7 @@ addToBindingsCache('focus: isEditable, dxLocalizedSelectBox: getBoolEditorOption
 addToBindingsCache('focus: isEditable, dxDateBox: getDateEditorOptions($element, $root, $data.specifics())', function ($context, $element) { return { 'focus': function () { return $context.$data.isEditable; }, 'dxDateBox': function () { return $context.$data.getDateEditorOptions($element, $context.$root, $context.$data.specifics()); } }; });
 addToBindingsCache('dxTextBox: getNumberEditorOptions($element), focus: { on: isEditable }', function ($context, $element) { return { 'dxTextBox': function () { return $context.$data.getNumberEditorOptions($element); }, 'focus': function () { return { 'on': $context.$data.isEditable }; } }; });
 addToBindingsCache('focus: isEditable, dxSelectBox: getListEditOptions($element, $root)', function ($context, $element) { return { 'focus': function () { return $context.$data.isEditable; }, 'dxSelectBox': function () { return $context.$data.getListEditOptions($element, $context.$root); } }; });
+addToBindingsCache('focus: isEditable, dxSelectBox: getEnumEditOptions($element, $root)', function ($context, $element) { return { 'focus': function () { return $context.$data.isEditable; }, 'dxSelectBox': function () { return $context.$data.getEnumEditOptions($element, $context.$root); } }; });
 addToBindingsCache('visible: !isEditable()', function ($context, $element) { return { 'visible': function () { return !$context.$data.isEditable(); } }; });
 addToBindingsCache('text: value, click: function() { isEditable(true); }, css: { \'default\': $data.isDefaultDisplay() }', function ($context, $element) { return { 'text': function () { return $context.$data.value; }, 'click': function () { return function () { $context.$data.isEditable(true); }; }, 'css': function () { return { 'default': $context.$data.isDefaultDisplay() }; } }; });
 addToBindingsCache('if: $data.items.length === 0', function ($context, $element) { return { 'if': function () { return $context.$data.items.length === 0; } }; });
@@ -21619,6 +21992,8 @@ addToBindingsCache('if: $data.specifics() === "bool"', function ($context, $elem
 addToBindingsCache('if: $data.specifics() === "date" || $data.specifics() === "time" || $data.specifics() === "datetime"', function ($context, $element) { return { 'if': function () { return $context.$data.specifics() === 'date' || $context.$data.specifics() === 'time' || $context.$data.specifics() === 'datetime'; } }; });
 addToBindingsCache('if: $data.specifics() !== "string" && $data.specifics() !== "bool" && $data.specifics() !== "date" && $data.specifics() !== "guid" && $data.specifics() !== "time" && $data.specifics() !== "datetime"', function ($context, $element) { return { 'if': function () { return $context.$data.specifics() !== 'string' && $context.$data.specifics() !== 'bool' && $context.$data.specifics() !== 'date' && $context.$data.specifics() !== 'guid' && $context.$data.specifics() !== 'time' && $context.$data.specifics() !== 'datetime'; } }; });
 addToBindingsCache('if: $data.items.length > 0', function ($context, $element) { return { 'if': function () { return $context.$data.items.length > 0; } }; });
+addToBindingsCache('if: $data.specifics() !== "enum"', function ($context, $element) { return { 'if': function () { return $context.$data.specifics() !== 'enum'; } }; });
+addToBindingsCache('if: $data.specifics() === "enum"', function ($context, $element) { return { 'if': function () { return $context.$data.specifics() === 'enum'; } }; });
 addToBindingsCache('dxPopup: { animation: { show: { type: \'fadeIn\', duration: 700 }, hide: { type: \'fadeOut\', duration: 700 } }, showTitle: true, wrapperAttr: { class: \'dx-filtereditor dx-popup-general\' }, resizeEnabled: true, onResize: function() { $data.resizeAceEditor() }, width: 700, height: 500, maxHeight: \'95%\', maxWidth: \'95%\', minHeight: 300, minWidth: 400, onHidden: onHiddenHandler, hideOnParentScroll: false, title: options() && options().title(), visible: popupVisible(), onShown: function() { $data.focusText() }, toolbarItems: buttonItems, showCloseButton: true, container: getPopupContainer($element), position: { of: getPopupContainer($element) } }', function ($context, $element) { return { 'dxPopup': function () { return { 'animation': { 'show': { 'type': 'fadeIn', 'duration': 700 }, 'hide': { 'type': 'fadeOut', 'duration': 700 } }, 'showTitle': true, 'wrapperAttr': { 'class': 'dx-filtereditor dx-popup-general' }, 'resizeEnabled': true, 'onResize': function () { $context.$data.resizeAceEditor(); }, 'width': 700, 'height': 500, 'maxHeight': '95%', 'maxWidth': '95%', 'minHeight': 300, 'minWidth': 400, 'onHidden': $context.$data.onHiddenHandler, 'hideOnParentScroll': false, 'title': $context.$data.options() && $context.$data.options().title(), 'visible': $context.$data.popupVisible(), 'onShown': function () { $context.$data.focusText(); }, 'toolbarItems': $context.$data.buttonItems, 'showCloseButton': true, 'container': $context.$data.getPopupContainer($element), 'position': { 'of': $context.$data.getPopupContainer($element) } }; } }; });
 addToBindingsCache('dxclick: showPopup', function ($context, $element) { return { 'dxclick': function () { return $context.$data.showPopup; } }; });
 addToBindingsCache('text: target.displayType, dxclick: showPopup, css: target.css', function ($context, $element) { return { 'text': function () { return $context.$data.target.displayType; }, 'dxclick': function () { return $context.$data.showPopup; }, 'css': function () { return $context.$data.target.css; } }; });
@@ -22047,7 +22422,7 @@ SvgTemplatesEngine.addTemplates({
     'dx-filtereditor-property': '<div class="criteria-operator-text dxd-filter-editor-text-color" data-bind="css: css"> <div data-bind="service: { name: \'createChangeProperty\' }"></div> <!-- ko if: $data.canChange --> <div data-bind="service: { name: \'createChangeValueType\' }"></div> <!-- /ko --> </div>',
     'dx-filtereditor-unary': '<!-- ko if: $data.operand().reverse --> <!-- ko template: {name: $data.operand().templateName, data: $data.operand() }--> <!-- /ko --> <!-- /ko --> <!-- ko ifnot: $data.operand().reverse --> <div class="criteria-operator-group"> <div class="criteria-operator-group-item"> <div class="criteria-operator-action" data-bind="dxclick: function() {  $data.remove && $data.remove(); }"> <div class="criteria-operator-action-image dx-image-filtereditor-remove" data-bind="visible: !!$data.canRemove"><!-- ko template: \'dxrd-svg-filtereditor-remove\' --><!-- /ko --></div> </div> <!-- ko with: operand--> <div class="criteria-operator-item"> <!-- ko template: { name: templateName, data: $data }--> <!-- /ko --> </div> <!-- /ko --> <div data-bind="service: { name: \'createChangeType\' }"></div> </div> </div> <!-- /ko -->',
     'dx-filtereditor-not': '<!-- ko with: operand--> <!-- ko template: { name: templateName, data: $data }--> <!-- /ko --> <!-- /ko -->',
-    'dx-filtereditor-value': '<div class="criteria-operator-item" data-bind="visible: isEditable"> <!-- ko if: $data.items.length === 0 --> <!-- ko if: $data.specifics() === "string" || $data.specifics() === "guid" --> <div class="criteria-operator-item-editor" data-bind="dxTextBox: getStringEditorOptions($element), focus: { on: isEditable }"></div> <!-- /ko --> <!-- ko if: $data.specifics() === "bool"  --> <div class="criteria-operator-item-editor" data-bind="focus: isEditable, dxLocalizedSelectBox: getBoolEditorOptions($element, $root)"></div> <!-- /ko --> <!-- ko if: $data.specifics() === "date" || $data.specifics() === "time" || $data.specifics() === "datetime" --> <div class="criteria-operator-item-editor" data-bind="focus: isEditable, dxDateBox: getDateEditorOptions($element, $root, $data.specifics())"></div> <!-- /ko --> <!-- ko if: $data.specifics() !== "string" && $data.specifics() !== "bool" && $data.specifics() !== "date" && $data.specifics() !== "guid" && $data.specifics() !== "time" && $data.specifics() !== "datetime" --> <div class="criteria-operator-item-editor" data-bind="dxTextBox: getNumberEditorOptions($element), focus: { on: isEditable }"></div> <!-- /ko --> <!-- /ko --> <!-- ko if: $data.items.length > 0 --> <div class="criteria-operator-item-editor" data-bind="focus: isEditable, dxSelectBox: getListEditOptions($element, $root)"></div> <!-- /ko --> </div> <div class="criteria-operator-text dxd-filter-editor-text-color criteria-operator-item-value dxd-filter-editor-value-back-color" data-bind="visible: !isEditable()"> <div class="criteria-operator-text dxd-filter-editor-text-color clickable" data-bind="text: value, click: function() { isEditable(true); }, css: { \'default\': $data.isDefaultDisplay() } "></div> <div data-bind="service: { name: \'createChangeValueType\' }"></div> </div>',
+    'dx-filtereditor-value': '<div class="criteria-operator-item" data-bind="visible: isEditable"> <!-- ko if: $data.items.length === 0 --> <!-- ko if: $data.specifics() === "string" || $data.specifics() === "guid" --> <div class="criteria-operator-item-editor" data-bind="dxTextBox: getStringEditorOptions($element), focus: { on: isEditable }"></div> <!-- /ko --> <!-- ko if: $data.specifics() === "bool"  --> <div class="criteria-operator-item-editor" data-bind="focus: isEditable, dxLocalizedSelectBox: getBoolEditorOptions($element, $root)"></div> <!-- /ko --> <!-- ko if: $data.specifics() === "date" || $data.specifics() === "time" || $data.specifics() === "datetime" --> <div class="criteria-operator-item-editor" data-bind="focus: isEditable, dxDateBox: getDateEditorOptions($element, $root, $data.specifics())"></div> <!-- /ko --> <!-- ko if: $data.specifics() !== "string" && $data.specifics() !== "bool" && $data.specifics() !== "date" && $data.specifics() !== "guid" && $data.specifics() !== "time" && $data.specifics() !== "datetime" --> <div class="criteria-operator-item-editor" data-bind="dxTextBox: getNumberEditorOptions($element), focus: { on: isEditable }"></div> <!-- /ko --> <!-- /ko --> <!-- ko if: $data.items.length > 0 --> <!-- ko if: $data.specifics() !== "enum" --> <div class="criteria-operator-item-editor" data-bind="focus: isEditable, dxSelectBox: getListEditOptions($element, $root)"></div> <!-- /ko --> <!-- ko if: $data.specifics() === "enum" --> <div class="criteria-operator-item-editor" data-bind="focus: isEditable, dxSelectBox: getEnumEditOptions($element, $root)"></div> <!-- /ko --> <!-- /ko --> </div> <div class="criteria-operator-text dxd-filter-editor-text-color criteria-operator-item-value dxd-filter-editor-value-back-color" data-bind="visible: !isEditable()"> <div class="criteria-operator-text dxd-filter-editor-text-color clickable" data-bind="text: value, click: function() { isEditable(true); }, css: { \'default\': $data.isDefaultDisplay() } "></div> <div data-bind="service: { name: \'createChangeValueType\' }"></div> </div>',
     'dx-filtereditor-popup': '<!-- ko if: $data --> <div data-bind="dxPopup: { animation: { show: { type: \'fadeIn\', duration: 700 }, hide: { type: \'fadeOut\', duration: 700 } }, showTitle: true, wrapperAttr: { class: \'dx-filtereditor dx-popup-general\' }, resizeEnabled: true, onResize: function() { $data.resizeAceEditor() }, width: 700, height: 500, maxHeight: \'95%\', maxWidth: \'95%\', minHeight: 300, minWidth: 400, onHidden: onHiddenHandler, hideOnParentScroll: false, title: options() && options().title(), visible: popupVisible(), onShown: function() { $data.focusText() }, toolbarItems: buttonItems, showCloseButton: true, container: getPopupContainer($element), position: { of: getPopupContainer($element) } }"> <!-- ko template: \'dx-filtereditor-content\' --> <!-- /ko --> </div> <!-- ko template: \'dx-filtereditor-content-popups\' --> <!-- /ko --> <!-- /ko -->',
     'dx-filtereditor-create': '<div class="criteria-operator-action" data-bind="dxclick: showPopup"> <div class="criteria-operator-action-image dx-image-filtereditor-add"><!-- ko template: \'dxrd-svg-filtereditor-add\' --><!-- /ko --></div> </div>',
     'dx-filtereditor-change': '<div class="criteria-operator-text dxd-filter-editor-text-color clickable" data-bind="text: target.displayType, dxclick: showPopup, css: target.css"></div>',
@@ -22233,7 +22608,7 @@ external_ko_namespaceObject.bindingHandlers['dxdAccordion'] = {
 };
 external_ko_namespaceObject.bindingHandlers['dxdAccordionExt'] = {
     init: function (element, valueAccessor, allBindings, viewModel, bindingContext) {
-        const options = valueAccessor(), $element = external_jQuery_namespaceObject.fn.constructor(element), scrollUpdateCallback = () => {
+        const options = valueAccessor(), $element = createJQueryElement(element), scrollUpdateCallback = () => {
             const $scroll = $element.parents('.dx-scrollview');
             if ($scroll.length > 0) {
                 const scrollView = external_DevExpress_ui_dxScrollView_default().getInstance($scroll.get(0));
@@ -22410,7 +22785,7 @@ external_ko_namespaceObject.bindingHandlers['focus'] = {
         const subscription = visible.subscribe((newVal) => {
             if (newVal) {
                 setTimeout(() => {
-                    external_jQuery_namespaceObject.fn.constructor(element).find(':input').focus();
+                    createJQueryElement(element).find(':input').focus();
                 }, 1);
             }
         });
@@ -22497,7 +22872,7 @@ class ExpressionEditor extends CriteriaEditorBase {
         this.options = null;
     }
     _getTextArea(element) {
-        const $el = external_jQuery_namespaceObject.fn.constructor(element);
+        const $el = createJQueryElement(element);
         return ($el && $el.parents('.dx-expressioneditor').find(':input')[0]);
     }
     _createToolsOptions(path, fieldListProvider, treeListController) {
@@ -22537,7 +22912,7 @@ class ExpressionEditor extends CriteriaEditorBase {
             setCursorInFunctionParameter(item.paramCount, editor, insertion);
         };
         this._updateValue = (item, element) => {
-            this.aceAvailable ? this._updateAceValue(item, external_jQuery_namespaceObject.fn.constructor(element)) : this._updateTextAreaValue(item, external_jQuery_namespaceObject.fn.constructor(element));
+            this.aceAvailable ? this._updateAceValue(item, createJQueryElement(element)) : this._updateTextAreaValue(item, createJQueryElement(element));
         };
         this.patchFieldName = (fieldName) => fieldName;
         this._parametersPutSelectionHandler = (selectedItemPath, element) => {
@@ -22751,13 +23126,13 @@ class ExpressionEditor extends CriteriaEditorBase {
 
 external_ko_namespaceObject.bindingHandlers['dxExpressionEditor'] = {
     init: function (element, valueAccessor, allBindings, viewModel, bindingContext) {
-        let $element = external_jQuery_namespaceObject.fn.constructor(element);
+        let $element = createJQueryElement(element);
         $element.children().remove();
         const values = valueAccessor();
-        external_jQuery_namespaceObject.fn.constructor(element).addClass(values.wrapper ? 'dx-expressioneditor-content' : 'dx-popup-general');
+        createJQueryElement(element).addClass(values.wrapper ? 'dx-expressioneditor-content' : 'dx-popup-general');
         const templateName = values.editorTemplateName || 'dx-expressioneditor';
         let optionSubscription = null;
-        let editor = new ExpressionEditor(external_ko_namespaceObject.unwrap(values.options), values.fieldListProvider, viewModel.disabled, external_jQuery_namespaceObject.fn.constructor(element).closest('.dx-rtl').length > 0, values.displayNameProvider, values.popupVisible, viewModel.editorInputId);
+        let editor = new ExpressionEditor(external_ko_namespaceObject.unwrap(values.options), values.fieldListProvider, viewModel.disabled, createJQueryElement(element).closest('.dx-rtl').length > 0, values.displayNameProvider, values.popupVisible, viewModel.editorInputId);
         if (external_ko_namespaceObject.isSubscribable(values.options)) {
             optionSubscription = values.options.subscribe(newOptions => {
                 newOptions && editor.koOptions(newOptions);
@@ -23370,7 +23745,7 @@ external_ko_namespaceObject.components.register('dx-filtereditor-advanced', {
 external_ko_namespaceObject.bindingHandlers['cacheElement'] = {
     init: function (element, valueAccessor, allBindings, viewModel, bindingContext) {
         const value = valueAccessor();
-        value.action(external_jQuery_namespaceObject.fn.constructor(element));
+        value.action(createJQueryElement(element));
     }
 };
 
@@ -23683,9 +24058,9 @@ class FormatStringEditor extends Disposable {
 
 external_ko_namespaceObject.bindingHandlers['dxFormatEditor'] = {
     init: function (element, valueAccessor) {
-        external_jQuery_namespaceObject.fn.constructor(element).children().remove();
-        external_jQuery_namespaceObject.fn.constructor(element).addClass('dx-popup-general');
-        const templateHtml = getTemplate('dx-format-string'), $element = external_jQuery_namespaceObject.fn.constructor(element).append(templateHtml), values = valueAccessor();
+        createJQueryElement(element).children().remove();
+        createJQueryElement(element).addClass('dx-popup-general');
+        const templateHtml = getTemplate('dx-format-string'), $element = createJQueryElement(element).append(templateHtml), values = valueAccessor();
         const formatEditor = new FormatStringEditor(values.value, values['disabled'], values['standardPatterns'], values['customPatterns'], values['actions'], values['rtl'], values['popupContainer']);
         external_ko_namespaceObject.applyBindings(formatEditor, $element.children()[0]);
         addDisposeCallback(element, function () {
