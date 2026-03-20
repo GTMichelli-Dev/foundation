@@ -342,26 +342,27 @@ Navigate to **Setup** in the web interface to configure:
 
 ### "Error" page with no details
 
-By default, production mode hides error details. To see the full error, SSH into the server and enable detailed errors:
+The app runs in Development mode by default (shows full error details). If you've switched to Production mode and need to see errors, either check the logs:
 
 ```bash
 ssh admin@149.28.xxx.xxx
-sudo nano /opt/basicweigh/appsettings.json
-```
-
-Change `"DetailedErrors": false` to `"DetailedErrors": true`, then restart:
-
-```bash
-sudo systemctl restart basicweigh
-```
-
-Check the logs for the error:
-
-```bash
 sudo journalctl -u basicweigh -f
 ```
 
-> **Remember to set `DetailedErrors` back to `false` after fixing the issue.**
+Or temporarily switch back to Development mode:
+
+```bash
+sudo nano /etc/systemd/system/basicweigh.service
+```
+
+Change `ASPNETCORE_ENVIRONMENT=Production` to `Development`, then:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart basicweigh
+```
+
+> **Remember to set it back to `Production` when done troubleshooting.**
 
 ### Let's Encrypt "Timeout during connect"
 

@@ -62,7 +62,11 @@ using (var scope = app.Services.CreateScope())
     DbInitializer.Seed(context);
 }
 
-if (!app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+}
+else
 {
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
