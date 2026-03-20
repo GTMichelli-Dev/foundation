@@ -42,6 +42,20 @@ if [[ -n "$DOMAIN" ]]; then
   echo "  certbot installed."
 fi
 
+# Open firewall ports (if ufw is active)
+if command -v ufw &>/dev/null && ufw status | grep -q "active"; then
+  ufw allow 80/tcp > /dev/null
+  ufw allow 443/tcp > /dev/null
+  echo "  Firewall: ports 80 and 443 opened."
+fi
+
+# Open firewall ports (if iptables is being used without ufw)
+if command -v iptables &>/dev/null && ! command -v ufw &>/dev/null; then
+  iptables -I INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null || true
+  iptables -I INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null || true
+  echo "  Firewall: iptables rules added for ports 80 and 443."
+fi
+
 # Create service user if it doesn't exist
 if ! id "$SERVICE_USER" &>/dev/null; then
   useradd -r -m -s /bin/bash "$SERVICE_USER"

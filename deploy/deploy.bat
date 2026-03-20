@@ -54,6 +54,19 @@ if not "%SSH_KEY%"=="" (
     set "SCP_OPTS=!SCP_OPTS! -i %SSH_KEY%"
 )
 
+REM Verify DNS resolves before deploying (if domain specified)
+if not "%DOMAIN%"=="" (
+    echo ==^> Verifying DNS for %DOMAIN%...
+    nslookup %DOMAIN% >nul 2>&1
+    if errorlevel 1 (
+        echo ERROR: DNS lookup failed for %DOMAIN%
+        echo        Create an A record pointing %DOMAIN% to your server IP.
+        echo        Then wait for propagation and try again.
+        exit /b 1
+    )
+    echo   DNS OK: %DOMAIN% resolves.
+)
+
 REM Check if tarball exists, if not run publish first
 if not exist "%TARBALL%" (
     echo ==^> Tarball not found. Running publish first...

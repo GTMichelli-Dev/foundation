@@ -59,6 +59,18 @@ if [[ -n "$SSH_KEY" ]]; then
   SCP_OPTS="$SCP_OPTS -i $SSH_KEY"
 fi
 
+# Verify DNS resolves before deploying (if domain specified)
+if [[ -n "$DOMAIN" ]]; then
+  echo "==> Verifying DNS for $DOMAIN..."
+  if ! nslookup "$DOMAIN" > /dev/null 2>&1; then
+    echo "ERROR: DNS lookup failed for $DOMAIN"
+    echo "       Create an A record pointing $DOMAIN to your server IP."
+    echo "       Then wait for propagation and try again."
+    exit 1
+  fi
+  echo "  DNS OK: $DOMAIN resolves."
+fi
+
 # Check if tarball exists, if not run publish first
 if [[ ! -f "$TARBALL" ]]; then
   echo "==> Tarball not found. Running publish first..."

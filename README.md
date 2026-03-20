@@ -40,7 +40,13 @@ Before starting, create a DNS **A record** pointing your domain to the server IP
 |------|------|-------|
 | A | `yourDNSName.scaledata.net` | `149.28.xxx.xxx` |
 
-> DNS can take a few minutes to propagate. You can verify with: `ping scale.yourcompany.com`
+> DNS can take a few minutes to propagate. **Verify it resolves before continuing:**
+>
+> ```
+> nslookup basic.scaledata.net
+> ```
+>
+> You should see your server's IP address in the response. **Do not proceed to Step 4 until this works** — Let's Encrypt will fail if DNS is not resolving.
 
 ### Step 2: Create a Non-Root User on the Server
 
