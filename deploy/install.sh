@@ -205,6 +205,13 @@ server {
         proxy_set_header   X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
 
+        # Buffering for large responses (Report Designer)
+        proxy_buffering on;
+        proxy_buffer_size 128k;
+        proxy_buffers 8 256k;
+        proxy_busy_buffers_size 256k;
+        client_max_body_size 50m;
+
         # WebSocket support (SignalR)
         proxy_read_timeout 86400;
     }
@@ -264,6 +271,13 @@ server {
         proxy_set_header   X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
+
+        # Buffering for large responses (Report Designer)
+        proxy_buffering on;
+        proxy_buffer_size 128k;
+        proxy_buffers 8 256k;
+        proxy_busy_buffers_size 256k;
+        client_max_body_size 50m;
 
         # WebSocket support (SignalR)
         proxy_read_timeout 86400;
