@@ -42,4 +42,7 @@ echo   Web App: deploy\out\basicweigh\
 echo.
 echo   Deploy with:
 echo     deploy\deploy.bat admin@^<server^> --domain your.domain.com --email you@email.com
+echo.
+echo   To rebuild the database (WARNING: deletes all data):
+echo     deploy\deploy.bat admin@^<server^> --domain your.domain.com --email you@email.com --rebuild-db
 echo ==========================================
