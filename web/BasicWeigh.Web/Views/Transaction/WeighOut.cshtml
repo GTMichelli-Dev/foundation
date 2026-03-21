@@ -336,7 +336,9 @@
         // Mini simulator inside modal (demo mode only)
         var gwSimSlider = $('#gwSimSlider');
         var gwSimLabel = $('#gwSimLabel');
-        function updateGwSim() {
+        var gwUserDragging = false;
+
+        function pushGwSim() {
             var weight = parseInt(gwSimSlider.val());
             var motion = $('#gwSimMotion').is(':checked');
             var error = $('#gwSimError').is(':checked');
@@ -348,9 +350,20 @@
                 data: JSON.stringify({ weight: weight, motion: motion, error: error })
             });
         }
-        gwSimSlider.on('input', updateGwSim);
-        $('#gwSimMotion').on('change', updateGwSim);
-        $('#gwSimError').on('change', updateGwSim);
+
+        gwSimSlider.on('mousedown touchstart', function () { gwUserDragging = true; });
+        $(document).on('mouseup touchend', function () { gwUserDragging = false; });
+        gwSimSlider.on('input', pushGwSim);
+        $('#gwSimMotion').on('change', pushGwSim);
+        $('#gwSimError').on('change', pushGwSim);
+
+        function syncGwSim(data) {
+            if (gwUserDragging) return;
+            gwSimSlider.val(data.weight || 0);
+            gwSimLabel.text((data.weight || 0).toLocaleString());
+            $('#gwSimMotion').prop('checked', !!data.motion);
+            $('#gwSimError').prop('checked', !!data.error);
+        }
 
         function openGetWeightModal(target) {
             weightTarget = target;
@@ -363,8 +376,13 @@
             $('#getWeightModal .modal-title').text('Get ' + (target === 'in' ? 'In' : 'Out') + ' Weight from Scale');
             gwModal = new bootstrap.Modal('#getWeightModal');
             gwModal.show();
+            // Load current weight into simulator slider
+            $.getJSON('/api/scale/weight', function (data) { syncGwSim(data); });
             pollScaleWeight();
-            gwPollTimer = setInterval(pollScaleWeight, 500);
+            gwPollTimer = setInterval(function () {
+                pollScaleWeight();
+                $.getJSON('/api/scale/weight', function (data) { syncGwSim(data); });
+            }, 500);
         }
 
         $('#getWeightBtn').on('click', function () { openGetWeightModal('out'); });
@@ -372,13 +390,6 @@
 
         $('#getWeightModal').on('hidden.bs.modal', function () {
             if (gwPollTimer) { clearInterval(gwPollTimer); gwPollTimer = null; }
-            var navSlider = $('#simWeightSlider');
-            if (navSlider.length) {
-                navSlider.val(gwSimSlider.val());
-                $('#simWeightLabel').text(gwSimLabel.text());
-                $('#simMotion').prop('checked', $('#gwSimMotion').is(':checked'));
-                $('#simError').prop('checked', $('#gwSimError').is(':checked'));
-            }
         });
 
         $('#gwManualBtn').on('click', function () {

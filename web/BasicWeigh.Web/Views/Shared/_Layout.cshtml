@@ -199,15 +199,11 @@
         var motionCb = $('#simMotion');
         var errorCb = $('#simError');
         var status = $('#simStatus');
+        var userDragging = false;
 
-        function updateSim() {
-            var weight = parseInt(slider.val());
-            var motion = motionCb.is(':checked');
-            var error = errorCb.is(':checked');
-
+        function renderSimDisplay(weight, motion, error) {
             label.text(weight.toLocaleString());
             display.html(weight.toLocaleString() + ' <span class="unit">lb</span>');
-
             if (error) {
                 display.css({ background: '#8b0000', color: '#ff4444' });
                 status.removeClass('bg-success bg-warning').addClass('bg-danger').text('ERROR');
@@ -218,7 +214,13 @@
                 display.css({ background: '#1a1a2e', color: '#00ff41' });
                 status.removeClass('bg-warning bg-danger').addClass('bg-success').text('OK');
             }
+        }
 
+        function pushSim() {
+            var weight = parseInt(slider.val());
+            var motion = motionCb.is(':checked');
+            var error = errorCb.is(':checked');
+            renderSimDisplay(weight, motion, error);
             $.ajax({
                 url: '/api/scale/simulate',
                 method: 'POST',
@@ -227,9 +229,31 @@
             });
         }
 
-        slider.on('input', updateSim);
-        motionCb.on('change', updateSim);
-        errorCb.on('change', updateSim);
+        // Track when user is actively dragging
+        slider.on('mousedown touchstart', function () { userDragging = true; });
+        $(document).on('mouseup touchend', function () { userDragging = false; });
+
+        slider.on('input', pushSim);
+        motionCb.on('change', pushSim);
+        errorCb.on('change', pushSim);
+
+        // Poll server to sync with other sessions
+        function pollSimSync() {
+            if (userDragging) return;
+            $.getJSON('/api/scale/weight', function (data) {
+                if (userDragging) return;
+                var serverWeight = data.weight || 0;
+                var serverMotion = !!data.motion;
+                var serverError = !!data.error;
+                slider.val(serverWeight);
+                motionCb.prop('checked', serverMotion);
+                errorCb.prop('checked', serverError);
+                renderSimDisplay(serverWeight, serverMotion, serverError);
+            });
+        }
+        // Load current weight on page load
+        pollSimSync();
+        setInterval(pollSimSync, 1000);
     });
     </script>
     }
