@@ -343,7 +343,7 @@ Login is **optional** — controlled by the "Require Login" setting on the Setup
 
 **Default admin credentials:**
 - Username: `admin`
-- Password: `Scale_User`
+- Password: `michelli`
 
 **Support backdoor account** (for recovery if admin is locked out):
 - Username: `support`
@@ -358,7 +358,7 @@ Login is **optional** — controlled by the "Require Login" setting on the Setup
 | **Manager** | Everything User can do + edit master data tables (customers, carriers, etc.) |
 | **Admin** | Everything Manager can do + Setup page + user management |
 
-**Password Reset:** Admins can reset any user's password from the Setup > Manage Users page. The password is reset to `Scale_User` and the user must change it on next login. There is no email-based recovery (the system may not have internet access).
+**Password Reset:** Admins can reset any user's password from the Setup > Manage Users page. The password is reset to `michelli` and the user must change it on next login. There is no email-based recovery (the system may not have internet access).
 
 **Kiosk Access with Login Enabled:** Kiosks don't use the login screen. Instead, pass the Kiosk PIN code as a URL parameter:
 

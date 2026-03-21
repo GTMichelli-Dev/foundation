@@ -4,10 +4,10 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>1.1.52</Version>
-    <AssemblyVersion>1.1.52.0</AssemblyVersion>
-    <FileVersion>1.1.52.0</FileVersion>
-    <InformationalVersion>1.1.52</InformationalVersion>
+    <Version>1.1.53</Version>
+    <AssemblyVersion>1.1.53.0</AssemblyVersion>
+    <FileVersion>1.1.53.0</FileVersion>
+    <InformationalVersion>1.1.53</InformationalVersion>
     <Product>Basic Weigh</Product>
   </PropertyGroup>
 

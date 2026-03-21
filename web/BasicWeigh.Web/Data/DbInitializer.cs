@@ -28,7 +28,7 @@ public static class DbInitializer
             {
                 Username = "admin",
                 DisplayName = "Administrator",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Scale_User"),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("michelli"),
                 Role = "Admin",
                 MustChangePassword = false,
                 Active = true

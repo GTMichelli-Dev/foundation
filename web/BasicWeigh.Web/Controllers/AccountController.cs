@@ -227,8 +227,8 @@ public class AccountController : Controller
         var user = _db.Users.Find(id);
         if (user == null || user.Username == "support") return NotFound();
 
-        // Reset to Scale_User
-        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword("Scale_User");
+        // Reset to default password
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword("michelli");
         user.MustChangePassword = true;
         _db.SaveChanges();
 
