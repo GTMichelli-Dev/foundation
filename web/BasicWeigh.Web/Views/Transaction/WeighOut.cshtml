@@ -154,7 +154,7 @@
                             <label class="form-label">Out Weight (lb) <span id="manualBadge" class="badge bg-warning text-dark" style="display: @(Model.ManualOutbound ? "inline" : "none");">Manual</span></label>
                             <div class="input-group">
                                 <input type="text" name="OutWeight" id="outWeightInput" class="form-control text-end fw-bold" style="font-size: 1.1rem; letter-spacing: 1px; max-width: 160px;"
-                                       value="@(Model.OutWeight ?? ViewBag.CurrentWeight)" readonly />
+                                       value="@(Model.OutWeight ?? 0)" readonly />
                                 <button type="button" class="btn btn-primary" id="getWeightBtn">Get Weight</button>
                             </div>
                         </div>
@@ -436,6 +436,16 @@
             }
             updateCalcWeights();
             gwModal.hide();
+        });
+
+        // Validate weights before save
+        $('form').on('submit', function (e) {
+            var outW = parseInt(outWeightInput.val()) || 0;
+            if (outW <= 0) {
+                e.preventDefault();
+                alert('Please click "Get Weight" to capture the outbound scale weight before saving.');
+                return false;
+            }
         });
 
         // --- Customer/Carrier/Truck logic ---

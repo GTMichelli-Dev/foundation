@@ -469,6 +469,16 @@
             if (e.which === 13) { e.preventDefault(); $('#saveTruckBtn').click(); }
         });
 
+        // Validate weight before save
+        $('form').on('submit', function (e) {
+            var weight = parseInt(inWeightInput.val()) || 0;
+            if (weight <= 0) {
+                e.preventDefault();
+                alert('Please click "Get Weight" to capture the scale weight before saving.');
+                return false;
+            }
+        });
+
         // Save & Weigh Out (edit mode only)
         $('#saveWeighOutBtn').on('click', function () {
             $('#goToWeighOut').val('true');
