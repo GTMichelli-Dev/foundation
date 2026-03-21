@@ -76,7 +76,7 @@
                         @if (appSetup?.DemoMode == true)
                         {
                         <li class="nav-item">
-                            <a class="nav-link" asp-controller="Kiosk" asp-action="Index" target="_blank">Kiosk</a>
+                            <a class="nav-link" href="/Kiosk@(useLogin ? "?pin=" + appSetup?.KioskCode : "")" target="_blank">Kiosk</a>
                         </li>
                         }
                     </ul>
