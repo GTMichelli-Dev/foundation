@@ -41,6 +41,10 @@
 </style>
 
 <h3>Weigh Out - Ticket @Model.Ticket</h3>
+<div id="validationAlert" class="alert alert-danger alert-dismissible fade" role="alert" style="display:none;">
+    <span id="validationMsg"></span>
+    <button type="button" class="btn-close" onclick="$('#validationAlert').removeClass('show').hide();"></button>
+</div>
 
 <form asp-action="WeighOut" asp-route-id="@Model.Ticket" method="post">
     @Html.AntiForgeryToken()
@@ -439,11 +443,17 @@
         });
 
         // Validate weights before save
+        function showValidation(msg) {
+            $('#validationMsg').text(msg);
+            $('#validationAlert').show().addClass('show');
+            $('html, body').animate({ scrollTop: 0 }, 300);
+        }
+
         $('form').on('submit', function (e) {
             var outW = parseInt(outWeightInput.val()) || 0;
             if (outW <= 0) {
                 e.preventDefault();
-                alert('Please click "Get Weight" to capture the outbound scale weight before saving.');
+                showValidation('Please click "Get Weight" to capture the outbound scale weight before saving.');
                 return false;
             }
         });
