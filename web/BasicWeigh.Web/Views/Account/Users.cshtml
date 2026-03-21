@@ -1,6 +1,7 @@
 @model List<BasicWeigh.Web.Models.AppUser>
 @{
     ViewData["Title"] = "User Management";
+    int adminCount = ViewBag.AdminCount ?? 0;
 }
 
 <style>
@@ -90,11 +91,19 @@
                                     <button type="button" class="btn btn-outline-warning btn-sm"
                                             onclick="showConfirmModal('Reset Password', 'Reset password for \'@user.Username\' to default (michelli)?<br><br>The user will be required to change it on next login.', 'resetPwForm-@user.Id', 'btn-warning')">Reset PW</button>
                                 </form>
-                                <form asp-action="DeleteUser" asp-route-id="@user.Id" method="post" class="d-inline" id="deleteUserForm-@user.Id">
-                                    @Html.AntiForgeryToken()
+                                @if (user.Role == "Admin" && adminCount <= 1)
+                                {
                                     <button type="button" class="btn btn-outline-danger btn-sm"
-                                            onclick="showConfirmModal('Delete User', 'Delete user \'@user.Username\'?<br><br>This cannot be undone.', 'deleteUserForm-@user.Id', 'btn-danger')">Delete</button>
-                                </form>
+                                            onclick="showConfirmModal('Cannot Delete', 'This is the only active admin user.<br><br>You must create another admin before you can delete this one.', null, 'btn-secondary')">Delete</button>
+                                }
+                                else
+                                {
+                                    <form asp-action="DeleteUser" asp-route-id="@user.Id" method="post" class="d-inline" id="deleteUserForm-@user.Id">
+                                        @Html.AntiForgeryToken()
+                                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                                onclick="showConfirmModal('Delete User', 'Delete user \'@user.Username\'?<br><br>This cannot be undone.', 'deleteUserForm-@user.Id', 'btn-danger')">Delete</button>
+                                    </form>
+                                }
                             </div>
                         </td>
                     </tr>
@@ -144,7 +153,12 @@
         document.getElementById('confirmModalBody').innerHTML = message;
         var btn = document.getElementById('confirmModalBtn');
         btn.className = 'btn btn-sm ' + btnClass;
-        btn.textContent = title;
+        if (formId) {
+            btn.textContent = title;
+            btn.style.display = '';
+        } else {
+            btn.style.display = 'none';
+        }
         new bootstrap.Modal(document.getElementById('confirmModal')).show();
     }
     function confirmModalSubmit() {

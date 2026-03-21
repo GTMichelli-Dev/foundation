@@ -135,6 +135,7 @@ public class AccountController : Controller
     public IActionResult Users()
     {
         var users = _db.Users.Where(u => u.Username != "support").OrderBy(u => u.Username).ToList();
+        ViewBag.AdminCount = _db.Users.Count(u => u.Role == "Admin" && u.Active && u.Username != "support");
         return View(users);
     }
 
@@ -189,6 +190,7 @@ public class AccountController : Controller
     {
         var user = _db.Users.Find(id);
         if (user == null || user.Username == "support") return NotFound();
+        ViewBag.AdminCount = _db.Users.Count(u => u.Role == "Admin" && u.Active && u.Username != "support");
         return View(user);
     }
 
@@ -205,7 +207,20 @@ public class AccountController : Controller
         if (_db.Users.Any(u => u.Username.ToLower() == model.Username.ToLower() && u.Id != id))
         {
             ViewBag.Error = "Username already exists.";
+            ViewBag.AdminCount = _db.Users.Count(u => u.Role == "Admin" && u.Active && u.Username != "support");
             return View(user);
+        }
+
+        // Prevent changing the last admin's role or deactivating them
+        var adminCount = _db.Users.Count(u => u.Role == "Admin" && u.Active && u.Username != "support");
+        if (user.Role == "Admin" && user.Active && adminCount <= 1)
+        {
+            if (model.Role != "Admin" || !model.Active)
+            {
+                ViewBag.Error = "Cannot change the role or deactivate the last admin user.";
+                ViewBag.AdminCount = adminCount;
+                return View(user);
+            }
         }
 
         user.Username = model.Username;
@@ -246,7 +261,7 @@ public class AccountController : Controller
         if (user == null || user.Username == "support") return NotFound();
 
         // Prevent deleting the last admin
-        if (user.Role == "Admin" && _db.Users.Count(u => u.Role == "Admin" && u.Active) <= 1)
+        if (user.Role == "Admin" && _db.Users.Count(u => u.Role == "Admin" && u.Active && u.Username != "support") <= 1)
         {
             TempData["Error"] = "Cannot delete the last admin user.";
             return RedirectToAction("Users");

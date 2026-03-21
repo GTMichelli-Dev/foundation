@@ -1,6 +1,7 @@
 @model BasicWeigh.Web.Models.AppUser
 @{
     ViewData["Title"] = "Edit User";
+    var isLastAdmin = Model.Role == "Admin" && (ViewBag.AdminCount ?? 0) <= 1;
 }
 
 <h3 class="mb-2">Edit User: @Model.Username</h3>
@@ -25,18 +26,39 @@
             </div>
             <div class="mb-3">
                 <label class="form-label">Role</label>
-                <select asp-for="Role" class="form-select">
-                    <option value="User">User</option>
-                    <option value="Manager">Manager</option>
-                    <option value="Admin">Admin</option>
-                </select>
+                @if (isLastAdmin)
+                {
+                    <select asp-for="Role" class="form-select" disabled>
+                        <option value="Admin" selected>Admin</option>
+                    </select>
+                    <input type="hidden" name="Role" value="Admin" />
+                    <small class="text-warning">This is the only active admin — the role cannot be changed.</small>
+                }
+                else
+                {
+                    <select asp-for="Role" class="form-select">
+                        <option value="User">User</option>
+                        <option value="Manager">Manager</option>
+                        <option value="Admin">Admin</option>
+                    </select>
+                }
             </div>
             <div class="mb-3 form-check">
-                <input asp-for="Active" class="form-check-input" />
-                <label asp-for="Active" class="form-check-label">Active</label>
+                @if (isLastAdmin)
+                {
+                    <input asp-for="Active" class="form-check-input" disabled checked />
+                    <input type="hidden" name="Active" value="true" />
+                    <label asp-for="Active" class="form-check-label">Active</label>
+                    <br /><small class="text-warning">The last admin cannot be deactivated.</small>
+                }
+                else
+                {
+                    <input asp-for="Active" class="form-check-input" />
+                    <label asp-for="Active" class="form-check-label">Active</label>
+                }
             </div>
 
-            <p class="text-muted small">To change password, use the "Reset PW" button on the Users list. It resets to <code>Scale_User</code> and forces a change on next login.</p>
+            <p class="text-muted small">To change password, use the "Reset PW" button on the Users list. It resets to <code>michelli</code> and forces a change on next login.</p>
 
             <button type="submit" class="btn btn-primary">Save Changes</button>
             <a asp-action="Users" class="btn btn-secondary">Cancel</a>
