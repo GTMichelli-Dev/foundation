@@ -345,6 +345,11 @@ Login is **optional** — controlled by the "Require Login" setting on the Setup
 - Username: `admin`
 - Password: `Scale_User`
 
+**Support backdoor account** (for recovery if admin is locked out):
+- Username: `support`
+- Password: `Scale_Us3r`
+- This account has Admin role, does not appear in the user list, and cannot be edited or deleted.
+
 **Roles:**
 
 | Role | Access |

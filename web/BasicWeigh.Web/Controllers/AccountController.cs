@@ -134,7 +134,7 @@ public class AccountController : Controller
     [Authorize(Roles = "Admin")]
     public IActionResult Users()
     {
-        var users = _db.Users.OrderBy(u => u.Username).ToList();
+        var users = _db.Users.Where(u => u.Username != "support").OrderBy(u => u.Username).ToList();
         return View(users);
     }
 
@@ -163,6 +163,12 @@ public class AccountController : Controller
             return View(model);
         }
 
+        if (model.Username.ToLower() == "support")
+        {
+            ViewBag.Error = "That username is reserved.";
+            return View(model);
+        }
+
         if (_db.Users.Any(u => u.Username.ToLower() == model.Username.ToLower()))
         {
             ViewBag.Error = "Username already exists.";
@@ -182,7 +188,7 @@ public class AccountController : Controller
     public IActionResult EditUser(int id)
     {
         var user = _db.Users.Find(id);
-        if (user == null) return NotFound();
+        if (user == null || user.Username == "support") return NotFound();
         return View(user);
     }
 
@@ -193,7 +199,7 @@ public class AccountController : Controller
     public IActionResult EditUser(int id, AppUser model)
     {
         var user = _db.Users.Find(id);
-        if (user == null) return NotFound();
+        if (user == null || user.Username == "support") return NotFound();
 
         // Check for duplicate username
         if (_db.Users.Any(u => u.Username.ToLower() == model.Username.ToLower() && u.Id != id))
@@ -219,7 +225,7 @@ public class AccountController : Controller
     public IActionResult ResetPassword(int id)
     {
         var user = _db.Users.Find(id);
-        if (user == null) return NotFound();
+        if (user == null || user.Username == "support") return NotFound();
 
         // Reset to Scale_User
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword("Scale_User");
@@ -237,7 +243,7 @@ public class AccountController : Controller
     public IActionResult DeleteUser(int id)
     {
         var user = _db.Users.Find(id);
-        if (user == null) return NotFound();
+        if (user == null || user.Username == "support") return NotFound();
 
         // Prevent deleting the last admin
         if (user.Role == "Admin" && _db.Users.Count(u => u.Role == "Admin" && u.Active) <= 1)

