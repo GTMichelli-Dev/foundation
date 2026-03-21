@@ -90,6 +90,19 @@
                                     </select>
                                 </div>
                             </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label asp-for="UseLogin" class="form-label mb-0 small"></label>
+                                    <select asp-for="UseLogin" class="form-select form-select-sm" id="UseLogin">
+                                        <option value="false">No Login Required</option>
+                                        <option value="true">Require Login</option>
+                                    </select>
+                                </div>
+                                <div class="col-6" id="kioskCodeSection" style="display: @(Model.UseLogin ? "block" : "none");">
+                                    <label asp-for="KioskCode" class="form-label mb-0 small"></label>
+                                    <input asp-for="KioskCode" class="form-control form-control-sm" maxlength="20" />
+                                </div>
+                            </div>
                             <div class="mb-2">
                                 <label asp-for="Theme" class="form-label mb-0 small"></label>
                                 <select asp-for="Theme" class="form-select form-select-sm">
@@ -193,8 +206,28 @@
         </form>
     </div>
 
-    <!-- Column 3: Ticket Designers (outside the settings form) -->
+    <!-- Column 3: Users, Ticket Designers, Database (outside the settings form) -->
     <div class="col-md-4">
+        <div class="card mb-3" id="usersCard" style="display: @(Model.UseLogin ? "block" : "none");">
+            <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                <strong>Users &amp; Security</strong>
+            </div>
+            <div class="card-body py-2">
+                <a asp-controller="Account" asp-action="Users" class="btn btn-outline-primary btn-sm w-100 mb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="me-1">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                    </svg>
+                    Manage Users
+                </a>
+                <div class="small" style="color: var(--bw-text-muted);">
+                    <p class="mb-1"><strong>Kiosk PIN:</strong> <code id="kioskPinDisplay">@Model.KioskCode</code></p>
+                    <p class="mb-1">When login is enabled, kiosks need the PIN to access the scale screen. Pass it as a URL parameter:</p>
+                    <code class="d-block mb-1" style="font-size: 0.75rem; word-break: break-all;">https://your-server/Kiosk?pin=<span id="kioskPinUrl">@Model.KioskCode</span></code>
+                    <p class="mb-0">The PIN is stored as a cookie after the first visit so subsequent requests don't need it.</p>
+                </div>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
                 <strong>Ticket Designers</strong>
@@ -307,6 +340,24 @@
             if (cb) cb.checked = false;
         }
     });
+
+    document.getElementById('UseLogin').addEventListener('change', function () {
+        var useLogin = this.value === 'true';
+        document.getElementById('kioskCodeSection').style.display = useLogin ? 'block' : 'none';
+        document.getElementById('usersCard').style.display = useLogin ? 'block' : 'none';
+    });
+
+    // Update kiosk PIN display as user types
+    var kioskCodeInput = document.querySelector('input[name="KioskCode"]');
+    if (kioskCodeInput) {
+        kioskCodeInput.addEventListener('input', function () {
+            var pin = this.value || '12345';
+            var pinDisplay = document.getElementById('kioskPinDisplay');
+            var pinUrl = document.getElementById('kioskPinUrl');
+            if (pinDisplay) pinDisplay.textContent = pin;
+            if (pinUrl) pinUrl.textContent = pin;
+        });
+    }
 
     document.getElementById('KioskCount').addEventListener('change', function () {
         var hasKiosk = parseInt(this.value) > 0;

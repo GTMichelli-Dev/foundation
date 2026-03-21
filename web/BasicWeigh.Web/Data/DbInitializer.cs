@@ -6,6 +6,21 @@ public static class DbInitializer
 {
     public static void Seed(ScaleDbContext context)
     {
+        // Always ensure at least one admin user exists
+        if (!context.Users.Any())
+        {
+            context.Users.Add(new AppUser
+            {
+                Username = "admin",
+                DisplayName = "Administrator",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Scale_User"),
+                Role = "Admin",
+                MustChangePassword = false,
+                Active = true
+            });
+            context.SaveChanges();
+        }
+
         if (context.Customers.Any())
             return; // Already seeded
 

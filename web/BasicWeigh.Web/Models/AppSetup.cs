@@ -74,4 +74,12 @@ public class AppSetup
 
     [Display(Name = "Kiosk Dark Mode")]
     public bool KioskDarkMode { get; set; } = true;
+
+    // Login / Security
+    [Display(Name = "Require Login")]
+    public bool UseLogin { get; set; }
+
+    [StringLength(20)]
+    [Display(Name = "Kiosk PIN Code")]
+    public string KioskCode { get; set; } = "12345";
 }

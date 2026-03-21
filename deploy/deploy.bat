@@ -9,6 +9,7 @@ REM   --domain <domain>    Domain name for Let's Encrypt SSL
 REM   --email <email>      Email for Let's Encrypt notifications
 REM   --port <port>        App listen port (default 5110)
 REM   --key <ssh-key>      SSH key file
+REM   --rebuild-db         Delete and recreate the database (CAUTION: destroys data!)
 
 set "SCRIPT_DIR=%~dp0"
 set "TARBALL=%SCRIPT_DIR%basicweigh-deploy.tar.gz"
@@ -18,6 +19,7 @@ set "DOMAIN="
 set "EMAIL="
 set "APP_PORT=5110"
 set "SSH_KEY="
+set "REBUILD_DB=0"
 
 REM Parse arguments
 :parse_args
@@ -26,6 +28,7 @@ if "%~1"=="--domain"  ( set "DOMAIN=%~2" & shift & shift & goto :parse_args )
 if "%~1"=="--email"   ( set "EMAIL=%~2" & shift & shift & goto :parse_args )
 if "%~1"=="--port"    ( set "APP_PORT=%~2" & shift & shift & goto :parse_args )
 if "%~1"=="--key"     ( set "SSH_KEY=%~2" & shift & shift & goto :parse_args )
+if "%~1"=="--rebuild-db" ( set "REBUILD_DB=1" & shift & goto :parse_args )
 set "REMOTE=%~1"
 shift
 goto :parse_args
@@ -39,6 +42,7 @@ if "%REMOTE%"=="" (
     echo   --email ^<email^>      Email for Let's Encrypt
     echo   --port ^<port^>        App port ^(default 5110^)
     echo   --key ^<ssh-key^>      SSH key file
+    echo   --rebuild-db         Delete and recreate the database
     echo.
     echo Examples:
     echo   deploy.bat admin@192.168.1.100
@@ -82,7 +86,7 @@ if errorlevel 1 (
 )
 
 REM Build install command - sed fixes Windows CRLF line endings before running
-set "INSTALL_CMD=cd /tmp && mkdir -p /tmp/basicweigh-install && tar -xzf /tmp/basicweigh-deploy.tar.gz -C /tmp/basicweigh-install && cd /tmp/basicweigh-install && sed -i 's/\r$//' install.sh && sudo DOMAIN='%DOMAIN%' EMAIL='%EMAIL%' PORT='%APP_PORT%' bash install.sh && rm -rf /tmp/basicweigh-install /tmp/basicweigh-deploy.tar.gz"
+set "INSTALL_CMD=cd /tmp && mkdir -p /tmp/basicweigh-install && tar -xzf /tmp/basicweigh-deploy.tar.gz -C /tmp/basicweigh-install && cd /tmp/basicweigh-install && sed -i 's/\r$//' install.sh && sudo DOMAIN='%DOMAIN%' EMAIL='%EMAIL%' PORT='%APP_PORT%' REBUILD_DB='%REBUILD_DB%' bash install.sh && rm -rf /tmp/basicweigh-install /tmp/basicweigh-deploy.tar.gz"
 
 echo ==^> Installing on remote server...
 ssh %SSH_OPTS% "%REMOTE%" "%INSTALL_CMD%"

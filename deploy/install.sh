@@ -11,12 +11,14 @@ set -euo pipefail
 #   DOMAIN=scale.example.com   — enables Let's Encrypt SSL
 #   EMAIL=admin@example.com    — required for Let's Encrypt
 #   PORT=5110                  — app listen port (default 5110)
+#   REBUILD_DB=1               — delete and recreate the database
 
 APP_DIR="/opt/basicweigh"
 SERVICE_USER="admin"
 DOMAIN="${DOMAIN:-}"
 EMAIL="${EMAIL:-}"
 APP_PORT="${PORT:-5110}"
+REBUILD_DB="${REBUILD_DB:-0}"
 
 #--------------------------------------------------
 # 0. If a tarball was passed, extract it first
@@ -86,10 +88,15 @@ systemctl stop basicweigh 2>/dev/null || true
 echo "==> Installing BasicWeigh.Web to $APP_DIR..."
 mkdir -p "$APP_DIR"
 
-# Preserve database and reports if they exist
-if [[ -f "$APP_DIR/BasicWeigh.db" ]]; then
-  cp "$APP_DIR/BasicWeigh.db" /tmp/BasicWeigh.db.bak
-  echo "  Database backed up to /tmp/BasicWeigh.db.bak"
+# Preserve database and reports if they exist (unless rebuild requested)
+if [[ "$REBUILD_DB" == "1" ]]; then
+  echo "  --rebuild-db: Database will be recreated from scratch."
+  rm -f "$APP_DIR/BasicWeigh.db" /tmp/BasicWeigh.db.bak
+else
+  if [[ -f "$APP_DIR/BasicWeigh.db" ]]; then
+    cp "$APP_DIR/BasicWeigh.db" /tmp/BasicWeigh.db.bak
+    echo "  Database backed up to /tmp/BasicWeigh.db.bak"
+  fi
 fi
 if [[ -d "$APP_DIR/Reports" ]]; then
   cp -r "$APP_DIR/Reports" /tmp/Reports.bak
@@ -100,7 +107,7 @@ fi
 rsync -a --delete basicweigh/ "$APP_DIR/"
 
 # Restore database and reports
-if [[ -f /tmp/BasicWeigh.db.bak ]]; then
+if [[ "$REBUILD_DB" != "1" ]] && [[ -f /tmp/BasicWeigh.db.bak ]]; then
   cp /tmp/BasicWeigh.db.bak "$APP_DIR/BasicWeigh.db"
   echo "  Database restored."
 fi

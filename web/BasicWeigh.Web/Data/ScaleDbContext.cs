@@ -15,6 +15,7 @@ public class ScaleDbContext : DbContext
     public DbSet<Truck> Trucks => Set<Truck>();
     public DbSet<Commodity> Commodities => Set<Commodity>();
     public DbSet<AppSetup> AppSetup => Set<AppSetup>();
+    public DbSet<AppUser> Users => Set<AppUser>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -71,6 +72,12 @@ public class ScaleDbContext : DbContext
             e.Property(s => s.PromptKioskLocation).HasDefaultValue(true);
             e.Property(s => s.PromptKioskTruckId).HasDefaultValue(true);
             e.Property(s => s.PromptKioskDestinationOnOutbound).HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<AppUser>(e =>
+        {
+            e.ToTable("Users");
+            e.HasIndex(u => u.Username).IsUnique();
         });
 
         modelBuilder.Entity<AppSetup>().HasData(new AppSetup

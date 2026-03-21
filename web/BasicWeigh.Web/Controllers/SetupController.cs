@@ -46,6 +46,8 @@ public class SetupController : Controller
         existing.PromptKioskDestinationOnInbound = setup.PromptKioskDestinationOnInbound;
         existing.PromptKioskDestinationOnOutbound = setup.PromptKioskDestinationOnOutbound;
         existing.KioskDarkMode = setup.KioskDarkMode;
+        existing.UseLogin = setup.UseLogin;
+        existing.KioskCode = setup.KioskCode ?? "12345";
 
         if (removeIcon)
         {

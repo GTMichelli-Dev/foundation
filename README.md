@@ -14,6 +14,7 @@ Basic Weigh is a web-based truck scale management application for weighing inbou
 - **Kiosk Mode** — Touchscreen-optimized interface for unattended scale houses (1280x800 resolution)
 - **Remote Printing** — Print tickets to thermal printers via Raspberry Pi print agents over SignalR
 - **Ticket Designer** — Edit ticket layouts with the built-in DevExpress Report Designer
+- **User Login & Roles** — Optional login with User, Manager, and Admin roles
 - **Customizable** — Themes, custom icons, configurable kiosk prompts, and editable ticket templates
 - **Demo Mode** — Built-in scale simulator for testing without hardware
 
@@ -332,9 +333,45 @@ sudo systemctl restart basicweigh
 Navigate to **Setup** in the web interface to configure:
 
 - **Company & Ticket** — Header lines (company name, address, phone), ticket numbering
-- **System** — Demo mode, kiosk count (0/1/2), theme, custom icon
+- **System** — Demo mode, kiosk count (0/1/2), login mode, theme, custom icon
 - **Kiosk Prompts** — Which fields to show on the kiosk touchscreen
 - **Ticket Designers** — Edit the layout of printed tickets
+
+### User Login System
+
+Login is **optional** — controlled by the "Require Login" setting on the Setup page. When disabled, all features are accessible without authentication.
+
+**Default admin credentials:**
+- Username: `admin`
+- Password: `Scale_User`
+
+**Roles:**
+
+| Role | Access |
+|------|--------|
+| **User** | Weigh trucks in and out, view dashboard, reports, inbound/completed trucks |
+| **Manager** | Everything User can do + edit master data tables (customers, carriers, etc.) |
+| **Admin** | Everything Manager can do + Setup page + user management |
+
+**Password Reset:** Admins can reset any user's password from the Setup > Manage Users page. The password is reset to `Scale_User` and the user must change it on next login. There is no email-based recovery (the system may not have internet access).
+
+**Kiosk Access with Login Enabled:** Kiosks don't use the login screen. Instead, pass the Kiosk PIN code as a URL parameter:
+
+```
+https://your-server/Kiosk?pin=12345
+```
+
+The default PIN is `12345`. Change it on the Setup page. The PIN is stored as a browser cookie so subsequent requests don't need it.
+
+### Rebuilding the Database
+
+If a new version requires database schema changes that can't be auto-migrated, use the `--rebuild-db` flag:
+
+```
+deploy\deploy.bat admin@149.28.xxx.xxx --domain basic.scaledata.net --email admin@example.com --rebuild-db
+```
+
+> **WARNING:** This deletes the existing database and creates a fresh one. All transactions, master data, and users will be lost. Back up first if needed.
 
 ---
 

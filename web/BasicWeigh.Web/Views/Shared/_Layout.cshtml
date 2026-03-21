@@ -6,6 +6,10 @@
     var appVersion = asm.GetName().Version?.ToString(3) ?? "1.0.0";
     var theme = appSetup?.Theme ?? "default";
     var iconCacheBust = DateTime.UtcNow.Ticks;
+    var useLogin = appSetup?.UseLogin == true;
+    var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "";
+    var isAdmin = !useLogin || userRole == "Admin";
+    var isManagerOrAbove = !useLogin || userRole == "Manager" || userRole == "Admin";
 }
 <!DOCTYPE html>
 <html lang="en" data-theme="@theme">
@@ -57,12 +61,18 @@
                         <li class="nav-item">
                             <a class="nav-link" asp-controller="Report" asp-action="Index">Reports</a>
                         </li>
+                        @if (isManagerOrAbove)
+                        {
                         <li class="nav-item">
                             <a class="nav-link" asp-controller="MasterData" asp-action="Index">Edit Tables</a>
                         </li>
+                        }
+                        @if (isAdmin)
+                        {
                         <li class="nav-item">
                             <a class="nav-link" asp-controller="Setup" asp-action="Index">Setup</a>
                         </li>
+                        }
                         @if (appSetup?.DemoMode == true)
                         {
                         <li class="nav-item">
@@ -70,14 +80,25 @@
                         </li>
                         }
                     </ul>
-                    @if (appSetup?.DemoMode == true)
-                    {
-                    <div class="d-flex align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        @if (appSetup?.DemoMode == true)
+                        {
                         <button class="btn btn-sm btn-outline-warning fw-bold" id="simToggleBtn" type="button" data-bs-toggle="collapse" data-bs-target="#simPanel">
                             Simulate
                         </button>
+                        }
+                        @if (useLogin && User.Identity!.IsAuthenticated)
+                        {
+                        <span class="small" style="color: var(--bw-text-muted);">
+                            <strong>@User.Identity.Name</strong>
+                            <span class="badge @(userRole == "Admin" ? "bg-danger" : userRole == "Manager" ? "bg-warning text-dark" : "bg-info text-dark") ms-1">@userRole</span>
+                        </span>
+                        <form asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">Logout</button>
+                        </form>
+                        }
                     </div>
-                    }
                 </div>
             </div>
         </nav>
