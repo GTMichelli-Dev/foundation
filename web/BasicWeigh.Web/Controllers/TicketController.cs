@@ -35,6 +35,7 @@ public class TicketController : Controller
         ViewBag.Header2 = setup.Header2;
         ViewBag.Header3 = setup.Header3;
         ViewBag.Header4 = setup.Header4;
+        ViewBag.Theme = setup.Theme ?? "default";
 
         return View(transaction);
     }
@@ -126,6 +127,8 @@ public class TicketController : Controller
         SetParam(report, "Header4", setup.Header4 ?? "");
 
         ViewBag.TicketId = id;
+        ViewBag.Header1 = setup.Header1 ?? "Basic Weigh";
+        ViewBag.Theme = setup.Theme ?? "default";
         return View(report);
     }
 
