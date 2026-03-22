@@ -3,43 +3,38 @@
 }
 
 <style>
-    .export-excel-btn .dx-button-content {
-        background: #1a7f37 !important;
-        color: #fff !important;
-        border-radius: 6px;
-        padding: 6px 16px !important;
-    }
-    .export-excel-btn .dx-icon,
-    .export-excel-btn .dx-button-text {
-        color: #fff !important;
-        font-weight: 600;
-    }
-    .export-excel-btn:hover .dx-button-content {
-        background: #15652c !important;
-    }
-    .export-pdf-btn .dx-button-content {
-        background: #c53030 !important;
-        color: #fff !important;
-        border-radius: 6px;
-        padding: 6px 16px !important;
-    }
-    .export-pdf-btn .dx-icon,
-    .export-pdf-btn .dx-button-text {
-        color: #fff !important;
-        font-weight: 600;
-    }
-    .export-pdf-btn:hover .dx-button-content {
-        background: #9b2c2c !important;
-    }
     .notes-cell {
         white-space: normal !important;
         word-wrap: break-word;
         max-height: 60px;
         overflow: hidden;
     }
+    .report-controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+    .report-controls .ctrl-label {
+        font-weight: 600;
+        white-space: nowrap;
+        font-size: 0.85em;
+    }
 </style>
 
 <h3>Reports</h3>
+<script>var companyName = '@Html.Raw(ViewBag.CompanyName)';</script>
+
+<div class="report-controls">
+    <span class="ctrl-label">From:</span>
+    <div id="startDate"></div>
+    <span class="ctrl-label">To:</span>
+    <div id="endDate"></div>
+    <span class="ctrl-label ms-2">Group By:</span>
+    <div id="groupByTag"></div>
+    <div id="resetBtn" class="ms-2"></div>
+</div>
 
 <div id="reportGrid"></div>
 
@@ -47,6 +42,8 @@
 <script>
     $(function () {
         var storageKey = 'report_dates';
+        var cookieGroupBy = 'report_groupby';
+
         var defaultStart = new Date(new Date().setDate(new Date().getDate() - 30));
         var defaultEnd = new Date();
 
@@ -61,10 +58,18 @@
 
         var startVal = defaultStart;
         var endVal = defaultEnd;
-        var startDateBox, endDateBox;
 
-        // Track active group-by selections
-        var groupByFields = [];
+        // Cookie helpers
+        function setCookie(name, value, days) {
+            var d = new Date();
+            d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+            document.cookie = name + '=' + encodeURIComponent(JSON.stringify(value)) + ';expires=' + d.toUTCString() + ';path=/';
+        }
+        function getCookie(name) {
+            var match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+            if (match) { try { return JSON.parse(decodeURIComponent(match[2])); } catch (e) {} }
+            return null;
+        }
 
         function saveDates() {
             sessionStorage.setItem(storageKey, JSON.stringify({
@@ -73,52 +78,8 @@
             }));
         }
 
-        function resetDates() {
-            startVal = new Date(new Date().setDate(new Date().getDate() - 30));
-            endVal = new Date();
-            startDateBox.option('value', startVal);
-            endDateBox.option('value', endVal);
-            saveDates();
-            grid.refresh();
-        }
-
-        function applyGrouping() {
-            var grouping = groupByFields.map(function (f) { return { selector: f, isExpanded: true }; });
-            grid.clearGrouping();
-            for (var i = 0; i < groupByFields.length; i++) {
-                grid.columnOption(groupByFields[i], 'groupIndex', i);
-            }
-        }
-
-        function exportToExcel() {
-            var workbook = new ExcelJS.Workbook();
-            var worksheet = workbook.addWorksheet('WeighReport');
-            DevExpress.excelExporter.exportDataGrid({
-                component: grid,
-                worksheet: worksheet,
-                autoFilterEnabled: true
-            }).then(function () {
-                workbook.xlsx.writeBuffer().then(function (buffer) {
-                    saveAs(new Blob([buffer], { type: 'application/octet-stream' }), 'WeighReport.xlsx');
-                });
-            });
-        }
-
-        function exportToPdf() {
-            var doc = new jspdf.jsPDF({ orientation: 'landscape', format: 'letter' });
-            DevExpress.pdfExporter.exportDataGrid({
-                jsPDFDocument: doc,
-                component: grid,
-                autoTableOptions: {
-                    styles: { fontSize: 8 },
-                    headStyles: { fillColor: [46, 163, 242] }
-                }
-            }).then(function () {
-                doc.save('WeighReport.pdf');
-            });
-        }
-
-        var groupByOptions = [
+        // Groupable column options
+        var groupOptions = [
             { value: 'customer', text: 'Customer' },
             { value: 'carrier', text: 'Carrier' },
             { value: 'truckId', text: 'Truck ID' },
@@ -127,6 +88,66 @@
             { value: 'destination', text: 'Destination' }
         ];
 
+        var groupByFields = getCookie(cookieGroupBy) || [];
+
+        function applyGrouping() {
+            groupOptions.forEach(function (opt) {
+                grid.columnOption(opt.value, 'groupIndex', undefined);
+            });
+            for (var i = 0; i < groupByFields.length; i++) {
+                grid.columnOption(groupByFields[i], 'groupIndex', i);
+            }
+        }
+
+        // --- Controls above grid ---
+        var startDateBox = $('#startDate').dxDateBox({
+            value: startVal, type: 'date', displayFormat: 'MM/dd/yyyy', width: 140,
+            onValueChanged: function (e) { startVal = e.value; saveDates(); grid.refresh(); }
+        }).dxDateBox('instance');
+
+        var endDateBox = $('#endDate').dxDateBox({
+            value: endVal, type: 'date', displayFormat: 'MM/dd/yyyy', width: 140,
+            onValueChanged: function (e) { endVal = e.value; saveDates(); grid.refresh(); }
+        }).dxDateBox('instance');
+
+        var groupByTag = $('#groupByTag').dxTagBox({
+            items: groupOptions, value: groupByFields,
+            valueExpr: 'value', displayExpr: 'text',
+            placeholder: 'Select...', width: 280,
+            showSelectionControls: true, searchEnabled: true,
+            onValueChanged: function (e) {
+                groupByFields = e.value || [];
+                setCookie(cookieGroupBy, groupByFields, 365);
+                applyGrouping();
+            }
+        }).dxTagBox('instance');
+
+        $('#resetBtn').dxButton({
+            icon: 'revert', text: 'Reset',
+            hint: 'Reset all filters, grouping, columns and dates',
+            onClick: function () {
+                startVal = new Date(new Date().setDate(new Date().getDate() - 30));
+                endVal = new Date();
+                startDateBox.option('value', startVal);
+                endDateBox.option('value', endVal);
+                saveDates();
+                groupByFields = [];
+                groupByTag.option('value', groupByFields);
+                setCookie(cookieGroupBy, groupByFields, 365);
+                grid.clearFilter();
+                applyGrouping();
+                // Show all columns and clear saved state
+                var cols = grid.option('columns');
+                for (var i = 0; i < cols.length; i++) {
+                    grid.columnOption(i, 'visible', true);
+                }
+                setCookie('report_grid_state', {}, 365);
+                grid.refresh();
+            }
+        });
+
+        // --- Data Grid ---
+        var stateKey = 'report_grid_state';
         var grid = $('#reportGrid').dxDataGrid({
             hoverStateEnabled: true,
             remoteOperations: false,
@@ -138,100 +159,263 @@
                     return $.getJSON('/api/reports/transactions', { startDate: s, endDate: e });
                 }
             }),
-            toolbar: {
-                items: [
-                    {
-                        location: 'before',
-                        template: function () {
-                            var container = $('<div>').css({ display: 'flex', alignItems: 'center', gap: '8px' });
-                            container.append($('<span>').css({ fontWeight: '600', whiteSpace: 'nowrap' }).text('Date Out From:'));
-                            var dateDiv = $('<div>').appendTo(container);
-                            startDateBox = dateDiv.dxDateBox({
-                                value: startVal,
-                                type: 'date',
-                                displayFormat: 'MM/dd/yyyy',
-                                width: 150,
-                                onValueChanged: function (e) { startVal = e.value; saveDates(); grid.refresh(); }
-                            }).dxDateBox('instance');
-                            return container;
+            // Persist column visibility, order, widths, sorting, filters in cookie
+            stateStoring: {
+                enabled: true,
+                type: 'custom',
+                savingTimeout: 500,
+                customLoad: function () {
+                    return $.Deferred(function (d) {
+                        d.resolve(getCookie(stateKey) || {});
+                    }).promise();
+                },
+                customSave: function (state) {
+                    setCookie(stateKey, state, 365);
+                }
+            },
+            onContentReady: function (e) {
+                if (e.component.__firstLoad !== true) {
+                    e.component.__firstLoad = true;
+                    applyGrouping();
+                }
+            },
+            onToolbarPreparing: function (e) {
+                function getFileName(ext) {
+                    var s = DevExpress.localization.formatDate(startVal, 'yyyy-MM-dd');
+                    var en = DevExpress.localization.formatDate(endVal, 'yyyy-MM-dd');
+                    return 'WeighReport_' + s + '_to_' + en + '.' + ext;
+                }
+
+                function formatNum(n) { return n == null ? '' : Number(n).toLocaleString('en-US'); }
+                function formatTons(n) { return n == null ? '' : Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+                function formatDate(val) {
+                    if (!val) return '';
+                    var d = new Date(val);
+                    return (d.getMonth() + 1).toString().padStart(2, '0') + '/' +
+                           d.getDate().toString().padStart(2, '0') + '/' +
+                           d.getFullYear() + ' ' +
+                           ((d.getHours() % 12) || 12) + ':' +
+                           d.getMinutes().toString().padStart(2, '0') + ' ' +
+                           (d.getHours() >= 12 ? 'PM' : 'AM');
+                }
+
+                function exportPdf(orientation) {
+                    var doc = new jspdf.jsPDF({ orientation: orientation, format: 'letter', unit: 'mm' });
+                    var pageWidth = doc.internal.pageSize.getWidth();
+
+                    // Header: Company name + date range
+                    var sDate = DevExpress.localization.formatDate(startVal, 'MM/dd/yyyy');
+                    var eDate = DevExpress.localization.formatDate(endVal, 'MM/dd/yyyy');
+                    doc.setFontSize(12);
+                    doc.setFont(undefined, 'bold');
+                    doc.text(companyName, pageWidth / 2, 8, { align: 'center' });
+                    doc.setFontSize(8);
+                    doc.setFont(undefined, 'normal');
+                    doc.text('Weigh Report: ' + sDate + ' to ' + eDate, pageWidth / 2, 13, { align: 'center' });
+
+                    // Get visible columns and data
+                    var visibleCols = grid.getVisibleColumns().filter(function (c) {
+                        return c.dataField && c.groupIndex === undefined;
+                    });
+                    var headers = visibleCols.map(function (c) { return c.caption || c.dataField; });
+
+                    // Find column indices for weight/tons fields
+                    var netWeightIdx = -1, netTonsIdx = -1;
+                    visibleCols.forEach(function (c, i) {
+                        if (c.dataField === 'netWeight') netWeightIdx = i;
+                        if (c.dataField === 'netTons') netTonsIdx = i;
+                    });
+
+                    // Helper: build a formatted data row with right-aligned numbers
+                    function makeDataRow(row) {
+                        return visibleCols.map(function (col) {
+                            var val = row[col.dataField];
+                            if (val == null) return '';
+                            if (col.dataType === 'datetime' || col.dataType === 'date') return formatDate(val);
+                            if (col.dataField === 'netTons') return { content: formatTons(val), styles: { halign: 'right' } };
+                            if (col.dataType === 'number') return { content: formatNum(val), styles: { halign: 'right' } };
+                            return String(val);
+                        });
+                    }
+
+                    var dataSource = grid.getDataSource();
+                    var items = dataSource.items();
+
+                    // Grand totals
+                    var grandLoads = 0, grandNetWeight = 0, grandNetTons = 0;
+
+                    // Build body with group headers, group totals, and data rows
+                    var body = [];
+
+                    function makeTotalRow(label, loads, netWeight, netTons, bgColor, textColor) {
+                        textColor = textColor || [0, 0, 0];
+                        var row = [];
+                        for (var i = 0; i < headers.length; i++) {
+                            var content = '';
+                            if (i === 0) content = label + ': ' + loads + ' loads';
+                            if (i === netWeightIdx) content = formatNum(netWeight) + ' lbs';
+                            if (i === netTonsIdx) content = formatTons(netTons) + ' tons';
+                            row.push({ content: content, styles: { fontStyle: 'bold', fillColor: bgColor, textColor: textColor, halign: (i === netWeightIdx || i === netTonsIdx) ? 'right' : 'left' } });
                         }
-                    },
-                    {
-                        location: 'before',
-                        template: function () {
-                            var container = $('<div>').css({ display: 'flex', alignItems: 'center', gap: '8px' });
-                            container.append($('<span>').css({ fontWeight: '600', whiteSpace: 'nowrap' }).text('To:'));
-                            var dateDiv = $('<div>').appendTo(container);
-                            endDateBox = dateDiv.dxDateBox({
-                                value: endVal,
-                                type: 'date',
-                                displayFormat: 'MM/dd/yyyy',
-                                width: 150,
-                                onValueChanged: function (e) { endVal = e.value; saveDates(); grid.refresh(); }
-                            }).dxDateBox('instance');
-                            return container;
-                        }
-                    },
-                    {
-                        location: 'before',
-                        widget: 'dxButton',
-                        options: {
-                            icon: 'revert',
-                            text: 'Reset',
-                            hint: 'Reset to today and 30 days prior',
-                            onClick: function () { resetDates(); }
-                        }
-                    },
-                    {
-                        location: 'before',
-                        template: function () {
-                            var container = $('<div>').css({ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '16px' });
-                            container.append($('<span>').css({ fontWeight: '600', whiteSpace: 'nowrap' }).text('Group By:'));
-                            var tagDiv = $('<div>').appendTo(container);
-                            tagDiv.dxTagBox({
-                                items: groupByOptions,
-                                valueExpr: 'value',
-                                displayExpr: 'text',
-                                placeholder: 'Select grouping...',
-                                width: 350,
-                                showSelectionControls: true,
-                                onValueChanged: function (e) {
-                                    groupByFields = e.value || [];
-                                    // Clear all existing grouping first
-                                    groupByOptions.forEach(function (opt) {
-                                        grid.columnOption(opt.value, 'groupIndex', undefined);
+                        return row;
+                    }
+
+                    function processItems(items) {
+                        items.forEach(function (item) {
+                            if (item.items || item.collapsedItems) {
+                                var subItems = item.items || item.collapsedItems;
+                                // Group header
+                                body.push([{ content: item.key, colSpan: headers.length, styles: { fontStyle: 'bold', fillColor: [230, 236, 245], fontSize: 5.5 } }]);
+
+                                // Check for nested groups
+                                if (subItems && subItems.length > 0 && (subItems[0].items || subItems[0].collapsedItems)) {
+                                    processItems(subItems);
+                                } else {
+                                    // Data rows
+                                    var groupLoads = 0, groupNetWeight = 0, groupNetTons = 0;
+                                    (subItems || []).forEach(function (row) {
+                                        groupLoads++;
+                                        grandLoads++;
+                                        var nw = row.netWeight || 0;
+                                        var nt = row.netTons || 0;
+                                        groupNetWeight += nw;
+                                        groupNetTons += nt;
+                                        grandNetWeight += nw;
+                                        grandNetTons += nt;
+
+                                        body.push(makeDataRow(row));
                                     });
-                                    // Apply new grouping
-                                    for (var i = 0; i < groupByFields.length; i++) {
-                                        grid.columnOption(groupByFields[i], 'groupIndex', i);
-                                    }
+                                    // Group subtotal
+                                    body.push(makeTotalRow(item.key, groupLoads, groupNetWeight, groupNetTons, [220, 230, 220]));
                                 }
-                            });
-                            return container;
+                            } else {
+                                // Ungrouped data row
+                                grandLoads++;
+                                grandNetWeight += item.netWeight || 0;
+                                grandNetTons += item.netTons || 0;
+                                body.push(makeDataRow(item));
+                            }
+                        });
+                    }
+
+                    processItems(items);
+
+                    // Grand total row
+                    body.push(makeTotalRow('Grand Total', grandLoads, grandNetWeight, grandNetTons, [46, 163, 242], [255, 255, 255]));
+
+                    doc.autoTable({
+                        head: [headers],
+                        body: body,
+                        styles: { fontSize: 5, cellPadding: 0.8 },
+                        headStyles: { fillColor: [46, 163, 242], fontSize: 5.5, cellPadding: 1 },
+                        margin: { top: 16, right: 3, bottom: 6, left: 3 },
+                        tableWidth: pageWidth - 6,
+                        theme: 'grid'
+                    });
+
+                    doc.save(getFileName('pdf'));
+                }
+
+                e.toolbarOptions.items.push(
+                    {
+                        location: 'after',
+                        widget: 'dxButton',
+                        options: {
+                            icon: 'exportpdf', text: 'PDF Landscape',
+                            onClick: function () { exportPdf('landscape'); }
                         }
                     },
                     {
                         location: 'after',
                         widget: 'dxButton',
                         options: {
-                            icon: 'exportpdf',
-                            text: 'Export to PDF',
-                            elementAttr: { class: 'export-pdf-btn' },
-                            onClick: function () { exportToPdf(); }
+                            icon: 'exportpdf', text: 'PDF Portrait',
+                            onClick: function () { exportPdf('portrait'); }
                         }
                     },
                     {
                         location: 'after',
                         widget: 'dxButton',
                         options: {
-                            icon: 'xlsxfile',
-                            text: 'Export to Excel',
-                            elementAttr: { class: 'export-excel-btn' },
-                            onClick: function () { exportToExcel(); }
+                            icon: 'xlsxfile', text: 'Excel',
+                            onClick: function () {
+                                var workbook = new ExcelJS.Workbook();
+                                var worksheet = workbook.addWorksheet('WeighReport');
+                                DevExpress.excelExporter.exportDataGrid({
+                                    component: grid, worksheet: worksheet, autoFilterEnabled: true
+                                }).then(function () {
+                                    workbook.xlsx.writeBuffer().then(function (buffer) {
+                                        saveAs(new Blob([buffer], { type: 'application/octet-stream' }), getFileName('xlsx'));
+                                    });
+                                });
+                            }
+                        }
+                    },
+                    {
+                        location: 'after',
+                        widget: 'dxButton',
+                        options: {
+                            icon: 'doc', text: 'CSV',
+                            onClick: function () {
+                                var cols = grid.getVisibleColumns().filter(function (c) { return c.dataField; });
+                                var csvHeaders = cols.map(function (c) { return '"' + (c.caption || c.dataField) + '"'; }).join(',');
+                                var rows = [];
+                                var allData = grid.getDataSource().items();
+                                function extractRows(items) {
+                                    items.forEach(function (item) {
+                                        if (item.items || item.collapsedItems) {
+                                            extractRows(item.items || item.collapsedItems);
+                                        } else {
+                                            var row = cols.map(function (col) {
+                                                var val = item[col.dataField];
+                                                if (val == null) return '""';
+                                                if (col.dataType === 'datetime' || col.dataType === 'date') return '"' + formatDate(val) + '"';
+                                                if (col.dataType === 'number') return val;
+                                                return '"' + String(val).replace(/"/g, '""') + '"';
+                                            });
+                                            rows.push(row.join(','));
+                                        }
+                                    });
+                                }
+                                extractRows(allData);
+                                var csv = csvHeaders + '\n' + rows.join('\n');
+                                var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                                saveAs(blob, getFileName('csv'));
+                            }
+                        }
+                    },
+                    {
+                        location: 'after',
+                        widget: 'dxButton',
+                        options: {
+                            icon: 'variable', text: 'JSON',
+                            onClick: function () {
+                                var cols = grid.getVisibleColumns().filter(function (c) { return c.dataField; });
+                                var jsonData = [];
+                                var allData = grid.getDataSource().items();
+                                function extractRows(items) {
+                                    items.forEach(function (item) {
+                                        if (item.items || item.collapsedItems) {
+                                            extractRows(item.items || item.collapsedItems);
+                                        } else {
+                                            var obj = {};
+                                            cols.forEach(function (col) {
+                                                obj[col.dataField] = item[col.dataField] != null ? item[col.dataField] : null;
+                                            });
+                                            jsonData.push(obj);
+                                        }
+                                    });
+                                }
+                                extractRows(allData);
+                                var json = JSON.stringify(jsonData, null, 2);
+                                var blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+                                saveAs(blob, getFileName('json'));
+                            }
                         }
                     }
-                ]
+                );
             },
+            columnChooser: { enabled: true, mode: 'select' },
             columns: [
                 { dataField: 'ticket', caption: '#', width: 60, sortOrder: 'desc', sortIndex: 0 },
                 { dataField: 'dateOut', caption: 'Date Out', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a', width: 155 },
@@ -264,8 +448,11 @@
             filterRow: { visible: true },
             headerFilter: { visible: true },
             filterPanel: { visible: true },
-            groupPanel: { visible: false },
+            searchPanel: { visible: true, width: 200 },
             sorting: { mode: 'multiple' },
+            allowColumnReordering: true,
+            allowColumnResizing: true,
+            columnResizingMode: 'widget',
             columnAutoWidth: true,
             columnMinWidth: 50,
             wordWrapEnabled: false,

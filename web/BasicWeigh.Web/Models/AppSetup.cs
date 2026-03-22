@@ -82,4 +82,12 @@ public class AppSetup
     [StringLength(20)]
     [Display(Name = "Kiosk PIN Code")]
     public string KioskCode { get; set; } = "12345";
+
+    [StringLength(20)]
+    [Display(Name = "API Definition PIN")]
+    public string ApiDefinitionPin { get; set; } = "12345";
+
+    // Recall last ticket values
+    [Display(Name = "Recall Last Values")]
+    public bool RecallLastValues { get; set; }
 }

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using BasicWeigh.Web.Data;
 using BasicWeigh.Web.Models;
 using BasicWeigh.Web.Services;
 
@@ -8,10 +9,12 @@ namespace BasicWeigh.Web.Controllers;
 public class HomeController : Controller
 {
     private readonly IScaleService _scaleService;
+    private readonly ScaleDbContext _db;
 
-    public HomeController(IScaleService scaleService)
+    public HomeController(IScaleService scaleService, ScaleDbContext db)
     {
         _scaleService = scaleService;
+        _db = db;
     }
 
     public IActionResult Index()
@@ -34,14 +37,17 @@ public class HomeController : Controller
     [HttpPost("api/scale/simulate")]
     public IActionResult Simulate([FromBody] SimulateRequest request)
     {
+        var setup = _db.AppSetup.First();
+        if (!setup.DemoMode)
+            return BadRequest(new { success = false, message = "Not in demo mode. Enable Demo Mode in Setup to use the simulator." });
+
         if (_scaleService is SimulatedScaleService sim)
         {
-            sim.SetWeight(request.Weight);
             sim.SetMotion(request.Motion);
             sim.SetError(request.Error);
             return Json(new { success = true });
         }
-        return BadRequest(new { success = false, message = "Not in demo mode" });
+        return BadRequest(new { success = false, message = "Scale service is not a simulator." });
     }
 
     public class SimulateRequest

@@ -48,6 +48,8 @@ public class SetupController : Controller
         existing.KioskDarkMode = setup.KioskDarkMode;
         existing.UseLogin = setup.UseLogin;
         existing.KioskCode = setup.KioskCode ?? "12345";
+        existing.ApiDefinitionPin = setup.ApiDefinitionPin ?? "12345";
+        existing.RecallLastValues = setup.RecallLastValues;
 
         if (removeIcon)
         {
@@ -260,5 +262,54 @@ public class SetupController : Controller
         // Fall back to default SVG
         var defaultPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "default-icon.svg");
         return PhysicalFile(defaultPath, "image/svg+xml");
+    }
+
+    /// <summary>
+    /// Returns the current system settings (excludes sensitive data like icon bytes).
+    /// </summary>
+    [HttpGet("api/setup/settings")]
+    public IActionResult GetSettings()
+    {
+        var setup = _db.AppSetup.First();
+        var version = GetType().Assembly.GetName().Version?.ToString() ?? "unknown";
+        return Json(new
+        {
+            version,
+            company = new
+            {
+                header1 = setup.Header1,
+                header2 = setup.Header2,
+                header3 = setup.Header3,
+                header4 = setup.Header4
+            },
+            ticket = new
+            {
+                nextTicketNumber = setup.TicketNumber,
+                ticketsPerPage = setup.TicketsPerPage
+            },
+            system = new
+            {
+                demoMode = setup.DemoMode,
+                theme = setup.Theme,
+                hasCustomIcon = setup.Icon != null,
+                recallLastValues = setup.RecallLastValues
+            },
+            kiosk = new
+            {
+                kioskCount = setup.KioskCount,
+                kioskDarkMode = setup.KioskDarkMode,
+                promptCommodity = setup.PromptKioskCommodity,
+                promptCustomer = setup.PromptKioskCustomer,
+                promptCarrier = setup.PromptKioskCarrier,
+                promptTruckId = setup.PromptKioskTruckId,
+                promptLocation = setup.PromptKioskLocation,
+                promptDestinationOnInbound = setup.PromptKioskDestinationOnInbound,
+                promptDestinationOnOutbound = setup.PromptKioskDestinationOnOutbound
+            },
+            security = new
+            {
+                useLogin = setup.UseLogin
+            }
+        });
     }
 }

@@ -52,7 +52,23 @@ public class TransactionController : Controller
         var setup = _db.AppSetup.First();
         ViewBag.NextTicket = setup.TicketNumber.ToString();
         ViewBag.IsEdit = false;
-        return View(new Transaction());
+
+        var txn = new Transaction();
+        // Recall last ticket values if enabled
+        if (setup.RecallLastValues)
+        {
+            var lastTxn = _db.Transactions
+                .OrderByDescending(t => t.DateIn)
+                .FirstOrDefault();
+            if (lastTxn != null)
+            {
+                txn.Commodity = lastTxn.Commodity;
+                txn.Customer = lastTxn.Customer;
+                txn.Location = lastTxn.Location;
+                txn.Destination = lastTxn.Destination;
+            }
+        }
+        return View(txn);
     }
 
     // POST: Transaction/WeighIn

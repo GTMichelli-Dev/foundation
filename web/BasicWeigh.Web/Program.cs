@@ -5,6 +5,7 @@ using DevExpress.AspNetCore;
 using DevExpress.AspNetCore.Reporting;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +45,26 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 
 builder.Services.AddControllersWithViews();
+
+// Swagger / OpenAPI — always enabled, protected by ApiDefinitionPin
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Basic Weigh API Definitions",
+        Version = "v1",
+        Description = "API documentation for Basic Weigh truck scale management system."
+    });
+    // Exclude DevExpress and non-API controllers from Swagger
+    c.DocInclusionPredicate((docName, apiDesc) =>
+    {
+        var controllerName = apiDesc.ActionDescriptor.RouteValues["controller"] ?? "";
+        // Only include our own API endpoints (routes starting with api/)
+        var relativePath = apiDesc.RelativePath ?? "";
+        return relativePath.StartsWith("api/", StringComparison.OrdinalIgnoreCase);
+    });
+});
 
 // DevExpress Reporting
 builder.Services.AddDevExpressControls();
@@ -87,6 +108,55 @@ else
 app.UseDevExpressControls();
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+
+// Swagger PIN protection middleware — must come before UseSwagger
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value ?? "";
+    if (path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase))
+    {
+        var db = context.RequestServices.GetRequiredService<ScaleDbContext>();
+        var setup = db.AppSetup.First();
+        var pinFromQuery = context.Request.Query["pin"].FirstOrDefault();
+        var pin = pinFromQuery ?? context.Request.Cookies["SwaggerPin"];
+        if (pin != setup.ApiDefinitionPin)
+        {
+            context.Response.StatusCode = 401;
+            context.Response.ContentType = "text/html";
+            await context.Response.WriteAsync("<html><body style='font-family:sans-serif;text-align:center;padding:60px;'><h2>Not Authorized</h2><p>A valid API Definition PIN is required to access the Swagger documentation.</p><p><a href='/'>Return to Basic Weigh</a></p></body></html>");
+            return;
+        }
+        // Set cookie so subsequent requests don't need ?pin=
+        context.Response.Cookies.Append("SwaggerPin", pin!, new CookieOptions
+        {
+            HttpOnly = true,
+            SameSite = SameSiteMode.Lax,
+            Path = "/",
+            Expires = DateTimeOffset.UtcNow.AddHours(24)
+        });
+        // If pin came via query string on the base /swagger path, redirect to
+        // /swagger/index.html so the cookie is set before the page loads.
+        // We must redirect (not rewrite) to preserve correct relative asset paths.
+        if (pinFromQuery != null && (path.Equals("/swagger", StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/swagger/", StringComparison.OrdinalIgnoreCase)))
+        {
+            context.Response.Redirect("/swagger/index.html");
+            return;
+        }
+    }
+    await next();
+});
+
+// Swagger — always enabled (not just development)
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Basic Weigh API v1");
+    c.DocumentTitle = "Basic Weigh API Definitions";
+    c.InjectStylesheet("/css/swagger-custom.css");
+    c.HeadContent = @"<link rel=""icon"" type=""image/x-icon"" href=""/api/setup/icon"" />";
+});
+
 app.UseRouting();
 app.UseAuthentication();
 
@@ -95,12 +165,13 @@ app.Use(async (context, next) =>
 {
     var path = context.Request.Path.Value ?? "";
 
-    // Always allow: login page, static files, kiosk, scale API, SignalR
+    // Always allow: login page, static files, kiosk, scale API, SignalR, Swagger
     if (path.StartsWith("/Account/") ||
         path.StartsWith("/css/") || path.StartsWith("/js/") || path.StartsWith("/images/") ||
         path.StartsWith("/_content/") || path.StartsWith("/favicon") ||
         path.StartsWith("/api/scale/") || path.StartsWith("/scaleHub") ||
-        path.StartsWith("/api/setup/icon"))
+        path.StartsWith("/api/setup/icon") ||
+        path.StartsWith("/swagger"))
     {
         await next();
         return;

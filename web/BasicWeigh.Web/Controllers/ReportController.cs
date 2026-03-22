@@ -16,6 +16,8 @@ public class ReportController : Controller
 
     public IActionResult Index()
     {
+        var setup = _db.AppSetup.First();
+        ViewBag.CompanyName = setup.Header1 ?? "Basic Weigh";
         return View();
     }
 
