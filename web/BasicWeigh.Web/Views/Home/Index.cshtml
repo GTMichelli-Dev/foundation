@@ -159,17 +159,17 @@
                 if (data.error) {
                     weightVal.text('------');
                     weightUnit.text('');
-                    display.css({ color: '#ff0000' });
+                    display.css({ color: '#ff0000', textAlign: 'center' });
                     statusEl.css('color', '#ff0000').text('ERROR');
                 } else if (data.motion) {
                     weightVal.text(data.weight.toLocaleString());
                     weightUnit.text('lb');
-                    display.css({ color: '#ffff00' });
+                    display.css({ color: '#ffff00', textAlign: 'right' });
                     statusEl.css('color', '#ffff00').text('MOTION');
                 } else {
                     weightVal.text(data.weight.toLocaleString());
                     weightUnit.text('lb');
-                    display.css({ color: '#00ff41' });
+                    display.css({ color: '#00ff41', textAlign: 'right' });
                     statusEl.html('&nbsp;');
                 }
             });
