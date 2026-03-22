@@ -278,24 +278,32 @@ public class TicketController : Controller
         if (picBox == null) return;
 
         byte[]? iconBytes = setup.Icon;
+        string? contentType = setup.IconContentType;
+
         if (iconBytes == null)
         {
             // Load default icon
             var defaultPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "default-icon.svg");
             if (System.IO.File.Exists(defaultPath))
+            {
                 iconBytes = System.IO.File.ReadAllBytes(defaultPath);
+                contentType = "image/svg+xml";
+            }
         }
 
-        if (iconBytes != null)
+        if (iconBytes == null) return;
+
+        // SVG cannot be used in XRPictureBox - skip if SVG
+        if (contentType != null && contentType.Contains("svg"))
+            return;
+
+        try
         {
-            try
-            {
-                picBox.ImageSource = new DevExpress.XtraPrinting.Drawing.ImageSource(iconBytes);
-            }
-            catch
-            {
-                // SVG or unsupported format - skip logo
-            }
+            picBox.ImageSource = new DevExpress.XtraPrinting.Drawing.ImageSource(iconBytes);
+        }
+        catch
+        {
+            // Unsupported format - skip logo
         }
     }
 

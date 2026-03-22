@@ -69,7 +69,7 @@
 <body>
     <div class="ticket">
         <div class="ticket-header">
-            <img src="/api/setup/icon" alt="" class="ticket-icon" />
+            <img src="/api/setup/icon?v=@DateTime.UtcNow.Ticks" alt="" class="ticket-icon" />
             @if (!string.IsNullOrEmpty(ViewBag.Header1)) { <div>@ViewBag.Header1</div> }
             @if (!string.IsNullOrEmpty(ViewBag.Header2)) { <div>@ViewBag.Header2</div> }
             @if (!string.IsNullOrEmpty(ViewBag.Header3)) { <div>@ViewBag.Header3</div> }
