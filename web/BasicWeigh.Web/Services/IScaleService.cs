@@ -13,6 +13,7 @@ public class SimulatedScaleService : IScaleService
     private int _simulatedWeight = 0;
     private bool _motion = false;
     private bool _error = false;
+    private bool _comError = false;
 
     /// <summary>
     /// Timestamp of the last weight update from an external scale (non-demo mode).
@@ -25,9 +26,12 @@ public class SimulatedScaleService : IScaleService
     public bool IsConnected() => !_error;
     public bool HasError() => _error;
 
+    public bool HasComError() => _comError;
+
     public void SetWeight(int weight) => _simulatedWeight = weight;
     public void SetMotion(bool motion) => _motion = motion;
     public void SetError(bool error) => _error = error;
+    public void SetComError(bool comError) => _comError = comError;
 
     /// <summary>
     /// Mark that the scale just sent a fresh reading (resets the 5-second timeout).

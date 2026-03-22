@@ -160,7 +160,7 @@
                     weightVal.text('------');
                     weightUnit.text('');
                     display.css({ color: '#ff0000', textAlign: 'center' });
-                    statusEl.css('color', '#ff0000').text('ERROR');
+                    statusEl.css('color', '#ff0000').text(data.comError ? 'SCALE COM ERROR' : 'SCALE ERROR');
                 } else if (data.motion) {
                     weightVal.text(data.weight.toLocaleString());
                     weightUnit.text('lb');

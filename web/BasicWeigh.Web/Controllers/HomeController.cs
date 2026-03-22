@@ -32,7 +32,8 @@ public class HomeController : Controller
             weight = _scaleService.GetCurrentWeight(),
             motion = _scaleService.IsInMotion(),
             ok = _scaleService.IsConnected(),
-            error = _scaleService.HasError()
+            error = _scaleService.HasError(),
+            comError = (_scaleService is SimulatedScaleService sim2) && sim2.HasComError()
         });
     }
 
@@ -68,6 +69,7 @@ public class HomeController : Controller
             sim.SetWeight(request.Weight);
             sim.SetMotion(request.Motion);
             sim.SetError(request.Error);
+            sim.SetComError(false);
             sim.Touch();
 
             // Check for pending print jobs (Scale mode only — RemotePrinter uses SignalR)

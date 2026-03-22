@@ -45,7 +45,7 @@ public class ScaleBroadcastService : BackgroundService
                 catch { /* DB not ready yet — keep last known values */ }
             }
 
-            // 5-second timeout: if not in demo mode and scale hasn't reported, flag error
+            // 5-second timeout: if not in demo mode and scale hasn't reported, flag com error
             if (!_demoMode && _scale is SimulatedScaleService sim)
             {
                 if (!sim.LastUpdate.HasValue ||
@@ -54,6 +54,11 @@ public class ScaleBroadcastService : BackgroundService
                     sim.SetWeight(0);
                     sim.SetMotion(false);
                     sim.SetError(true);
+                    sim.SetComError(true);
+                }
+                else
+                {
+                    sim.SetComError(false);
                 }
             }
 
@@ -62,7 +67,8 @@ public class ScaleBroadcastService : BackgroundService
                 weight = _scale.GetCurrentWeight(),
                 motion = _scale.IsInMotion(),
                 error = _scale.HasError(),
-                ok = _scale.IsConnected()
+                ok = _scale.IsConnected(),
+                comError = (_scale is SimulatedScaleService s) && s.HasComError()
             };
 
             await _hub.Clients.All.SendAsync("ScaleUpdate", data, stoppingToken);
