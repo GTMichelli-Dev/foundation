@@ -90,4 +90,8 @@ public class AppSetup
     // Recall last ticket values
     [Display(Name = "Recall Last Values")]
     public bool RecallLastValues { get; set; }
+
+    // Scale prints ticket (scale/Pi handles local printing)
+    [Display(Name = "Scale Prints Ticket")]
+    public bool ScalePrintsTicket { get; set; }
 }

@@ -30,6 +30,7 @@ builder.Services.AddDbContext<ScaleDbContext>(options =>
 builder.Services.AddSingleton<SimulatedScaleService>();
 builder.Services.AddSingleton<IScaleService>(sp => sp.GetRequiredService<SimulatedScaleService>());
 
+builder.Services.AddSingleton<PrintQueueService>();
 builder.Services.AddSignalR();
 builder.Services.AddHostedService<ScaleBroadcastService>();
 

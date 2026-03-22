@@ -111,11 +111,27 @@
                         </div>
                         <div class="card-body py-2">
                             <div class="row g-2 mb-2">
-                                <div class="col-12">
+                                <div class="col-6">
                                     <label asp-for="DemoMode" class="form-label mb-0 small"></label>
                                     <select asp-for="DemoMode" class="form-select form-select-sm">
-                                        <option value="false">Normal Mode</option>
-                                        <option value="true">Demo Mode</option>
+                                        <option value="false">Normal</option>
+                                        <option value="true">Demo</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label asp-for="RecallLastValues" class="form-label mb-0 small"></label>
+                                    <select asp-for="RecallLastValues" class="form-select form-select-sm">
+                                        <option value="false">No</option>
+                                        <option value="true">Yes</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label asp-for="ScalePrintsTicket" class="form-label mb-0 small"></label>
+                                    <select asp-for="ScalePrintsTicket" class="form-select form-select-sm">
+                                        <option value="false">No</option>
+                                        <option value="true">Yes</option>
                                     </select>
                                 </div>
                             </div>
@@ -148,14 +164,6 @@
                                     <label asp-for="KioskCode" class="form-label mb-0 small"></label>
                                     <input asp-for="KioskCode" class="form-control form-control-sm" maxlength="20" />
                                 </div>
-                            </div>
-                            <div class="mb-2">
-                                <label asp-for="RecallLastValues" class="form-label mb-0 small"></label>
-                                <select asp-for="RecallLastValues" class="form-select form-select-sm">
-                                    <option value="false">Do Not Recall</option>
-                                    <option value="true">Recall Last Values</option>
-                                </select>
-                                <small class="text-muted">When enabled, new tickets will pre-fill Commodity, Customer, Location and Destination from the last ticket.</small>
                             </div>
                             <div class="mb-2">
                                 <label asp-for="Theme" class="form-label mb-0 small"></label>

@@ -10,11 +10,13 @@ public class HomeController : Controller
 {
     private readonly IScaleService _scaleService;
     private readonly ScaleDbContext _db;
+    private readonly PrintQueueService _printQueue;
 
-    public HomeController(IScaleService scaleService, ScaleDbContext db)
+    public HomeController(IScaleService scaleService, ScaleDbContext db, PrintQueueService printQueue)
     {
         _scaleService = scaleService;
         _db = db;
+        _printQueue = printQueue;
     }
 
     public IActionResult Index()
@@ -48,6 +50,47 @@ public class HomeController : Controller
             return Json(new { success = true });
         }
         return BadRequest(new { success = false, message = "Scale service is not a simulator." });
+    }
+
+    /// <summary>
+    /// Called by the physical scale indicator (or Pi bridge) to push weight readings.
+    /// Only works when DemoMode is OFF. Returns any pending print job in the response.
+    /// </summary>
+    [HttpPost("api/scale/weight")]
+    public IActionResult UpdateWeight([FromBody] ScaleWeightRequest request)
+    {
+        var setup = _db.AppSetup.First();
+        if (setup.DemoMode)
+            return BadRequest(new { success = false, message = "System is in demo mode. Use api/scale/simulate instead." });
+
+        if (_scaleService is SimulatedScaleService sim)
+        {
+            sim.SetWeight(request.Weight);
+            sim.SetMotion(request.Motion);
+            sim.SetError(request.Error);
+            sim.Touch();
+
+            // Check for pending print jobs
+            if (setup.ScalePrintsTicket && _printQueue.TryDequeue(out var ticketId) && ticketId != null)
+            {
+                return Json(new
+                {
+                    success = true,
+                    print = new { ticketId, pdfUrl = $"/api/ticket/{ticketId}/pdf" }
+                });
+            }
+
+            return Json(new { success = true });
+        }
+
+        return BadRequest(new { success = false, message = "Scale service unavailable." });
+    }
+
+    public class ScaleWeightRequest
+    {
+        public int Weight { get; set; }
+        public bool Motion { get; set; }
+        public bool Error { get; set; }
     }
 
     public class SimulateRequest

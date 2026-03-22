@@ -10,11 +10,13 @@ public class TransactionController : Controller
 {
     private readonly ScaleDbContext _db;
     private readonly IScaleService _scaleService;
+    private readonly PrintQueueService _printQueue;
 
-    public TransactionController(ScaleDbContext db, IScaleService scaleService)
+    public TransactionController(ScaleDbContext db, IScaleService scaleService, PrintQueueService printQueue)
     {
         _db = db;
         _scaleService = scaleService;
+        _printQueue = printQueue;
     }
 
     private void PopulateDropdowns()
@@ -110,6 +112,10 @@ public class TransactionController : Controller
 
             _db.Transactions.Add(transaction);
             _db.SaveChanges();
+
+            // Enqueue print if scale handles printing
+            if (setup.ScalePrintsTicket)
+                _printQueue.Enqueue(transaction.Ticket);
         }
 
         return RedirectToAction("InboundTrucks");
@@ -149,6 +155,11 @@ public class TransactionController : Controller
         existing.Notes = transaction.Notes;
 
         _db.SaveChanges();
+
+        // Enqueue print if scale handles printing
+        var setup = _db.AppSetup.First();
+        if (setup.ScalePrintsTicket)
+            _printQueue.Enqueue(id);
 
         return RedirectToAction("View", "Ticket", new { id });
     }
