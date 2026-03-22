@@ -210,6 +210,9 @@
             .build();
         connection.on('TicketCreated', function () { grid.refresh(); });
         connection.on('TicketCompleted', function () { grid.refresh(); });
+        connection.on('PrintConfirmed', function (data) {
+            DevExpress.ui.notify('Ticket #' + data.ticketId + ' printed by ' + data.printer, 'success', 3000);
+        });
         connection.start().catch(function (err) { console.error('SignalR error:', err); });
     });
 </script>

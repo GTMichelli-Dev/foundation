@@ -252,6 +252,19 @@ public class TicketController : Controller
         return Json(new { success = true, mode = setup.RemotePrintMode });
     }
 
+    /// <summary>
+    /// Called by the scale or remote printer to confirm a print job was received.
+    /// Broadcasts PrintConfirmed to all browser clients.
+    /// </summary>
+    [HttpPost("api/ticket/{id}/printed")]
+    public async Task<IActionResult> PrintConfirmed(string id)
+    {
+        var setup = _db.AppSetup.First();
+        var label = setup.RemotePrintMode == "Scale" ? "Scale" : "Remote Printer";
+        await _hub.Clients.All.SendAsync("PrintConfirmed", new { ticketId = id, printer = label });
+        return Json(new { success = true });
+    }
+
     private void SetLogoImage(XtraReport report, AppSetup setup)
     {
         var picBox = report.FindControl("picLogo", true) as XRPictureBox;
