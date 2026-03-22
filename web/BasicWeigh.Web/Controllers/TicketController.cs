@@ -220,6 +220,14 @@ public class TicketController : Controller
         using var ms = new MemoryStream();
         report.ExportToPdf(ms);
         ms.Position = 0;
+
+        // If this ticket was awaiting remote print confirmation, broadcast it
+        if (_printQueue.TryConfirm(id))
+        {
+            var label = setup.RemotePrintMode == "Scale" ? "Scale" : "Remote Printer";
+            _ = _hub.Clients.All.SendAsync("PrintConfirmed", new { ticketId = id, printer = label });
+        }
+
         return File(ms.ToArray(), "application/pdf", $"ticket-{id}.pdf");
     }
 
@@ -237,10 +245,12 @@ public class TicketController : Controller
         if (setup.RemotePrintMode == "Scale")
         {
             _printQueue.Enqueue(id);
+            _printQueue.AwaitConfirmation(id);
         }
         else if (setup.RemotePrintMode == "RemotePrinter")
         {
             _printQueue.Enqueue(id);
+            _printQueue.AwaitConfirmation(id);
             await _hub.Clients.Group("PrintClients").SendAsync("PrintTicket",
                 new { ticketId = id, pdfUrl = $"/api/ticket/{id}/pdf" });
         }
@@ -250,19 +260,6 @@ public class TicketController : Controller
         }
 
         return Json(new { success = true, mode = setup.RemotePrintMode });
-    }
-
-    /// <summary>
-    /// Called by the scale or remote printer to confirm a print job was received.
-    /// Broadcasts PrintConfirmed to all browser clients.
-    /// </summary>
-    [HttpPost("api/ticket/{id}/printed")]
-    public async Task<IActionResult> PrintConfirmed(string id)
-    {
-        var setup = _db.AppSetup.First();
-        var label = setup.RemotePrintMode == "Scale" ? "Scale" : "Remote Printer";
-        await _hub.Clients.All.SendAsync("PrintConfirmed", new { ticketId = id, printer = label });
-        return Json(new { success = true });
     }
 
     private void SetLogoImage(XtraReport report, AppSetup setup)

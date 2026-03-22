@@ -120,10 +120,16 @@ public class TransactionController : Controller
 
             // Remote printing
             if (setup.RemotePrintMode == "Scale")
+            {
                 _printQueue.Enqueue(transaction.Ticket);
+                _printQueue.AwaitConfirmation(transaction.Ticket);
+            }
             else if (setup.RemotePrintMode == "RemotePrinter")
+            {
+                _printQueue.AwaitConfirmation(transaction.Ticket);
                 _hub.Clients.Group("PrintClients").SendAsync("PrintTicket",
                     new { ticketId = transaction.Ticket, pdfUrl = $"/api/ticket/{transaction.Ticket}/pdf" });
+            }
         }
 
         return RedirectToAction("InboundTrucks");
@@ -167,10 +173,16 @@ public class TransactionController : Controller
         // Remote printing
         var setup = _db.AppSetup.First();
         if (setup.RemotePrintMode == "Scale")
+        {
             _printQueue.Enqueue(id);
+            _printQueue.AwaitConfirmation(id);
+        }
         else if (setup.RemotePrintMode == "RemotePrinter")
+        {
+            _printQueue.AwaitConfirmation(id);
             _hub.Clients.Group("PrintClients").SendAsync("PrintTicket",
                 new { ticketId = id, pdfUrl = $"/api/ticket/{id}/pdf" });
+        }
 
         return RedirectToAction("View", "Ticket", new { id });
     }
