@@ -261,10 +261,10 @@
                 { dataField: 'dateOut', caption: 'Date Out', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a', width: 155 },
                 { dataField: 'notes', caption: 'Notes', cssClass: 'notes-cell' },
                 {
-                    dataField: 'void', caption: 'Void', dataType: 'boolean', width: 65,
+                    dataField: 'void', caption: 'Voided', dataType: 'boolean', width: 75,
                     cellTemplate: function (container, options) {
                         if (options.value) {
-                            $('<span>').css({ fontStyle: 'italic', color: '#000' }).text('Voided').appendTo(container);
+                            $('<span>').css({ fontStyle: 'italic', color: '#c53030', fontWeight: 'bold' }).text('Voided').appendTo(container);
                         }
                     }
                 },

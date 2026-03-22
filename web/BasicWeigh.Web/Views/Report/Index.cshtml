@@ -36,6 +36,10 @@
     <div id="resetBtn" class="ms-2"></div>
 </div>
 
+<div id="voidWarning" class="alert alert-warning py-1 mb-2" style="display:none;" role="alert">
+    <strong id="voidCount"></strong> voided ticket(s) are not included in this report.
+</div>
+
 <div id="reportGrid"></div>
 
 @section Scripts {
@@ -156,7 +160,16 @@
                 load: function () {
                     var s = DevExpress.localization.formatDate(startVal, 'yyyy-MM-dd');
                     var e = DevExpress.localization.formatDate(endVal, 'yyyy-MM-dd');
-                    return $.getJSON('/api/reports/transactions', { startDate: s, endDate: e });
+                    return $.getJSON('/api/reports/transactions', { startDate: s, endDate: e }).then(function (resp) {
+                        // Show/hide void warning
+                        if (resp.voidCount > 0) {
+                            $('#voidCount').text(resp.voidCount);
+                            $('#voidWarning').show();
+                        } else {
+                            $('#voidWarning').hide();
+                        }
+                        return resp.data;
+                    });
                 }
             }),
             // Persist column visibility, order, widths, sorting, filters in cookie

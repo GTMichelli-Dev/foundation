@@ -27,6 +27,10 @@ public class ReportController : Controller
         var start = startDate ?? DateTime.Today.AddDays(-30);
         var end = (endDate ?? DateTime.Today).AddDays(1);
 
+        // Count voided tickets in the date range
+        var voidCount = _db.Transactions
+            .Count(t => t.DateOut != null && t.Void && t.DateOut >= start && t.DateOut < end);
+
         // Only completed (has DateOut), non-voided trucks, filtered by DateOut
         var results = _db.Transactions
             .Where(t => t.DateOut != null && !t.Void && t.DateOut >= start && t.DateOut < end)
@@ -51,6 +55,6 @@ public class ReportController : Controller
             })
             .ToList();
 
-        return Json(results);
+        return Json(new { data = results, voidCount });
     }
 }
