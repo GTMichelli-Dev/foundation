@@ -48,7 +48,7 @@ public class ScaleBroadcastService : BackgroundService
             // 5-second timeout: if not in demo mode and scale hasn't reported, flag error
             if (!_demoMode && _scale is SimulatedScaleService sim)
             {
-                if (sim.LastUpdate.HasValue &&
+                if (!sim.LastUpdate.HasValue ||
                     (DateTime.UtcNow - sim.LastUpdate.Value).TotalSeconds > 5)
                 {
                     sim.SetWeight(0);
