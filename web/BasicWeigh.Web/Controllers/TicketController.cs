@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using BasicWeigh.Web.Data;
+using BasicWeigh.Web.Hubs;
 using BasicWeigh.Web.Models;
 using BasicWeigh.Web.Reports;
+using BasicWeigh.Web.Services;
 using DevExpress.XtraReports.UI;
 using DevExpress.Drawing;
 
@@ -10,12 +13,16 @@ namespace BasicWeigh.Web.Controllers;
 public class TicketController : Controller
 {
     private readonly ScaleDbContext _db;
+    private readonly PrintQueueService _printQueue;
+    private readonly IHubContext<ScaleHub> _hub;
     private static readonly string ReportPath = Path.Combine(
         Directory.GetCurrentDirectory(), "Reports", "TicketReport.repx");
 
-    public TicketController(ScaleDbContext db)
+    public TicketController(ScaleDbContext db, PrintQueueService printQueue, IHubContext<ScaleHub> hub)
     {
         _db = db;
+        _printQueue = printQueue;
+        _hub = hub;
     }
 
     public IActionResult Print(string id)
@@ -214,6 +221,35 @@ public class TicketController : Controller
         report.ExportToPdf(ms);
         ms.Position = 0;
         return File(ms.ToArray(), "application/pdf", $"ticket-{id}.pdf");
+    }
+
+    /// <summary>
+    /// Reprint a ticket via Scale or Remote Printer.
+    /// </summary>
+    [HttpPost("api/ticket/{id}/reprint")]
+    public async Task<IActionResult> Reprint(string id)
+    {
+        var transaction = _db.Transactions.Find(id);
+        if (transaction == null) return NotFound();
+
+        var setup = _db.AppSetup.First();
+
+        if (setup.RemotePrintMode == "Scale")
+        {
+            _printQueue.Enqueue(id);
+        }
+        else if (setup.RemotePrintMode == "RemotePrinter")
+        {
+            _printQueue.Enqueue(id);
+            await _hub.Clients.Group("PrintClients").SendAsync("PrintTicket",
+                new { ticketId = id, pdfUrl = $"/api/ticket/{id}/pdf" });
+        }
+        else
+        {
+            return BadRequest(new { success = false, message = "Remote printing is not enabled." });
+        }
+
+        return Json(new { success = true, mode = setup.RemotePrintMode });
     }
 
     private void SetLogoImage(XtraReport report, AppSetup setup)

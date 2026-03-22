@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using BasicWeigh.Web.Data;
+using BasicWeigh.Web.Hubs;
 using BasicWeigh.Web.Models;
 using BasicWeigh.Web.Services;
 
@@ -11,12 +13,15 @@ public class TransactionController : Controller
     private readonly ScaleDbContext _db;
     private readonly IScaleService _scaleService;
     private readonly PrintQueueService _printQueue;
+    private readonly IHubContext<ScaleHub> _hub;
 
-    public TransactionController(ScaleDbContext db, IScaleService scaleService, PrintQueueService printQueue)
+    public TransactionController(ScaleDbContext db, IScaleService scaleService,
+        PrintQueueService printQueue, IHubContext<ScaleHub> hub)
     {
         _db = db;
         _scaleService = scaleService;
         _printQueue = printQueue;
+        _hub = hub;
     }
 
     private void PopulateDropdowns()
@@ -113,9 +118,12 @@ public class TransactionController : Controller
             _db.Transactions.Add(transaction);
             _db.SaveChanges();
 
-            // Enqueue print if scale handles printing
-            if (setup.ScalePrintsTicket)
+            // Remote printing
+            if (setup.RemotePrintMode == "Scale")
                 _printQueue.Enqueue(transaction.Ticket);
+            else if (setup.RemotePrintMode == "RemotePrinter")
+                _hub.Clients.Group("PrintClients").SendAsync("PrintTicket",
+                    new { ticketId = transaction.Ticket, pdfUrl = $"/api/ticket/{transaction.Ticket}/pdf" });
         }
 
         return RedirectToAction("InboundTrucks");
@@ -156,10 +164,13 @@ public class TransactionController : Controller
 
         _db.SaveChanges();
 
-        // Enqueue print if scale handles printing
+        // Remote printing
         var setup = _db.AppSetup.First();
-        if (setup.ScalePrintsTicket)
+        if (setup.RemotePrintMode == "Scale")
             _printQueue.Enqueue(id);
+        else if (setup.RemotePrintMode == "RemotePrinter")
+            _hub.Clients.Group("PrintClients").SendAsync("PrintTicket",
+                new { ticketId = id, pdfUrl = $"/api/ticket/{id}/pdf" });
 
         return RedirectToAction("View", "Ticket", new { id });
     }
@@ -167,12 +178,20 @@ public class TransactionController : Controller
     // GET: Transaction/InboundTrucks
     public IActionResult InboundTrucks()
     {
+        var setup = _db.AppSetup.First();
+        ViewBag.RemotePrintMode = setup.RemotePrintMode ?? "None";
+        ViewBag.KioskCount = setup.KioskCount;
+        ViewBag.DemoMode = setup.DemoMode;
         return View();
     }
 
     // GET: Transaction/CompletedTrucks
     public IActionResult CompletedTrucks()
     {
+        var setup = _db.AppSetup.First();
+        ViewBag.RemotePrintMode = setup.RemotePrintMode ?? "None";
+        ViewBag.KioskCount = setup.KioskCount;
+        ViewBag.DemoMode = setup.DemoMode;
         return View();
     }
 

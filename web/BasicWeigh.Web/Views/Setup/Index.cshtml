@@ -128,10 +128,11 @@
                             </div>
                             <div class="row g-2 mb-2">
                                 <div class="col-6">
-                                    <label asp-for="ScalePrintsTicket" class="form-label mb-0 small"></label>
-                                    <select asp-for="ScalePrintsTicket" class="form-select form-select-sm">
-                                        <option value="false">No</option>
-                                        <option value="true">Yes</option>
+                                    <label asp-for="RemotePrintMode" class="form-label mb-0 small"></label>
+                                    <select asp-for="RemotePrintMode" class="form-select form-select-sm">
+                                        <option value="None">No Remote Printing</option>
+                                        <option value="Scale">Scale Prints Ticket</option>
+                                        <option value="RemotePrinter">Remote Printer (Pi)</option>
                                     </select>
                                 </div>
                             </div>

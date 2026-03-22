@@ -1,9 +1,8 @@
-@inject BasicWeigh.Web.Data.ScaleDbContext SetupDb
 @{
     ViewData["Title"] = "Completed Trucks";
-    var setup = SetupDb.AppSetup.FirstOrDefault();
-    var kioskCount = setup?.KioskCount ?? 0;
-    var demoMode = setup?.DemoMode ?? false;
+    var kioskCount = (int)(ViewBag.KioskCount ?? 0);
+    var demoMode = (bool)(ViewBag.DemoMode ?? false);
+    var remotePrintMode = ViewBag.RemotePrintMode as string ?? "None";
 }
 
 <style>
@@ -357,10 +356,12 @@
         // ===== PRINT OPTIONS =====
         var kioskCount = @kioskCount;
         var demoMode = @(demoMode.ToString().ToLower());
+        var remotePrintMode = '@remotePrintMode';
 
         function showPrintOptions(ticketId) {
-            if (kioskCount === 0) {
-                // No kiosks - print to browser directly
+            var hasExtraOptions = kioskCount > 0 || remotePrintMode !== 'None';
+            if (!hasExtraOptions) {
+                // No kiosks and no remote printer - print to browser directly
                 window.open('/Ticket/View/' + ticketId, '_blank');
                 return;
             }
@@ -370,33 +371,50 @@
             var $body = $('#printModalBody');
             $body.empty();
 
-            if (kioskCount === 2) {
-                $body.append(
-                    $('<button>').addClass('btn btn-primary w-100 mb-2 py-2')
-                        .text('Inbound Kiosk')
-                        .on('click', function () { sendToKiosk(ticketId, 1); })
-                );
-                $body.append(
-                    $('<button>').addClass('btn btn-primary w-100 mb-2 py-2')
-                        .text('Outbound Kiosk')
-                        .on('click', function () { sendToKiosk(ticketId, 2); })
-                );
-            } else {
-                $body.append(
-                    $('<button>').addClass('btn btn-primary w-100 mb-2 py-2')
-                        .text('Kiosk')
-                        .on('click', function () { sendToKiosk(ticketId, 1); })
-                );
-            }
-
+            // Browser option
             $body.append(
-                $('<button>').addClass('btn btn-outline-secondary w-100 py-2')
+                $('<button>').addClass('btn btn-outline-primary w-100 mb-2 py-2')
                     .text('Print to Browser')
                     .on('click', function () {
                         window.open('/Ticket/View/' + ticketId, '_blank');
                         bootstrap.Modal.getInstance($modal[0]).hide();
                     })
             );
+
+            // Kiosk options
+            if (kioskCount === 2) {
+                $body.append(
+                    $('<button>').addClass('btn btn-outline-success w-100 mb-2 py-2')
+                        .text('Send to Kiosk 1 (Inbound)')
+                        .on('click', function () { sendToKiosk(ticketId, 1); })
+                );
+                $body.append(
+                    $('<button>').addClass('btn btn-outline-success w-100 mb-2 py-2')
+                        .text('Send to Kiosk 2 (Outbound)')
+                        .on('click', function () { sendToKiosk(ticketId, 2); })
+                );
+            } else if (kioskCount > 0) {
+                $body.append(
+                    $('<button>').addClass('btn btn-outline-success w-100 mb-2 py-2')
+                        .text('Send to Kiosk')
+                        .on('click', function () { sendToKiosk(ticketId, 1); })
+                );
+            }
+
+            // Remote print options
+            if (remotePrintMode === 'Scale') {
+                $body.append(
+                    $('<button>').addClass('btn btn-outline-warning w-100 mb-2 py-2')
+                        .text('Send to Scale Printer')
+                        .on('click', function () { sendToRemote(ticketId); })
+                );
+            } else if (remotePrintMode === 'RemotePrinter') {
+                $body.append(
+                    $('<button>').addClass('btn btn-outline-warning w-100 mb-2 py-2')
+                        .text('Send to Remote Printer')
+                        .on('click', function () { sendToRemote(ticketId); })
+                );
+            }
 
             new bootstrap.Modal($modal[0]).show();
         }
@@ -406,7 +424,6 @@
             bootstrap.Modal.getInstance($modal[0]).hide();
 
             if (demoMode) {
-                // In demo mode, print to browser instead of kiosk
                 window.open('/Ticket/View/' + ticketId, '_blank');
             } else {
                 $.ajax({
@@ -420,6 +437,22 @@
                     }
                 });
             }
+        }
+
+        function sendToRemote(ticketId) {
+            var $modal = $('#printModal');
+            bootstrap.Modal.getInstance($modal[0]).hide();
+            $.ajax({
+                url: '/api/ticket/' + encodeURIComponent(ticketId) + '/reprint',
+                method: 'POST',
+                success: function () {
+                    var label = remotePrintMode === 'Scale' ? 'scale printer' : 'remote printer';
+                    DevExpress.ui.notify('Print sent to ' + label, 'success', 2000);
+                },
+                error: function () {
+                    DevExpress.ui.notify('Failed to send print', 'error', 2000);
+                }
+            });
         }
 
         // SignalR: auto-refresh when tickets are completed

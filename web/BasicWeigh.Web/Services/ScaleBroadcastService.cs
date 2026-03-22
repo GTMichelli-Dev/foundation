@@ -12,9 +12,9 @@ public class ScaleBroadcastService : BackgroundService
     private readonly IServiceProvider _services;
     private readonly PrintQueueService _printQueue;
 
-    // Cache DemoMode to avoid DB hits every 250ms
+    // Cache settings to avoid DB hits every 250ms
     private bool _demoMode = true;
-    private bool _scalePrintsTicket = false;
+    private string _remotePrintMode = "None";
     private DateTime _lastSettingsCheck = DateTime.MinValue;
 
     public ScaleBroadcastService(IHubContext<ScaleHub> hub, IScaleService scale,
@@ -39,7 +39,7 @@ public class ScaleBroadcastService : BackgroundService
                     var db = scope.ServiceProvider.GetRequiredService<ScaleDbContext>();
                     var setup = await db.AppSetup.FirstAsync(stoppingToken);
                     _demoMode = setup.DemoMode;
-                    _scalePrintsTicket = setup.ScalePrintsTicket;
+                    _remotePrintMode = setup.RemotePrintMode ?? "None";
                     _lastSettingsCheck = DateTime.UtcNow;
                 }
                 catch { /* DB not ready yet — keep last known values */ }
@@ -67,8 +67,9 @@ public class ScaleBroadcastService : BackgroundService
 
             await _hub.Clients.All.SendAsync("ScaleUpdate", data, stoppingToken);
 
-            // Dispatch pending print jobs via SignalR to PrintClients group
-            if (_scalePrintsTicket && _printQueue.HasPending && _scale is SimulatedScaleService s2)
+            // Dispatch pending print jobs via SignalR to PrintClients group (Scale mode only)
+            // RemotePrinter mode dispatches immediately from the controller, not here
+            if (_remotePrintMode == "Scale" && _printQueue.HasPending && _scale is SimulatedScaleService s2)
             {
                 // Only dispatch if scale is alive (updated within last 2 seconds)
                 if (s2.LastUpdate.HasValue &&

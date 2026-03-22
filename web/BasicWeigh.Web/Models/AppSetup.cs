@@ -91,7 +91,8 @@ public class AppSetup
     [Display(Name = "Recall Last Values")]
     public bool RecallLastValues { get; set; }
 
-    // Scale prints ticket (scale/Pi handles local printing)
-    [Display(Name = "Scale Prints Ticket")]
-    public bool ScalePrintsTicket { get; set; }
+    // Remote printing mode: None, Scale, RemotePrinter
+    [StringLength(20)]
+    [Display(Name = "Remote Printing")]
+    public string RemotePrintMode { get; set; } = "None";
 }

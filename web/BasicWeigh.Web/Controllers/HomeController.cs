@@ -70,8 +70,8 @@ public class HomeController : Controller
             sim.SetError(request.Error);
             sim.Touch();
 
-            // Check for pending print jobs
-            if (setup.ScalePrintsTicket && _printQueue.TryDequeue(out var ticketId) && ticketId != null)
+            // Check for pending print jobs (Scale mode only — RemotePrinter uses SignalR)
+            if (setup.RemotePrintMode == "Scale" && _printQueue.TryDequeue(out var ticketId) && ticketId != null)
             {
                 return Json(new
                 {

@@ -50,7 +50,7 @@ public class SetupController : Controller
         existing.KioskCode = setup.KioskCode ?? "12345";
         existing.ApiDefinitionPin = setup.ApiDefinitionPin ?? "12345";
         existing.RecallLastValues = setup.RecallLastValues;
-        existing.ScalePrintsTicket = setup.ScalePrintsTicket;
+        existing.RemotePrintMode = setup.RemotePrintMode ?? "None";
 
         if (removeIcon)
         {
