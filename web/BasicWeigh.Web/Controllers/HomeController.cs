@@ -46,6 +46,7 @@ public class HomeController : Controller
 
         if (_scaleService is SimulatedScaleService sim)
         {
+            sim.SetWeight(request.Weight);
             sim.SetMotion(request.Motion);
             sim.SetError(request.Error);
             return Json(new { success = true });
