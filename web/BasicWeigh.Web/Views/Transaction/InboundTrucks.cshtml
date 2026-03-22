@@ -100,6 +100,11 @@
     var demoMode = @(demoMode ? "true" : "false");
 
     function showPrintOptions(ticketId) {
+        var hasExtraOptions = kioskCount > 0 || remotePrintMode !== 'None';
+        if (!hasExtraOptions) {
+            window.open('/Ticket/KioskView/' + ticketId, '_blank');
+            return;
+        }
         _printTicketId = ticketId;
         $('#printTicketId').text('#' + ticketId);
         new bootstrap.Modal('#printModal').show();

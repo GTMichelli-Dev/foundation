@@ -46,22 +46,6 @@
     .grid-action-btn.btn-restore:hover {
         background: #dcfce7;
     }
-    .export-excel-btn .dx-button-content {
-        background: #1a7f37 !important;
-        color: #fff !important;
-        border-radius: 6px;
-        padding: 6px 16px !important;
-    }
-    .export-excel-btn .dx-icon {
-        color: #fff !important;
-    }
-    .export-excel-btn .dx-button-text {
-        color: #fff !important;
-        font-weight: 600;
-    }
-    .export-excel-btn:hover .dx-button-content {
-        background: #15652c !important;
-    }
     .notes-cell {
         white-space: normal !important;
         word-wrap: break-word;
@@ -260,28 +244,6 @@
                             text: 'Reset',
                             hint: 'Reset to today and 30 days prior',
                             onClick: function () { resetDates(); }
-                        }
-                    },
-                    {
-                        location: 'after',
-                        widget: 'dxButton',
-                        options: {
-                            icon: 'xlsxfile',
-                            text: 'Export to Excel',
-                            elementAttr: { class: 'export-excel-btn' },
-                            onClick: function () {
-                                var workbook = new ExcelJS.Workbook();
-                                var worksheet = workbook.addWorksheet('CompletedTrucks');
-                                DevExpress.excelExporter.exportDataGrid({
-                                    component: grid,
-                                    worksheet: worksheet,
-                                    autoFilterEnabled: true
-                                }).then(function () {
-                                    workbook.xlsx.writeBuffer().then(function (buffer) {
-                                        saveAs(new Blob([buffer], { type: 'application/octet-stream' }), 'CompletedTrucks.xlsx');
-                                    });
-                                });
-                            }
                         }
                     }
                 ]
