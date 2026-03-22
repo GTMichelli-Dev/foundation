@@ -47,6 +47,13 @@ public class TicketController : Controller
 
         var setup = _db.AppSetup.First();
 
+        // If this ticket was awaiting remote print confirmation, broadcast it
+        if (_printQueue.TryConfirm(id))
+        {
+            var label = setup.RemotePrintMode == "Scale" ? "Scale" : "Remote Printer";
+            _ = _hub.Clients.All.SendAsync("PrintConfirmed", new { ticketId = id, printer = label });
+        }
+
         return Json(new
         {
             ticket = transaction.Ticket,
