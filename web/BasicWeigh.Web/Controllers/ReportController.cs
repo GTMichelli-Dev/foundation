@@ -57,4 +57,33 @@ public class ReportController : Controller
 
         return Json(new { data = results, voidCount });
     }
+
+    [HttpGet("api/reports/voided")]
+    public IActionResult GetVoided(DateTime? startDate, DateTime? endDate)
+    {
+        var start = startDate ?? DateTime.Today.AddDays(-30);
+        var end = (endDate ?? DateTime.Today).AddDays(1);
+
+        var results = _db.Transactions
+            .Where(t => t.DateOut != null && t.Void && t.DateOut >= start && t.DateOut < end)
+            .OrderByDescending(t => t.DateOut)
+            .ToList()
+            .Select(t => new
+            {
+                t.Ticket,
+                t.DateIn,
+                t.DateOut,
+                t.Customer,
+                t.Carrier,
+                t.TruckId,
+                t.Commodity,
+                t.InWeight,
+                t.OutWeight,
+                t.NetWeight,
+                t.Notes
+            })
+            .ToList();
+
+        return Json(results);
+    }
 }

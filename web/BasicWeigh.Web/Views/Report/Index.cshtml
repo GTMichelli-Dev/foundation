@@ -38,6 +38,22 @@
 
 <div id="voidWarning" class="alert alert-warning py-1 mb-2" style="display:none;" role="alert">
     <strong id="voidCount"></strong> voided ticket(s) are not included in this report.
+    <a href="#" id="showVoidsLink" class="alert-link ms-2">View voided tickets</a>
+</div>
+
+<!-- Voided Tickets Modal -->
+<div class="modal fade" id="voidsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title">Voided Tickets</h6>
+                <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="voidsGrid"></div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div id="reportGrid"></div>
@@ -473,6 +489,38 @@
             pager: { showPageSizeSelector: true, allowedPageSizes: [20, 50, 100, 500] },
             export: { enabled: false }
         }).dxDataGrid('instance');
+
+        // Voided tickets popup
+        $('#showVoidsLink').on('click', function (e) {
+            e.preventDefault();
+            var s = DevExpress.localization.formatDate(startVal, 'yyyy-MM-dd');
+            var en = DevExpress.localization.formatDate(endVal, 'yyyy-MM-dd');
+
+            $('#voidsGrid').dxDataGrid({
+                dataSource: { store: { type: 'array', key: 'ticket', data: [] }, sort: { field: 'dateOut', desc: true } },
+                columns: [
+                    { dataField: 'ticket', caption: '#', width: 60 },
+                    { dataField: 'customer', caption: 'Customer' },
+                    { dataField: 'carrier', caption: 'Carrier' },
+                    { dataField: 'truckId', caption: 'Truck ID' },
+                    { dataField: 'commodity', caption: 'Commodity' },
+                    { dataField: 'inWeight', caption: 'In (lbs)', dataType: 'number', format: '#,##0', width: 90 },
+                    { dataField: 'outWeight', caption: 'Out (lbs)', dataType: 'number', format: '#,##0', width: 90 },
+                    { dataField: 'netWeight', caption: 'Net (lbs)', dataType: 'number', format: '#,##0', width: 90 },
+                    { dataField: 'dateOut', caption: 'Date Out', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a', width: 155 },
+                    { dataField: 'notes', caption: 'Notes' }
+                ],
+                showBorders: true,
+                columnAutoWidth: true,
+                paging: { pageSize: 20 }
+            });
+
+            $.getJSON('/api/reports/voided', { startDate: s, endDate: en }, function (data) {
+                $('#voidsGrid').dxDataGrid('instance').option('dataSource', data);
+            });
+
+            new bootstrap.Modal('#voidsModal').show();
+        });
     });
 </script>
 }
