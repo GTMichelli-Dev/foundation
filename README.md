@@ -44,7 +44,7 @@ Before starting, create a DNS **A record** pointing your domain to the server IP
 > DNS can take a few minutes to propagate. **Verify it resolves before continuing:**
 >
 > ```
-> nslookup basic.scaledata.net
+> nslookup yourDNSName.scaledata.net
 > ```
 >
 > You should see your server's IP address in the response. **Do not proceed to Step 4 until this works** — Let's Encrypt will fail if DNS is not resolving.
@@ -54,7 +54,7 @@ Before starting, create a DNS **A record** pointing your domain to the server IP
 SSH into your new server as root:
 
 ```bash
-ssh root@149.28.xxx.xxx
+ssh root@xxx.xx.xxx.xxx
 ```
 
 Create an `admin` user (the app runs under this account):
@@ -106,7 +106,7 @@ Run the deploy script with your domain and email:
 
 **Windows (Command Prompt):**
 ```
-deploy\deploy.bat admin@149.28.xxx.xxx --domain scale.yourcompany.com --email admin@yourcompany.com
+deploy\deploy.bat admin@xxx.xx.xxx.xxx --domain scale.yourcompany.com --email admin@yourcompany.com
 ```
 
 **Linux / Mac / Git Bash:**
@@ -129,7 +129,7 @@ Enter the `admin` user's password when prompted (twice — once for upload, once
 Open your browser and go to:
 
 ```
-https://scale.yourcompany.com
+https://yourDNSName.scaledata.net
 ```
 
 You should see the Basic Weigh dashboard.
