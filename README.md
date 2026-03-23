@@ -106,12 +106,12 @@ Run the deploy script with your domain and email:
 
 **Windows (Command Prompt):**
 ```
-deploy\deploy.bat admin@xxx.xx.xxx.xxx --domain scale.yourcompany.com --email admin@yourcompany.com
+deploy\deploy.bat admin@xxx.xxx.xxx.xxx --domain yourDNSName.scaledata.net --email admin@yourcompany.com
 ```
 
 **Linux / Mac / Git Bash:**
 ```bash
-bash deploy/deploy.sh admin@149.28.xxx.xxx --domain scale.yourcompany.com --email admin@yourcompany.com
+bash deploy/deploy.sh admin@xxx.xxx.xxx.xxx --domain yourDNSName.scaledata.net --email admin@yourcompany.com
 ```
 
 Enter the `admin` user's password when prompted (twice — once for upload, once for install).
