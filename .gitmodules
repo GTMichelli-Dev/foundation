@@ -7,3 +7,6 @@
 [submodule "ScaleReaderService"]
 	path = ScaleReaderService
 	url = https://github.com/GTMichelli-Dev/scale-reader-service.git
+[submodule "PiPrintService"]
+	path = PiPrintService
+	url = https://github.com/GTMichelli-Dev/pi-print-service.git
