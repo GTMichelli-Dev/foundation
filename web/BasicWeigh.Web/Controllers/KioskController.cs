@@ -13,17 +13,19 @@ public class KioskController : Controller
     private readonly ScaleDbContext _db;
     private readonly IScaleService _scaleService;
     private readonly IHubContext<ScaleHub> _hub;
+    private readonly AppSetupCache _setupCache;
 
-    public KioskController(ScaleDbContext db, IScaleService scaleService, IHubContext<ScaleHub> hub)
+    public KioskController(ScaleDbContext db, IScaleService scaleService, IHubContext<ScaleHub> hub, AppSetupCache setupCache)
     {
         _db = db;
         _scaleService = scaleService;
         _hub = hub;
+        _setupCache = setupCache;
     }
 
     public IActionResult Index()
     {
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
         return View(setup);
     }
 
@@ -134,6 +136,7 @@ public class KioskController : Controller
         _db.AppSetup.Update(setup);
         _db.Transactions.Add(transaction);
         _db.SaveChanges();
+        _setupCache.Invalidate();
 
         // Notify all clients that a ticket was created
         await _hub.Clients.All.SendAsync("TicketCreated", new { ticket = ticketNumber, type = "weighin" });
@@ -162,7 +165,7 @@ public class KioskController : Controller
 
         _db.SaveChanges();
 
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
 
         // Notify all clients that a ticket was completed
         await _hub.Clients.All.SendAsync("TicketCompleted", new { ticket = transaction.Ticket, type = "weighout" });
@@ -186,7 +189,7 @@ public class KioskController : Controller
         // If no printerId specified, determine from kiosk setup
         if (printerId == 0)
         {
-            var setup = _db.AppSetup.First();
+            var setup = _setupCache.Get();
             printerId = (type == "weighout" && setup.KioskCount == 2) ? 2 : 1;
         }
 

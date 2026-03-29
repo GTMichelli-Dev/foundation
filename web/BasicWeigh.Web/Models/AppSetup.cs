@@ -87,6 +87,28 @@ public class AppSetup
     [Display(Name = "API Definition PIN")]
     public string ApiDefinitionPin { get; set; } = "12345";
 
+    // QuickBooks integration
+    [Display(Name = "Connect to QuickBooks")]
+    public bool UseQuickBooks { get; set; }
+
+    // Camera / ticket images
+    [Display(Name = "Save Picture for Ticket")]
+    public bool SavePicture { get; set; }
+
+    // Camera assignments (format: "serviceId:cameraId")
+    [StringLength(100)]
+    [Display(Name = "Inbound Camera")]
+    public string? InboundCameraId { get; set; }
+
+    [StringLength(100)]
+    [Display(Name = "Outbound Camera")]
+    public string? OutboundCameraId { get; set; }
+
+    // Scale assignment (format: "serviceId:scaleId")
+    [StringLength(100)]
+    [Display(Name = "Scale")]
+    public string? ScaleId { get; set; }
+
     // Recall last ticket values
     [Display(Name = "Recall Last Values")]
     public bool RecallLastValues { get; set; }
@@ -95,4 +117,18 @@ public class AppSetup
     [StringLength(20)]
     [Display(Name = "Remote Printing")]
     public string RemotePrintMode { get; set; } = "None";
+
+    // Printer assignments (format: "serviceId:printerId")
+    [StringLength(100)]
+    [Display(Name = "Inbound Printer")]
+    public string? InboundPrinterId { get; set; }
+
+    [StringLength(100)]
+    [Display(Name = "Outbound Printer")]
+    public string? OutboundPrinterId { get; set; }
+
+    [StringLength(100)]
+    [Display(Name = "Kiosk Printer")]
+    public string? KioskPrinterId { get; set; }
+
 }

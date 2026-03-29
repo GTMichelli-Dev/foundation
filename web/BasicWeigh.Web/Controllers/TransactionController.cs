@@ -14,14 +14,16 @@ public class TransactionController : Controller
     private readonly IScaleService _scaleService;
     private readonly PrintQueueService _printQueue;
     private readonly IHubContext<ScaleHub> _hub;
+    private readonly AppSetupCache _setupCache;
 
     public TransactionController(ScaleDbContext db, IScaleService scaleService,
-        PrintQueueService printQueue, IHubContext<ScaleHub> hub)
+        PrintQueueService printQueue, IHubContext<ScaleHub> hub, AppSetupCache setupCache)
     {
         _db = db;
         _scaleService = scaleService;
         _printQueue = printQueue;
         _hub = hub;
+        _setupCache = setupCache;
     }
 
     private void PopulateDropdowns()
@@ -46,6 +48,9 @@ public class TransactionController : Controller
         PopulateDropdowns();
         ViewBag.CurrentWeight = _scaleService.GetCurrentWeight();
 
+        var setup = _setupCache.Get();
+        ViewBag.SavePicture = setup.SavePicture;
+
         if (!string.IsNullOrEmpty(id))
         {
             var existing = _db.Transactions.Find(id);
@@ -53,10 +58,14 @@ public class TransactionController : Controller
             if (existing.DateOut != null) return RedirectToAction("Edit", new { id });
 
             ViewBag.IsEdit = true;
+            if (setup.SavePicture)
+            {
+                var imgDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "tickets");
+                ViewBag.HasInPhoto = System.IO.File.Exists(Path.Combine(imgDir, $"{id}_In.jpg"));
+            }
             return View(existing);
         }
 
-        var setup = _db.AppSetup.First();
         ViewBag.NextTicket = setup.TicketNumber.ToString();
         ViewBag.IsEdit = false;
 
@@ -81,7 +90,7 @@ public class TransactionController : Controller
     // POST: Transaction/WeighIn
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult WeighIn(Transaction transaction, bool isEdit, bool goToWeighOut, bool manualWeight)
+    public async Task<IActionResult> WeighIn(Transaction transaction, bool isEdit, bool goToWeighOut, bool manualWeight)
     {
         if (isEdit)
         {
@@ -117,6 +126,17 @@ public class TransactionController : Controller
 
             _db.Transactions.Add(transaction);
             _db.SaveChanges();
+            _setupCache.Invalidate();
+
+            // Camera capture on inbound (only if not manual weight)
+            if (setup.SavePicture && !manualWeight && !string.IsNullOrEmpty(setup.InboundCameraId))
+            {
+                var parts = setup.InboundCameraId.Split(':', 2);
+                var serviceId = parts.Length > 1 ? parts[0] : "default";
+                var cameraId = parts.Length > 1 ? parts[1] : parts[0];
+                await _hub.Clients.Group($"Camera_{serviceId}").SendAsync("CaptureImage",
+                    new { ticket = transaction.Ticket, direction = "in", cameraId });
+            }
 
             // Remote printing
             if (setup.RemotePrintMode == "Scale")
@@ -127,7 +147,7 @@ public class TransactionController : Controller
             else if (setup.RemotePrintMode == "RemotePrinter")
             {
                 _printQueue.AwaitConfirmation(transaction.Ticket);
-                _hub.Clients.Group("PrintClients").SendAsync("PrintTicket",
+                await _hub.Clients.Group("PrintClients").SendAsync("PrintTicket",
                     new { ticketId = transaction.Ticket, pdfUrl = $"/api/ticket/{transaction.Ticket}/pdf" });
             }
         }
@@ -149,7 +169,7 @@ public class TransactionController : Controller
     // POST: Transaction/WeighOut/5
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult WeighOut(string id, Transaction transaction, bool manualOutWeight, bool manualInWeight)
+    public async Task<IActionResult> WeighOut(string id, Transaction transaction, bool manualOutWeight, bool manualInWeight)
     {
         var existing = _db.Transactions.Find(id);
         if (existing == null) return NotFound();
@@ -171,7 +191,18 @@ public class TransactionController : Controller
         _db.SaveChanges();
 
         // Remote printing
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
+
+        // Camera capture on outbound (only if not manual weight)
+        if (setup.SavePicture && !manualOutWeight && !string.IsNullOrEmpty(setup.OutboundCameraId))
+        {
+            var parts = setup.OutboundCameraId.Split(':', 2);
+            var serviceId = parts.Length > 1 ? parts[0] : "default";
+            var cameraId = parts.Length > 1 ? parts[1] : parts[0];
+            await _hub.Clients.Group($"Camera_{serviceId}").SendAsync("CaptureImage",
+                new { ticket = id, direction = "out", cameraId });
+        }
+
         if (setup.RemotePrintMode == "Scale")
         {
             _printQueue.Enqueue(id);
@@ -180,7 +211,7 @@ public class TransactionController : Controller
         else if (setup.RemotePrintMode == "RemotePrinter")
         {
             _printQueue.AwaitConfirmation(id);
-            _hub.Clients.Group("PrintClients").SendAsync("PrintTicket",
+            await _hub.Clients.Group("PrintClients").SendAsync("PrintTicket",
                 new { ticketId = id, pdfUrl = $"/api/ticket/{id}/pdf" });
         }
 
@@ -190,27 +221,30 @@ public class TransactionController : Controller
     // GET: Transaction/InboundTrucks
     public IActionResult InboundTrucks()
     {
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
         ViewBag.RemotePrintMode = setup.RemotePrintMode ?? "None";
         ViewBag.KioskCount = setup.KioskCount;
         ViewBag.DemoMode = setup.DemoMode;
+        ViewBag.SavePicture = setup.SavePicture;
         return View();
     }
 
     // GET: Transaction/CompletedTrucks
     public IActionResult CompletedTrucks()
     {
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
         ViewBag.RemotePrintMode = setup.RemotePrintMode ?? "None";
         ViewBag.KioskCount = setup.KioskCount;
         ViewBag.DemoMode = setup.DemoMode;
+        ViewBag.UseQuickBooks = setup.UseQuickBooks;
+        ViewBag.SavePicture = setup.SavePicture;
         return View();
     }
 
     // GET: Transaction/BasicTicket
     public IActionResult BasicTicket()
     {
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
         ViewBag.NextTicket = setup.TicketNumber.ToString();
         ViewBag.CurrentWeight = _scaleService.GetCurrentWeight();
         PopulateDropdowns();
@@ -234,8 +268,9 @@ public class TransactionController : Controller
 
         _db.Transactions.Add(transaction);
         _db.SaveChanges();
+        _setupCache.Invalidate();
 
-        return RedirectToAction("CompletedTrucks");
+        return RedirectToAction("CompletedTrucks", new { reset = "true" });
     }
 
     // POST: Transaction/Void/5
@@ -270,6 +305,12 @@ public class TransactionController : Controller
         var transaction = _db.Transactions.Find(id);
         if (transaction == null) return NotFound();
 
+        var setup = _setupCache.Get();
+        ViewBag.SavePicture = setup.SavePicture;
+        var ticketsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "tickets");
+        ViewBag.HasInImage = System.IO.File.Exists(Path.Combine(ticketsDir, $"{id}_in.jpg"));
+        ViewBag.HasOutImage = System.IO.File.Exists(Path.Combine(ticketsDir, $"{id}_out.jpg"));
+
         PopulateDropdowns();
         return View(transaction);
     }
@@ -296,11 +337,17 @@ public class TransactionController : Controller
         existing.Destination = transaction.Destination;
         existing.Notes = transaction.Notes;
         existing.Void = transaction.Void;
+        existing.SentToQuickBooks = false; // Reset QB flag on edit
 
         _db.SaveChanges();
 
         return RedirectToAction("CompletedTrucks");
     }
+
+    private static string TicketsImageDir => Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "tickets");
+
+    private static bool HasImage(string ticket, string direction)
+        => System.IO.File.Exists(Path.Combine(TicketsImageDir, $"{ticket}_{direction}.jpg"));
 
     // API: GET api/transactions/inbound
     [HttpGet("api/transactions/inbound")]
@@ -309,6 +356,7 @@ public class TransactionController : Controller
         var transactions = _db.Transactions
             .Where(t => t.DateOut == null && !t.Void)
             .OrderByDescending(t => t.DateIn)
+            .ToList()
             .Select(t => new
             {
                 t.Ticket,
@@ -321,7 +369,8 @@ public class TransactionController : Controller
                 t.Location,
                 t.Destination,
                 t.Notes,
-                t.ManualInbound
+                t.ManualInbound,
+                HasInImage = HasImage(t.Ticket, "in")
             })
             .ToList();
 
@@ -333,10 +382,12 @@ public class TransactionController : Controller
     public IActionResult GetCompleted(DateTime? startDate, DateTime? endDate)
     {
         var start = startDate ?? DateTime.Today.AddDays(-30);
-        var end = endDate ?? DateTime.Today.AddDays(1);
+        var end = endDate ?? DateTime.Today;
+        // Make end date inclusive — include all tickets through end of that day
+        var endInclusive = end.Date.AddDays(1);
 
         var transactions = _db.Transactions
-            .Where(t => t.DateOut != null && t.DateIn >= start && t.DateIn < end)
+            .Where(t => t.DateOut != null && t.DateIn >= start && t.DateIn < endInclusive)
             .OrderByDescending(t => t.DateIn)
             .ToList()
             .Select(t => new
@@ -356,7 +407,10 @@ public class TransactionController : Controller
                 t.Location,
                 t.Destination,
                 t.Notes,
-                t.Void
+                t.Void,
+                t.SentToQuickBooks,
+                HasInImage = HasImage(t.Ticket, "in"),
+                HasOutImage = HasImage(t.Ticket, "out")
             })
             .ToList();
 
@@ -382,9 +436,66 @@ public class TransactionController : Controller
         existing.Destination = transaction.Destination;
         existing.Notes = transaction.Notes;
         existing.Void = transaction.Void;
+        existing.SentToQuickBooks = false; // Reset QB flag on edit
 
         _db.SaveChanges();
 
         return Json(new { success = true });
+    }
+
+    // API: POST api/transactions/mark-sent-to-qb
+    [HttpPost("api/transactions/mark-sent-to-qb")]
+    public IActionResult MarkSentToQuickBooks([FromBody] List<string> ticketIds)
+    {
+        if (ticketIds == null || ticketIds.Count == 0)
+            return BadRequest(new { error = "No ticket IDs provided." });
+
+        var tickets = _db.Transactions
+            .Where(t => ticketIds.Contains(t.Ticket))
+            .ToList();
+
+        foreach (var t in tickets)
+            t.SentToQuickBooks = true;
+
+        _db.SaveChanges();
+        return Json(new { marked = tickets.Count });
+    }
+
+    // API: POST api/ticket/{id}/image?direction=in|out — upload ticket image
+    [HttpPost("api/ticket/{id}/image")]
+    public async Task<IActionResult> UploadTicketImage(string id, [FromQuery] string direction, IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { error = "No file provided." });
+        if (direction != "in" && direction != "out")
+            return BadRequest(new { error = "Direction must be 'in' or 'out'." });
+
+        var dir = TicketsImageDir;
+        Directory.CreateDirectory(dir);
+
+        var filePath = Path.Combine(dir, $"{id}_{direction}.jpg");
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        // Notify all web clients that an image is available
+        await _hub.Clients.All.SendAsync("ImageCaptured", new { ticket = id, direction });
+
+        return Ok(new { success = true });
+    }
+
+    // API: GET api/ticket/{id}/image?direction=in|out — serve ticket image
+    [HttpGet("api/ticket/{id}/image")]
+    public IActionResult GetTicketImage(string id, [FromQuery] string direction)
+    {
+        if (direction != "in" && direction != "out")
+            return BadRequest();
+
+        var filePath = Path.Combine(TicketsImageDir, $"{id}_{direction}.jpg");
+        if (!System.IO.File.Exists(filePath))
+            return NotFound();
+
+        return PhysicalFile(filePath, "image/jpeg");
     }
 }

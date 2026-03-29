@@ -2,22 +2,26 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BasicWeigh.Web.Data;
 using BasicWeigh.Web.Models;
+using BasicWeigh.Web.Services;
 
 namespace BasicWeigh.Web.Controllers;
 
 public class ReportController : Controller
 {
     private readonly ScaleDbContext _db;
+    private readonly AppSetupCache _setupCache;
 
-    public ReportController(ScaleDbContext db)
+    public ReportController(ScaleDbContext db, AppSetupCache setupCache)
     {
         _db = db;
+        _setupCache = setupCache;
     }
 
     public IActionResult Index()
     {
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
         ViewBag.CompanyName = setup.Header1 ?? "Basic Weigh";
+        ViewBag.SavePicture = setup.SavePicture;
         return View();
     }
 
@@ -51,7 +55,9 @@ public class ReportController : Controller
                 t.OutWeight,
                 t.NetWeight,
                 NetTons = Math.Round(t.NetWeight / 2000.0, 2),
-                t.Notes
+                t.Notes,
+                HasInImage = System.IO.File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "tickets", $"{t.Ticket}_in.jpg")),
+                HasOutImage = System.IO.File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "tickets", $"{t.Ticket}_out.jpg"))
             })
             .ToList();
 

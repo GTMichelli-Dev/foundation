@@ -3,22 +3,26 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BasicWeigh.Web.Data;
 using BasicWeigh.Web.Models;
+using BasicWeigh.Web.Services;
 
 namespace BasicWeigh.Web.Controllers;
 
 public class MasterDataController : Controller
 {
     private readonly ScaleDbContext _db;
+    private readonly AppSetupCache _setupCache;
 
-    public MasterDataController(ScaleDbContext db)
+    public MasterDataController(ScaleDbContext db, AppSetupCache setupCache)
     {
         _db = db;
+        _setupCache = setupCache;
     }
 
     public IActionResult Index()
     {
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
         ViewBag.KioskCount = setup.KioskCount;
+        ViewBag.UseQuickBooks = setup.UseQuickBooks;
         return View();
     }
 
@@ -44,7 +48,11 @@ public class MasterDataController : Controller
         var existing = _db.Customers.Find(id);
         if (existing == null) return NotFound();
         if (body.TryGetProperty("customerName", out var name)) existing.CustomerName = name.GetString()!;
-        if (body.TryGetProperty("active", out var active)) existing.Active = active.GetBoolean();
+        if (body.TryGetProperty("active", out var active))
+        {
+            existing.Active = active.GetBoolean();
+            if (!existing.Active) existing.UseAtKiosk = false;
+        }
         if (body.TryGetProperty("useAtKiosk", out var kiosk)) existing.UseAtKiosk = kiosk.GetBoolean();
         _db.SaveChanges();
         return Json(existing);
@@ -95,7 +103,11 @@ public class MasterDataController : Controller
         var existing = _db.Carriers.Find(id);
         if (existing == null) return NotFound();
         if (body.TryGetProperty("carrierName", out var name)) existing.CarrierName = name.GetString()!;
-        if (body.TryGetProperty("active", out var active)) existing.Active = active.GetBoolean();
+        if (body.TryGetProperty("active", out var active))
+        {
+            existing.Active = active.GetBoolean();
+            if (!existing.Active) existing.UseAtKiosk = false;
+        }
         if (body.TryGetProperty("useAtKiosk", out var kiosk)) existing.UseAtKiosk = kiosk.GetBoolean();
         _db.SaveChanges();
         return Json(existing);
@@ -133,7 +145,11 @@ public class MasterDataController : Controller
         var existing = _db.Locations.Find(id);
         if (existing == null) return NotFound();
         if (body.TryGetProperty("locationName", out var name)) existing.LocationName = name.GetString()!;
-        if (body.TryGetProperty("active", out var active)) existing.Active = active.GetBoolean();
+        if (body.TryGetProperty("active", out var active))
+        {
+            existing.Active = active.GetBoolean();
+            if (!existing.Active) existing.UseAtKiosk = false;
+        }
         if (body.TryGetProperty("useAtKiosk", out var kiosk)) existing.UseAtKiosk = kiosk.GetBoolean();
         _db.SaveChanges();
         return Json(existing);
@@ -171,7 +187,11 @@ public class MasterDataController : Controller
         var existing = _db.Destinations.Find(id);
         if (existing == null) return NotFound();
         if (body.TryGetProperty("destinationName", out var name)) existing.DestinationName = name.GetString()!;
-        if (body.TryGetProperty("active", out var active)) existing.Active = active.GetBoolean();
+        if (body.TryGetProperty("active", out var active))
+        {
+            existing.Active = active.GetBoolean();
+            if (!existing.Active) existing.UseAtKiosk = false;
+        }
         if (body.TryGetProperty("useAtKiosk", out var kiosk)) existing.UseAtKiosk = kiosk.GetBoolean();
         _db.SaveChanges();
         return Json(existing);
@@ -246,6 +266,123 @@ public class MasterDataController : Controller
         return Json(new { success = true });
     }
 
+    // ---- Sync from QuickBooks ----
+
+    public class SyncRequest
+    {
+        public List<string> Names { get; set; } = new();
+    }
+
+    [HttpPost("api/masterdata/sync/customers")]
+    public IActionResult SyncCustomers([FromBody] SyncRequest request)
+    {
+        if (request.Names == null || request.Names.Count == 0)
+            return BadRequest(new { error = "Names list is required." });
+
+        var qbNames = new HashSet<string>(request.Names, StringComparer.OrdinalIgnoreCase);
+        var existing = _db.Customers.ToList();
+        var existingByName = existing.ToDictionary(c => c.CustomerName, c => c, StringComparer.OrdinalIgnoreCase);
+
+        int added = 0, reactivated = 0, deactivated = 0, unchanged = 0;
+
+        // Add or reactivate customers from QB
+        foreach (var name in qbNames)
+        {
+            if (existingByName.TryGetValue(name, out var customer))
+            {
+                if (!customer.Active)
+                {
+                    customer.Active = true;
+                    customer.UseAtKiosk = true;
+                    reactivated++;
+                }
+                else
+                {
+                    unchanged++;
+                }
+            }
+            else
+            {
+                _db.Customers.Add(new Customer
+                {
+                    CustomerName = name,
+                    Active = true,
+                    UseAtKiosk = true
+                });
+                added++;
+            }
+        }
+
+        // Deactivate customers not in QB
+        foreach (var customer in existing)
+        {
+            if (customer.Active && !qbNames.Contains(customer.CustomerName))
+            {
+                customer.Active = false;
+                customer.UseAtKiosk = false;
+                deactivated++;
+            }
+        }
+
+        _db.SaveChanges();
+        return Json(new { added, reactivated, deactivated, unchanged });
+    }
+
+    [HttpPost("api/masterdata/sync/commodities")]
+    public IActionResult SyncCommodities([FromBody] SyncRequest request)
+    {
+        if (request.Names == null || request.Names.Count == 0)
+            return BadRequest(new { error = "Names list is required." });
+
+        var qbNames = new HashSet<string>(request.Names, StringComparer.OrdinalIgnoreCase);
+        var existing = _db.Commodities.ToList();
+        var existingByName = existing.ToDictionary(c => c.CommodityName, c => c, StringComparer.OrdinalIgnoreCase);
+
+        int added = 0, reactivated = 0, deactivated = 0, unchanged = 0;
+
+        // Add or reactivate commodities from QB
+        foreach (var name in qbNames)
+        {
+            if (existingByName.TryGetValue(name, out var commodity))
+            {
+                if (!commodity.Active)
+                {
+                    commodity.Active = true;
+                    commodity.UseAtKiosk = true;
+                    reactivated++;
+                }
+                else
+                {
+                    unchanged++;
+                }
+            }
+            else
+            {
+                _db.Commodities.Add(new Commodity
+                {
+                    CommodityName = name,
+                    Active = true,
+                    UseAtKiosk = true
+                });
+                added++;
+            }
+        }
+
+        // Deactivate commodities not in QB
+        foreach (var commodity in existing)
+        {
+            if (commodity.Active && !qbNames.Contains(commodity.CommodityName))
+            {
+                commodity.Active = false;
+                commodity.UseAtKiosk = false;
+                deactivated++;
+            }
+        }
+
+        _db.SaveChanges();
+        return Json(new { added, reactivated, deactivated, unchanged });
+    }
+
     // ---- Commodities ----
     [HttpGet("api/masterdata/commodities")]
     public IActionResult GetCommodities()
@@ -268,7 +405,11 @@ public class MasterDataController : Controller
         var existing = _db.Commodities.Find(id);
         if (existing == null) return NotFound();
         if (body.TryGetProperty("commodityName", out var name)) existing.CommodityName = name.GetString()!;
-        if (body.TryGetProperty("active", out var active)) existing.Active = active.GetBoolean();
+        if (body.TryGetProperty("active", out var active))
+        {
+            existing.Active = active.GetBoolean();
+            if (!existing.Active) existing.UseAtKiosk = false;
+        }
         if (body.TryGetProperty("useAtKiosk", out var kiosk)) existing.UseAtKiosk = kiosk.GetBoolean();
         _db.SaveChanges();
         return Json(existing);

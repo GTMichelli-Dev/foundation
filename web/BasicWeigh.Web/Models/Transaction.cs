@@ -51,6 +51,9 @@ public class Transaction
     [Display(Name = "Manual Outbound")]
     public bool ManualOutbound { get; set; }
 
+    [Display(Name = "Sent to QuickBooks")]
+    public bool SentToQuickBooks { get; set; }
+
     [NotMapped]
     public int GrossWeight => Math.Max(InWeight, OutWeight ?? 0);
 

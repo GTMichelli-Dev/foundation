@@ -16,6 +16,7 @@ public class ScaleDbContext : DbContext
     public DbSet<Commodity> Commodities => Set<Commodity>();
     public DbSet<AppSetup> AppSetup => Set<AppSetup>();
     public DbSet<AppUser> Users => Set<AppUser>();
+    public DbSet<CameraConfig> CameraConfigs => Set<CameraConfig>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -78,6 +79,12 @@ public class ScaleDbContext : DbContext
         {
             e.ToTable("Users");
             e.HasIndex(u => u.Username).IsUnique();
+        });
+
+        modelBuilder.Entity<CameraConfig>(e =>
+        {
+            e.ToTable("CameraConfigs");
+            e.HasIndex(c => c.CameraId).IsUnique();
         });
 
         modelBuilder.Entity<AppSetup>().HasData(new AppSetup

@@ -18,6 +18,12 @@
       "runtimeExecutable": "dotnet",
       "runtimeArgs": ["run", "--project", "web/BasicWeigh.Web", "--launch-profile", "IIS Express"],
       "port": 45202
+    },
+    {
+      "name": "scalereader",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "ScaleReaderService"],
+      "port": 5220
     }
   ]
 }

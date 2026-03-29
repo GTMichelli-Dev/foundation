@@ -105,9 +105,10 @@
         <div class="tab-pane fade" id="tabSystem">
             <div class="row g-3">
                 <div class="col-md-6">
-                    <div class="card">
+                    <!-- System Settings -->
+                    <div class="card mb-3">
                         <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
-                            <strong>System Settings</strong>
+                            <strong>System</strong>
                         </div>
                         <div class="card-body py-2">
                             <div class="row g-2 mb-2">
@@ -123,33 +124,6 @@
                                     <select asp-for="RecallLastValues" class="form-select form-select-sm">
                                         <option value="false">No</option>
                                         <option value="true">Yes</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="row g-2 mb-2">
-                                <div class="col-6">
-                                    <label asp-for="RemotePrintMode" class="form-label mb-0 small"></label>
-                                    <select asp-for="RemotePrintMode" class="form-select form-select-sm">
-                                        <option value="None">No Remote Printing</option>
-                                        <option value="Scale">Scale Prints Ticket</option>
-                                        <option value="RemotePrinter">Remote Printer (Pi)</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="row g-2 mb-2">
-                                <div class="col-6">
-                                    <label asp-for="KioskCount" class="form-label mb-0 small"></label>
-                                    <select asp-for="KioskCount" class="form-select form-select-sm" id="KioskCount">
-                                        <option value="0">No Kiosk</option>
-                                        <option value="1">One Kiosk</option>
-                                        <option value="2">In/Out Kiosk</option>
-                                    </select>
-                                </div>
-                                <div class="col-6" id="kioskDarkModeSection" style="display: @(Model.KioskCount > 0 ? "block" : "none");">
-                                    <label asp-for="KioskDarkMode" class="form-label mb-0 small"></label>
-                                    <select asp-for="KioskDarkMode" class="form-select form-select-sm">
-                                        <option value="true">Dark</option>
-                                        <option value="false">Light</option>
                                     </select>
                                 </div>
                             </div>
@@ -176,7 +150,108 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Kiosk Options -->
+                    <div class="card mb-3">
+                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Kiosk</strong>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label asp-for="KioskCount" class="form-label mb-0 small"></label>
+                                    <select asp-for="KioskCount" class="form-select form-select-sm" id="KioskCount">
+                                        <option value="0">No Kiosk</option>
+                                        <option value="1">One Kiosk</option>
+                                        <option value="2">In/Out Kiosk</option>
+                                    </select>
+                                </div>
+                                <div class="col-6" id="kioskDarkModeSection" style="display: @(Model.KioskCount > 0 ? "block" : "none");">
+                                    <label asp-for="KioskDarkMode" class="form-label mb-0 small"></label>
+                                    <select asp-for="KioskDarkMode" class="form-select form-select-sm">
+                                        <option value="true">Dark</option>
+                                        <option value="false">Light</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Printing -->
+                    <div class="card mb-3">
+                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Printing</strong>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label asp-for="RemotePrintMode" class="form-label mb-0 small"></label>
+                                    <select asp-for="RemotePrintMode" class="form-select form-select-sm" id="RemotePrintMode">
+                                        <option value="None">No Remote Printing</option>
+                                        <option value="Scale">Scale Prints Ticket</option>
+                                        <option value="RemotePrinter">Remote Printer (Pi)</option>
+                                    </select>
+                                </div>
+                                <div class="col-3 d-flex align-items-end" id="printerManageSection" style="display: @(Model.RemotePrintMode == "RemotePrinter" ? "flex" : "none") !important;">
+                                    <a href="/Printer" class="btn btn-outline-secondary btn-sm w-100">
+                                        Printers
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+
+                <div class="col-md-6">
+                    <!-- Options (Cameras, QuickBooks, Scale) -->
+                    <div class="card mb-3">
+                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Options</strong>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="row g-2 mb-2">
+                                <div class="col-4">
+                                    <label asp-for="SavePicture" class="form-label mb-0 small"></label>
+                                    <select asp-for="SavePicture" class="form-select form-select-sm" id="SavePicture">
+                                        <option value="false">No</option>
+                                        <option value="true">Yes</option>
+                                    </select>
+                                </div>
+                                <div class="col-2 d-flex align-items-end" id="cameraManageSection" style="display: @(Model.SavePicture ? "flex" : "none") !important;">
+                                    <a href="/Camera" class="btn btn-outline-secondary btn-sm w-100">
+                                        Cameras
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-4">
+                                    <label asp-for="UseQuickBooks" class="form-label mb-0 small"></label>
+                                    <select asp-for="UseQuickBooks" class="form-select form-select-sm" id="UseQuickBooks">
+                                        <option value="false">No</option>
+                                        <option value="true">Yes</option>
+                                    </select>
+                                </div>
+                                <div class="col-2 d-flex align-items-end" id="qbCheckSection" style="display: @(Model.UseQuickBooks ? "flex" : "none") !important;">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm w-100" id="btnCheckQBService" onclick="checkQBService()">
+                                        Check
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-4">
+                                    <label asp-for="ScaleId" class="form-label mb-0 small"></label>
+                                    <select asp-for="ScaleId" class="form-select form-select-sm" id="ScaleId">
+                                        <option value="">-- None --</option>
+                                    </select>
+                                </div>
+                                <div class="col-2 d-flex align-items-end">
+                                    <a href="/Scale" class="btn btn-outline-secondary btn-sm w-100">
+                                        Scales
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 <div class="col-md-6">
                     <div class="card">
                         <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
@@ -444,6 +519,23 @@
 </form>
 
 <!-- Confirm Operation Modal -->
+<div class="modal fade" id="unsavedModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2 bg-warning">
+                <h6 class="modal-title">Unsaved Changes</h6>
+            </div>
+            <div class="modal-body py-3">
+                You have unsaved changes. Are you sure you want to leave this page?
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="unsavedStay()">Stay</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="unsavedLeave()">Leave</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="confirmModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -461,6 +553,7 @@
 </div>
 
 @section Scripts {
+<script src="~/js/signalr/signalr.min.js"></script>
 <script>
     // --- Unsaved changes tracking ---
     var formDirty = false;
@@ -481,13 +574,37 @@
         el.addEventListener('input', markDirty);
     });
 
-    // Warn on page leave
+    // Warn on page leave — native dialog for browser close/refresh
     window.addEventListener('beforeunload', function (e) {
         if (formDirty) {
             e.preventDefault();
             e.returnValue = '';
         }
     });
+
+    // Intercept nav link clicks with Bootstrap modal
+    var _pendingUrl = null;
+    document.querySelectorAll('a[href]').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            if (!formDirty) return;
+            var href = link.getAttribute('href');
+            if (!href || href === '#' || href.startsWith('javascript:')) return;
+            e.preventDefault();
+            _pendingUrl = href;
+            var modal = document.getElementById('unsavedModal');
+            if (!modal) return;
+            new bootstrap.Modal(modal).show();
+        });
+    });
+
+    window.unsavedLeave = function () {
+        formDirty = false;
+        if (_pendingUrl) window.location.href = _pendingUrl;
+    };
+    window.unsavedStay = function () {
+        _pendingUrl = null;
+        bootstrap.Modal.getInstance(document.getElementById('unsavedModal'))?.hide();
+    };
 
     // Clear dirty flag on form submit
     setupForm.addEventListener('submit', function () {
@@ -525,6 +642,89 @@
             }
         });
     }
+
+    // --- QB Service Check ---
+    document.getElementById('UseQuickBooks').addEventListener('change', function () {
+        var el = document.getElementById('qbCheckSection');
+        el.style.display = this.value === 'true' ? 'flex' : 'none';
+    });
+
+    document.getElementById('SavePicture').addEventListener('change', function () {
+        var el = document.getElementById('cameraManageSection');
+        el.style.display = this.value === 'true' ? 'flex' : 'none';
+    });
+
+    document.getElementById('RemotePrintMode').addEventListener('change', function () {
+        var el = document.getElementById('printerManageSection');
+        el.style.display = this.value === 'RemotePrinter' ? 'flex' : 'none';
+    });
+
+    function checkQBService() {
+        var btn = document.getElementById('btnCheckQBService');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+        var conn = new signalR.HubConnectionBuilder().withUrl('/scaleHub').build();
+        conn.start().then(function () {
+            return conn.invoke('CheckQBServiceConnected');
+        }).then(function (connected) {
+            conn.stop();
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa fa-plug"></i> Check';
+            var container = document.getElementById('qb-status-alert');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'qb-status-alert';
+                btn.parentElement.parentElement.after(container);
+            }
+            if (connected) {
+                container.innerHTML = '<div class="alert alert-success alert-dismissible fade show py-1 px-2 small mt-1" role="alert">' +
+                    '<i class="fa fa-check-circle"></i> QuickBooks Sync Service is connected.' +
+                    '<button type="button" class="btn-close btn-close-sm p-1" data-bs-dismiss="alert"></button></div>';
+            } else {
+                container.innerHTML = '<div class="alert alert-danger alert-dismissible fade show py-1 px-2 small mt-1" role="alert">' +
+                    '<i class="fa fa-times-circle"></i> QuickBooks Sync Service is not connected. Please start the QBSyncService.' +
+                    '<button type="button" class="btn-close btn-close-sm p-1" data-bs-dismiss="alert"></button></div>';
+            }
+        }).catch(function (err) {
+            conn.stop();
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa fa-plug"></i> Check';
+        });
+    }
+
+    // --- Populate Scale dropdown via SignalR ---
+    (function () {
+        var savedScaleId = '@(Model.ScaleId ?? "")';
+        var scaleSelect = document.getElementById('ScaleId');
+        var scaleConn = new signalR.HubConnectionBuilder().withUrl('/scaleHub').build();
+
+        scaleConn.on('ScaleServiceReady', function (data) {
+            populateScales(data);
+        });
+
+        scaleConn.on('ScaleListReceived', function (data) {
+            populateScales(data);
+        });
+
+        function populateScales(data) {
+            var currentVal = scaleSelect.value || savedScaleId;
+            var options = '<option value="">-- None --</option>';
+            var scales = data.scales || [];
+            scales.forEach(function (s) {
+                var val = (data.serviceId || 'default') + ':' + s.scaleId;
+                var label = s.displayName || s.scaleId;
+                options += '<option value="' + val + '">' + label + '</option>';
+            });
+            scaleSelect.innerHTML = options;
+            scaleSelect.value = currentVal;
+        }
+
+        scaleConn.start().then(function () {
+            return scaleConn.invoke('RequestScaleList');
+        }).catch(function (err) {
+            console.log('Scale SignalR error:', err);
+        });
+    })();
 
     // --- Dynamic visibility toggles ---
     document.getElementById('UseLogin').addEventListener('change', function () {

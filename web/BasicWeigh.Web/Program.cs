@@ -9,6 +9,10 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Suppress noisy EF Core SQL logging
+builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Query", LogLevel.Error);
+
 // Database provider switching
 var dbProvider = builder.Configuration["DatabaseProvider"] ?? "SQLite";
 var connectionString = builder.Configuration.GetConnectionString(dbProvider)
@@ -26,12 +30,18 @@ builder.Services.AddDbContext<ScaleDbContext>(options =>
     }
 });
 
-// Scale service (simulated for now)
+// Scale service (simulated for demo mode)
 builder.Services.AddSingleton<SimulatedScaleService>();
 builder.Services.AddSingleton<IScaleService>(sp => sp.GetRequiredService<SimulatedScaleService>());
+// Multi-scale weight store (tracks all scales with timeout detection)
+builder.Services.AddSingleton<ScaleWeightStore>();
 
 builder.Services.AddSingleton<PrintQueueService>();
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(options =>
+{
+    // Increase max message size for camera image transfer (base64 images can be 200KB+)
+    options.MaximumReceiveMessageSize = 1024 * 1024; // 1MB
+});
 builder.Services.AddHostedService<ScaleBroadcastService>();
 
 // Cookie authentication
@@ -46,6 +56,9 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 
 builder.Services.AddControllersWithViews();
+
+// AppSetup cache — single DB read, invalidated on save
+builder.Services.AddSingleton<BasicWeigh.Web.Services.AppSetupCache>();
 
 // Swagger / OpenAPI — always enabled, protected by ApiDefinitionPin
 builder.Services.AddEndpointsApiExplorer();
@@ -107,7 +120,8 @@ else
 }
 
 app.UseDevExpressControls();
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+    app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 // Swagger PIN protection middleware — must come before UseSwagger

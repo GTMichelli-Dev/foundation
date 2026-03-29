@@ -1,8 +1,9 @@
 @{
-    ViewData["Title"] = "Inbound Trucks";
+    ViewData["Title"] = "Trucks in Yard";
     var remotePrintMode = ViewBag.RemotePrintMode as string ?? "None";
     var kioskCount = (int)(ViewBag.KioskCount ?? 0);
     var demoMode = (bool)(ViewBag.DemoMode ?? false);
+    var savePicture = (bool)(ViewBag.SavePicture ?? false);
 }
 
 <style>
@@ -49,11 +50,38 @@
         background: #2563eb;
         color: #fff;
     }
+    .ticket-thumb {
+        width: 40px; height: 40px; object-fit: cover; border-radius: 4px;
+        cursor: pointer; transition: transform 0.2s ease;
+    }
+    .ticket-thumb:hover { transform: scale(2); z-index: 100; position: relative; }
 </style>
 
-<h3>Inbound Trucks</h3>
+<h3>Trucks in Yard</h3>
 
 <div id="inboundGrid"></div>
+
+<!-- Image Lightbox Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title" id="imageModalTitle"></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body d-flex gap-3 p-3" style="background:#f8f9fa;">
+                <div style="flex:1;min-width:0;text-align:center;background:#000;border-radius:4px;overflow:hidden;">
+                    <img id="imageModalImg" src="" class="img-fluid" style="max-height:70vh;" />
+                </div>
+                <div id="imageModalInfo" style="min-width:250px;max-width:280px;font-family:'Courier New',monospace;font-size:13px;border:2px solid #000;padding:16px;background:#fff;border-radius:4px;align-self:flex-start;"></div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-sm btn-primary" onclick="downloadTicketImage(window._currentTicket, window._currentDirection)"><i class="fa fa-download"></i> Download</button>
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Print Options Modal -->
 <div class="modal fade" id="printModal" tabindex="-1">
@@ -93,6 +121,7 @@
 </div>
 
 @section Scripts {
+<script src="~/js/ticket-image-download.js"></script>
 <script>
     var _printTicketId = null;
     var remotePrintMode = '@remotePrintMode';
@@ -129,16 +158,51 @@
         $.post('/api/ticket/' + _printTicketId + '/reprint');
     }
 
+    var savePicture = @(savePicture ? "true" : "false");
+
+    function showTicketImage(ticket, direction, data) {
+        window._currentTicket = ticket;
+        window._currentDirection = direction;
+        var url = '/api/ticket/' + ticket + '/image?direction=' + direction;
+        $('#imageModalTitle').text('Ticket #' + ticket + ' (' + (direction === 'in' ? 'Inbound' : 'Outbound') + ')');
+        $('#imageModalImg').attr('src', url);
+
+        var label = direction === 'in' ? 'Inbound Ticket' : 'Completed Ticket';
+        var info = '<div style="text-align:center;font-weight:bold;letter-spacing:2px;text-transform:uppercase;border-bottom:2px solid #333;padding-bottom:4px;margin-bottom:8px;font-size:11px;">' + label + '</div>';
+
+        function row(lbl, val) {
+            return '<div style="display:flex;justify-content:space-between;padding:2px 0;"><span style="font-weight:bold;">' + lbl + '</span><span>' + (val || '-') + '</span></div>';
+        }
+
+        info += row('Ticket #:', ticket);
+        if (data) {
+            if (data.dateIn) info += row('Date In:', new Date(data.dateIn).toLocaleString());
+            if (direction === 'out' && data.dateOut) info += row('Date Out:', new Date(data.dateOut).toLocaleString());
+            info += row('Customer:', data.customer);
+            info += row('Carrier:', data.carrier);
+            info += row('Truck:', data.truckId);
+            info += row('Commodity:', data.commodity);
+            if (data.location) info += row('Location:', data.location);
+            if (data.destination) info += row('Destination:', data.destination);
+
+            info += '<div style="border-top:1px dashed #000;border-bottom:1px dashed #000;margin:6px 0;padding:6px 0;">';
+            if (direction === 'in') {
+                info += '<div style="font-size:16px;font-weight:bold;display:flex;justify-content:space-between;"><span>Weight:</span><span>' + (data.inWeight || 0).toLocaleString() + ' lb</span></div>';
+            } else {
+                info += row('Gross:', (data.outWeight || 0).toLocaleString() + ' lb');
+                info += row('Tare:', (data.inWeight || 0).toLocaleString() + ' lb');
+                info += '<div style="font-size:16px;font-weight:bold;display:flex;justify-content:space-between;"><span>Net:</span><span>' + (data.netWeight || 0).toLocaleString() + ' lb</span></div>';
+            }
+            info += '</div>';
+
+            if (data.notes) info += row('Notes:', data.notes);
+        }
+        $('#imageModalInfo').html(info);
+        new bootstrap.Modal('#imageModal').show();
+    }
+
     $(function () {
-        var grid = $('#inboundGrid').dxDataGrid({
-            hoverStateEnabled: true,
-            dataSource: new DevExpress.data.CustomStore({
-                key: 'ticket',
-                load: function () {
-                    return $.getJSON('/api/transactions/inbound');
-                }
-            }),
-            columns: [
+        var cols = [
                 { dataField: 'ticket', caption: 'Ticket', width: 80 },
                 { dataField: 'customer', caption: 'Customer' },
                 { dataField: 'carrier', caption: 'Carrier' },
@@ -159,8 +223,22 @@
                     }
                 },
                 { dataField: 'dateIn', caption: 'Date In', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a' },
-                { dataField: 'notes', caption: 'Notes' },
-                {
+                { dataField: 'notes', caption: 'Notes' }
+            ];
+            if (savePicture) {
+                cols.push({
+                    caption: 'Photo', width: 55, allowFiltering: false, allowSorting: false,
+                    cellTemplate: function (container, options) {
+                        if (options.data.hasInImage) {
+                            $('<img>').addClass('ticket-thumb')
+                                .attr('src', '/api/ticket/' + options.data.ticket + '/image?direction=in')
+                                .on('click', function (e) { e.stopPropagation(); showTicketImage(options.data.ticket, 'in', options.data); })
+                                .appendTo(container);
+                        }
+                    }
+                });
+            }
+            cols.push({
                     caption: '',
                     width: 280,
                     allowFiltering: false,
@@ -187,8 +265,17 @@
                             })
                             .appendTo(container);
                     }
+            });
+
+        var grid = $('#inboundGrid').dxDataGrid({
+            hoverStateEnabled: true,
+            dataSource: new DevExpress.data.CustomStore({
+                key: 'ticket',
+                load: function () {
+                    return $.getJSON('/api/transactions/inbound');
                 }
-            ],
+            }),
+            columns: cols,
             onRowClick: function (e) {
                 if (e.rowType === 'data') {
                     window.location.href = '/Transaction/WeighIn/' + e.data.ticket;
@@ -199,6 +286,14 @@
             headerFilter: { visible: true },
             sorting: { mode: 'multiple' },
             columnAutoWidth: true,
+            allowColumnReordering: true,
+            allowColumnResizing: true,
+            columnChooser: { enabled: true, mode: 'select' },
+            stateStoring: {
+                enabled: true,
+                type: 'localStorage',
+                storageKey: 'inboundTrucksGrid_v2'
+            },
             paging: { pageSize: 20 },
             pager: { showPageSizeSelector: true, allowedPageSizes: [10, 20, 50] }
         }).dxDataGrid('instance');
@@ -210,6 +305,7 @@
             .build();
         connection.on('TicketCreated', function () { grid.refresh(); });
         connection.on('TicketCompleted', function () { grid.refresh(); });
+        connection.on('ImageCaptured', function () { grid.refresh(); });
         connection.on('PrintConfirmed', function (data) {
             DevExpress.ui.notify('Ticket #' + data.ticketId + ' printed by ' + data.printer, 'success', 3000);
         });

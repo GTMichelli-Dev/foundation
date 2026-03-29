@@ -114,20 +114,75 @@
                         <textarea asp-for="Notes" class="form-control" rows="3"></textarea>
                     </div>
 
-                    <div class="form-check mb-3">
-                        <input asp-for="Void" class="form-check-input" type="checkbox" />
-                        <label asp-for="Void" class="form-check-label"></label>
-                    </div>
+                    @if ((bool)(ViewBag.SavePicture ?? false))
+                    {
+                        var hasIn = (bool)(ViewBag.HasInImage ?? false);
+                        var hasOut = (bool)(ViewBag.HasOutImage ?? false);
+                        if (hasIn || hasOut)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Ticket Photos</label>
+                                <div class="d-flex gap-3">
+                                    @if (hasIn)
+                                    {
+                                        <div class="text-center">
+                                            <img src="/api/ticket/@Model.Ticket/image?direction=in"
+                                                 style="width:120px;height:auto;border-radius:4px;cursor:pointer;"
+                                                 onclick="showTicketImage('@Model.Ticket','in')" />
+                                            <div class="small text-muted">Inbound</div>
+                                        </div>
+                                    }
+                                    @if (hasOut)
+                                    {
+                                        <div class="text-center">
+                                            <img src="/api/ticket/@Model.Ticket/image?direction=out"
+                                                 style="width:120px;height:auto;border-radius:4px;cursor:pointer;"
+                                                 onclick="showTicketImage('@Model.Ticket','out')" />
+                                            <div class="small text-muted">Outbound</div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
 
-                    <div class="mt-4">
-                        <button type="submit" class="btn btn-primary btn-lg me-2">Save Changes</button>
+                    <input type="hidden" asp-for="Void" id="voidField" />
+
+                    <div class="mt-4 d-flex align-items-center gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">Save Changes</button>
                         <a asp-action="CompletedTrucks" class="btn btn-secondary btn-lg">Cancel</a>
+                        <button type="button" class="btn btn-lg @(Model.Void ? "btn-success" : "btn-outline-danger")" id="voidBtn"
+                                onclick="toggleVoid()">
+                            @(Model.Void ? "Restore Ticket" : "Void Ticket")
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </form>
+
+<!-- Image Lightbox Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title" id="imageModalTitle"></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body d-flex gap-3 p-3" style="background:#f8f9fa;">
+                <div style="flex:1;min-width:0;text-align:center;background:#000;border-radius:4px;overflow:hidden;">
+                    <img id="imageModalImg" src="" class="img-fluid" style="max-height:70vh;" />
+                </div>
+                <div id="imageModalInfo" style="min-width:250px;max-width:280px;font-family:'Courier New',monospace;font-size:13px;border:2px solid #000;padding:16px;background:#fff;border-radius:4px;align-self:flex-start;"></div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-sm btn-primary" onclick="downloadTicketImage(window._currentTicket, window._currentDirection)"><i class="fa fa-download"></i> Download</button>
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Add Truck Modal -->
 <div class="modal fade" id="addTruckModal" tabindex="-1">
@@ -155,9 +210,106 @@
     </div>
 </div>
 
+<!-- Unsaved changes alert (hidden by default) -->
+<div class="alert alert-warning alert-dismissible fade py-1 mb-2 position-fixed top-0 start-50 translate-middle-x mt-3"
+     role="alert" id="unsavedAlert" style="display:none; z-index:9999;">
+    <strong>Unsaved changes!</strong> You have unsaved changes. Click <strong>Save Changes</strong> to keep them.
+    <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+</div>
+
 @section Scripts {
+<script src="~/js/ticket-image-download.js"></script>
 <script>
+    var ticketData = {
+        ticket: '@Model.Ticket',
+        customer: '@(Model.Customer?.Replace("'", "\\'") ?? "")',
+        carrier: '@(Model.Carrier?.Replace("'", "\\'") ?? "")',
+        truckId: '@(Model.TruckId?.Replace("'", "\\'") ?? "")',
+        commodity: '@(Model.Commodity?.Replace("'", "\\'") ?? "")',
+        location: '@(Model.Location?.Replace("'", "\\'") ?? "")',
+        destination: '@(Model.Destination?.Replace("'", "\\'") ?? "")',
+        dateIn: '@Model.DateIn.ToString("o")',
+        dateOut: '@(Model.DateOut?.ToString("o") ?? "")',
+        inWeight: @Model.InWeight,
+        outWeight: @Model.OutWeight,
+        netWeight: @Model.NetWeight,
+        notes: '@(Model.Notes?.Replace("'", "\\'") ?? "")'
+    };
+
+    function showTicketImage(ticket, direction) {
+        window._currentTicket = ticket;
+        window._currentDirection = direction;
+        var url = '/api/ticket/' + ticket + '/image?direction=' + direction;
+        $('#imageModalTitle').text('Ticket #' + ticket + ' (' + (direction === 'in' ? 'Inbound' : 'Outbound') + ')');
+        $('#imageModalImg').attr('src', url);
+
+        var label = direction === 'in' ? 'Inbound Ticket' : 'Completed Ticket';
+        var info = '<div style="text-align:center;font-weight:bold;letter-spacing:2px;text-transform:uppercase;border-bottom:2px solid #333;padding-bottom:4px;margin-bottom:8px;font-size:11px;">' + label + '</div>';
+
+        function row(lbl, val) {
+            return '<div style="display:flex;justify-content:space-between;padding:2px 0;"><span style="font-weight:bold;">' + lbl + '</span><span>' + (val || '-') + '</span></div>';
+        }
+
+        var d = ticketData;
+        info += row('Ticket #:', d.ticket);
+        if (d.dateIn) info += row('Date In:', new Date(d.dateIn).toLocaleString());
+        if (direction !== 'in' && d.dateOut) info += row('Date Out:', new Date(d.dateOut).toLocaleString());
+        info += row('Customer:', d.customer);
+        info += row('Carrier:', d.carrier);
+        info += row('Truck:', d.truckId);
+        info += row('Commodity:', d.commodity);
+        if (d.location) info += row('Location:', d.location);
+        if (d.destination) info += row('Destination:', d.destination);
+
+        info += '<div style="border-top:1px dashed #000;border-bottom:1px dashed #000;margin:6px 0;padding:6px 0;">';
+        if (direction === 'in') {
+            info += '<div style="font-size:16px;font-weight:bold;display:flex;justify-content:space-between;"><span>Weight:</span><span>' + (d.inWeight || 0).toLocaleString() + ' lb</span></div>';
+        } else {
+            info += row('Gross:', (d.outWeight || 0).toLocaleString() + ' lb');
+            info += row('Tare:', (d.inWeight || 0).toLocaleString() + ' lb');
+            info += '<div style="font-size:16px;font-weight:bold;display:flex;justify-content:space-between;"><span>Net:</span><span>' + (d.netWeight || 0).toLocaleString() + ' lb</span></div>';
+        }
+        info += '</div>';
+        if (d.notes) info += row('Notes:', d.notes);
+
+        $('#imageModalInfo').html(info);
+        new bootstrap.Modal('#imageModal').show();
+    }
+
     $(function () {
+        var isDirty = false;
+        var isSaving = false;
+
+        // Capture initial form state
+        var initialState = $('#setupForm').length ? null : $('form').serialize();
+
+        // Track changes on all form inputs
+        $('form').on('change input', 'input, select, textarea', function () {
+            if (!isDirty) {
+                isDirty = true;
+                $('#unsavedAlert').fadeIn().addClass('show');
+            }
+        });
+
+        // Allow form submission without warning
+        $('form').on('submit', function () { isSaving = true; });
+
+        // Warn on navigation away
+        $(window).on('beforeunload', function (e) {
+            if (isDirty && !isSaving) {
+                return 'You have unsaved changes.';
+            }
+        });
+
+        // Warn on link clicks
+        $('a').on('click', function (e) {
+            if (isDirty && !isSaving) {
+                if (!confirm('You have unsaved changes. Are you sure you want to leave?')) {
+                    e.preventDefault();
+                }
+            }
+        });
+
         var customerSelect = $('select[name="Customer"]');
         var carrierSelect = $('select[name="Carrier"]');
         var truckSelect = $('#truckSelect');
@@ -222,5 +374,20 @@
             if (e.which === 13) { e.preventDefault(); $('#saveTruckBtn').click(); }
         });
     });
+
+    function toggleVoid() {
+        var btn = $('#voidBtn');
+        var field = $('#voidField');
+        var isVoid = field.val() === 'True';
+        if (isVoid) {
+            btn.removeClass('btn-success').addClass('btn-outline-danger').text('Void Ticket');
+            field.val('False');
+        } else {
+            btn.removeClass('btn-outline-danger').addClass('btn-success').text('Restore Ticket');
+            field.val('True');
+        }
+        // Trigger change detection
+        field.trigger('change');
+    }
 </script>
 }

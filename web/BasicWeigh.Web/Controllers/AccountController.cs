@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BasicWeigh.Web.Data;
 using BasicWeigh.Web.Models;
+using BasicWeigh.Web.Services;
 using System.Security.Claims;
 
 namespace BasicWeigh.Web.Controllers;
@@ -11,10 +12,12 @@ namespace BasicWeigh.Web.Controllers;
 public class AccountController : Controller
 {
     private readonly ScaleDbContext _db;
+    private readonly AppSetupCache _setupCache;
 
-    public AccountController(ScaleDbContext db)
+    public AccountController(ScaleDbContext db, AppSetupCache setupCache)
     {
         _db = db;
+        _setupCache = setupCache;
     }
 
     // GET: /Account/Login
@@ -22,7 +25,7 @@ public class AccountController : Controller
     public IActionResult Login(string? returnUrl = null)
     {
         // If login is not required, redirect home
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
         if (!setup.UseLogin)
             return RedirectToAction("Index", "Home");
 
@@ -36,7 +39,7 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(string username, string password, string? returnUrl = null)
     {
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
         if (!setup.UseLogin)
             return RedirectToAction("Index", "Home");
 

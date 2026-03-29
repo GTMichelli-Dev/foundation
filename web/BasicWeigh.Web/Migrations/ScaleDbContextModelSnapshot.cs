@@ -54,6 +54,14 @@ namespace BasicWeigh.Web.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("InboundCameraId")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("InboundPrinterId")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("KioskCode")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -64,6 +72,18 @@ namespace BasicWeigh.Web.Migrations
 
                     b.Property<bool>("KioskDarkMode")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("KioskPrinterId")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OutboundCameraId")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OutboundPrinterId")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("PrinterName")
                         .HasMaxLength(100)
@@ -110,6 +130,13 @@ namespace BasicWeigh.Web.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("SavePicture")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ScaleId")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Theme")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -122,6 +149,9 @@ namespace BasicWeigh.Web.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("UseLogin")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("UseQuickBooks")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
@@ -150,10 +180,12 @@ namespace BasicWeigh.Web.Migrations
                             PromptKioskTruckId = true,
                             RecallLastValues = false,
                             RemotePrintMode = "None",
+                            SavePicture = false,
                             Theme = "default",
                             TicketNumber = 1,
                             TicketsPerPage = 1,
-                            UseLogin = false
+                            UseLogin = false,
+                            UseQuickBooks = false
                         });
                 });
 
@@ -194,6 +226,67 @@ namespace BasicWeigh.Web.Migrations
                         .IsUnique();
 
                     b.ToTable("Users", (string)null);
+                });
+
+            modelBuilder.Entity("BasicWeigh.Web.Models.CameraConfig", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CameraBrand")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CameraId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CameraIp")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CameraPassword")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CameraUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CameraUser")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TimeoutSeconds")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("UsbCommand")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UsbDeviceName")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CameraId")
+                        .IsUnique();
+
+                    b.ToTable("CameraConfigs", (string)null);
                 });
 
             modelBuilder.Entity("BasicWeigh.Web.Models.Carrier", b =>
@@ -377,6 +470,9 @@ namespace BasicWeigh.Web.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<int?>("OutWeight")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("SentToQuickBooks")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("TruckId")

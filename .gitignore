@@ -421,3 +421,6 @@ FodyWeavers.xsd
 deploy/out/
 deploy/out-pi/
 deploy/*.tar.gz
+
+# Ticket camera images
+web/BasicWeigh.Web/wwwroot/images/tickets/*.jpg

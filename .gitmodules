@@ -1,0 +1,9 @@
+[submodule "CameraService"]
+	path = CameraService
+	url = https://github.com/GTMichelli-Dev/camera-capture-service.git
+[submodule "QBSyncService"]
+	path = QBSyncService
+	url = https://github.com/GTMichelli-Dev/qb-sync-service.git
+[submodule "ScaleReaderService"]
+	path = ScaleReaderService
+	url = https://github.com/GTMichelli-Dev/scale-reader-service.git

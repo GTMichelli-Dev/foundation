@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using BasicWeigh.Web.Data;
 using BasicWeigh.Web.Models;
+using BasicWeigh.Web.Services;
 
 namespace BasicWeigh.Web.Controllers;
 
@@ -8,16 +9,18 @@ public class SetupController : Controller
 {
     private readonly ScaleDbContext _db;
     private readonly IConfiguration _config;
+    private readonly AppSetupCache _setupCache;
 
-    public SetupController(ScaleDbContext db, IConfiguration config)
+    public SetupController(ScaleDbContext db, IConfiguration config, AppSetupCache setupCache)
     {
         _db = db;
         _config = config;
+        _setupCache = setupCache;
     }
 
     public IActionResult Index()
     {
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
         ViewBag.ShowResetDatabase = _config.GetValue<bool>("ShowResetDatabase", false);
         return View(setup);
     }
@@ -51,6 +54,11 @@ public class SetupController : Controller
         existing.ApiDefinitionPin = setup.ApiDefinitionPin ?? "12345";
         existing.RecallLastValues = setup.RecallLastValues;
         existing.RemotePrintMode = setup.RemotePrintMode ?? "None";
+        existing.UseQuickBooks = setup.UseQuickBooks;
+        existing.SavePicture = setup.SavePicture;
+        existing.InboundCameraId = setup.InboundCameraId;
+        existing.OutboundCameraId = setup.OutboundCameraId;
+        existing.ScaleId = setup.ScaleId;
 
         if (removeIcon)
         {
@@ -66,6 +74,7 @@ public class SetupController : Controller
         }
 
         _db.SaveChanges();
+        _setupCache.Invalidate();
 
         TempData["Message"] = "Settings saved successfully.";
         return RedirectToAction("Index");
@@ -104,6 +113,7 @@ public class SetupController : Controller
         var setup = _db.AppSetup.First();
         setup.TicketNumber = 1;
         _db.SaveChanges();
+        _setupCache.Invalidate();
 
         TempData["Message"] = "Database cleared. All transactions and master data removed.";
         return RedirectToAction("Index");
@@ -116,7 +126,7 @@ public class SetupController : Controller
         if (!_config.GetValue<bool>("ShowResetDatabase", false))
             return Forbid();
 
-        // Clear existing data first
+        // Clear everything
         _db.Transactions.RemoveRange(_db.Transactions);
         _db.Customers.RemoveRange(_db.Customers);
         _db.Carriers.RemoveRange(_db.Carriers);
@@ -126,137 +136,205 @@ public class SetupController : Controller
         _db.Trucks.RemoveRange(_db.Trucks);
         _db.SaveChanges();
 
-        // --- Master Data ---
-        var customers = new[] { "Acme Gravel Co", "Smith Farms", "Delta Concrete", "Mountain Stone", "Valley Recycling" };
-        foreach (var c in customers)
-            _db.Customers.Add(new Customer { CustomerName = c, UseAtKiosk = true });
-
-        var carriers = new[] { "Fast Haul Trucking", "River Road Transport", "Eagle Logistics", "Midwest Freight" };
-        foreach (var c in carriers)
-            _db.Carriers.Add(new Carrier { CarrierName = c, UseAtKiosk = true });
-
-        var commodities = new[] { "Gravel", "Sand", "Topsoil", "Crushed Stone", "Recycled Asphalt", "Fill Dirt" };
-        foreach (var c in commodities)
-            _db.Commodities.Add(new Commodity { CommodityName = c, UseAtKiosk = true });
-
-        var locations = new[] { "Pit A", "Pit B", "Yard 1", "Yard 2", "Stockpile" };
-        foreach (var l in locations)
-            _db.Locations.Add(new Location { LocationName = l, UseAtKiosk = true });
-
-        var destinations = new[] { "Highway 50 Job", "Downtown Project", "Residential Site", "County Road 12", "Warehouse" };
-        foreach (var d in destinations)
-            _db.Destinations.Add(new Destination { DestinationName = d, UseAtKiosk = true });
-
-        var trucks = new[]
+        // --- Master Data (matching QuickBooks sample data) ---
+        var customerNames = new[]
         {
-            ("T-101", "Fast Haul Trucking"), ("T-102", "Fast Haul Trucking"),
-            ("R-200", "River Road Transport"), ("R-201", "River Road Transport"),
-            ("E-300", "Eagle Logistics"),
-            ("M-400", "Midwest Freight"), ("M-401", "Midwest Freight")
+            "ABC Construction LLC", "Greenfield Landscaping", "City of Springfield - Public Works",
+            "Riverstone Builders", "Martin Paving Co", "Horizon Development Group",
+            "Lakeview Concrete", "Prairie Homebuilders", "Tri-County Excavating",
+            "Heartland Asphalt", "Sangamon County Highway Dept", "Cornerstone Ready Mix",
+            "Iron Bridge Contractors", "Flatland Grading", "Stonewall Erosion Control",
+            "Capital City Concrete", "Aggregate Haulers Midwest", "Lakeside Site Development"
         };
-        foreach (var (tid, carrier) in trucks)
+        foreach (var c in customerNames)
+            _db.Customers.Add(new Customer { CustomerName = c, Active = true, UseAtKiosk = true });
+
+        var commodityNames = new[]
+        {
+            "Fill Sand", "Mason Sand", "Concrete Sand", "Pea Gravel",
+            "3/4 Crushed Stone", "1-1/2 Crushed Stone", "CA-6 Grade 8 Limestone",
+            "CA-7 Chip Rock", "Rip Rap", "Screened Topsoil", "Road Gravel", "Recycled Concrete",
+            "Hauling Fee"
+        };
+        foreach (var c in commodityNames)
+            _db.Commodities.Add(new Commodity { CommodityName = c, Active = true, UseAtKiosk = true });
+
+        var carrierData = new[]
+        {
+            "ABC Construction LLC", "Martin Paving Co", "Tri-County Excavating",
+            "Flatland Grading", "Aggregate Haulers Midwest", "Heartland Asphalt",
+            "River Road Transport", "Central IL Trucking", "Prairie State Hauling"
+        };
+        foreach (var c in carrierData)
+            _db.Carriers.Add(new Carrier { CarrierName = c, Active = true, UseAtKiosk = true });
+
+        var truckData = new (string TruckId, string Carrier)[]
+        {
+            ("ABC-101", "ABC Construction LLC"), ("ABC-102", "ABC Construction LLC"),
+            ("MP-201", "Martin Paving Co"), ("MP-202", "Martin Paving Co"),
+            ("TC-301", "Tri-County Excavating"), ("TC-302", "Tri-County Excavating"), ("TC-303", "Tri-County Excavating"),
+            ("FG-401", "Flatland Grading"), ("FG-402", "Flatland Grading"),
+            ("AH-501", "Aggregate Haulers Midwest"), ("AH-502", "Aggregate Haulers Midwest"), ("AH-503", "Aggregate Haulers Midwest"),
+            ("HA-601", "Heartland Asphalt"), ("HA-602", "Heartland Asphalt"),
+            ("RR-701", "River Road Transport"), ("RR-702", "River Road Transport"), ("RR-703", "River Road Transport"),
+            ("CI-801", "Central IL Trucking"), ("CI-802", "Central IL Trucking"),
+            ("PS-901", "Prairie State Hauling"), ("PS-902", "Prairie State Hauling")
+        };
+        foreach (var (tid, carrier) in truckData)
             _db.Trucks.Add(new Truck { TruckId = tid, CarrierName = carrier, UseAtKiosk = true });
+
+        var locationNames = new[] { "Pit A - North", "Pit B - South", "Stockpile Yard", "Wash Plant", "Crusher" };
+        foreach (var l in locationNames)
+            _db.Locations.Add(new Location { LocationName = l, Active = true, UseAtKiosk = true });
+
+        var destinationNames = new[]
+        {
+            "Highway 50 Job Site", "Downtown Springfield Project", "Chatham Subdivision",
+            "County Road 12 Repair", "Lincoln Acres Development", "Riverton Bridge",
+            "Industrial Park West", "Airport Expansion"
+        };
+        foreach (var d in destinationNames)
+            _db.Destinations.Add(new Destination { DestinationName = d, Active = true, UseAtKiosk = true });
 
         _db.SaveChanges();
 
-        // --- Transactions ---
-        var rng = new Random(42); // Fixed seed for consistent data
+        // --- System settings: Demo mode, 1 kiosk, light mode ---
+        var setup = _db.AppSetup.First();
+        setup.DemoMode = true;
+        setup.KioskCount = 1;
+        setup.KioskDarkMode = false;
+
+        // --- Build lookup lists for transactions ---
+        var customers = customerNames.ToList();
+        var commodities = commodityNames.ToList();
+        var carriers = carrierData.ToList();
+        var locations = locationNames.ToList();
+        var destinations = destinationNames.ToList();
+        var trucks = truckData.ToList();
+
+        var rng = new Random(42);
         var now = DateTime.Now;
         int ticketNum = 1000;
+        int completedCount = 0, voidedCount = 0;
 
-        // Completed tickets (weighed in and out)
-        var completedData = new[]
+        // Generate ~1 year of completed tickets, ~20 per weekday, 8am-5pm
+        var startDate = now.AddYears(-1).Date;
+        var endDate = now.Date;
+
+        for (var date = startDate; date <= endDate; date = date.AddDays(1))
         {
-            (cust: "Acme Gravel Co",  carr: "Fast Haul Trucking",    truck: "T-101", comm: "Gravel",          loc: "Pit A",     dest: "Highway 50 Job",     inW: 15200, outW: 42800, daysAgo: 5),
-            (cust: "Smith Farms",     carr: "River Road Transport",  truck: "R-200", comm: "Topsoil",         loc: "Yard 1",    dest: "Residential Site",   inW: 14800, outW: 38600, daysAgo: 4),
-            (cust: "Delta Concrete",  carr: "Eagle Logistics",       truck: "E-300", comm: "Sand",            loc: "Pit B",     dest: "Downtown Project",   inW: 16100, outW: 45200, daysAgo: 4),
-            (cust: "Mountain Stone",  carr: "Midwest Freight",       truck: "M-400", comm: "Crushed Stone",   loc: "Stockpile", dest: "County Road 12",     inW: 15500, outW: 41900, daysAgo: 3),
-            (cust: "Acme Gravel Co",  carr: "Fast Haul Trucking",    truck: "T-102", comm: "Gravel",          loc: "Pit A",     dest: "Highway 50 Job",     inW: 15000, outW: 43100, daysAgo: 3),
-            (cust: "Valley Recycling",carr: "River Road Transport",  truck: "R-201", comm: "Recycled Asphalt",loc: "Yard 2",    dest: "Warehouse",          inW: 14600, outW: 39800, daysAgo: 2),
-            (cust: "Smith Farms",     carr: "Fast Haul Trucking",    truck: "T-101", comm: "Fill Dirt",       loc: "Pit B",     dest: "Residential Site",   inW: 15300, outW: 44200, daysAgo: 2),
-            (cust: "Delta Concrete",  carr: "Midwest Freight",       truck: "M-401", comm: "Sand",            loc: "Pit A",     dest: "Downtown Project",   inW: 16000, outW: 46100, daysAgo: 1),
-            (cust: "Mountain Stone",  carr: "Eagle Logistics",       truck: "E-300", comm: "Crushed Stone",   loc: "Stockpile", dest: "County Road 12",     inW: 15700, outW: 42500, daysAgo: 1),
-            (cust: "Acme Gravel Co",  carr: "Fast Haul Trucking",    truck: "T-101", comm: "Gravel",          loc: "Pit A",     dest: "Highway 50 Job",     inW: 15100, outW: 43800, daysAgo: 0),
-        };
+            if (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday)
+                continue;
 
-        foreach (var d in completedData)
+            int ticketsToday = rng.Next(17, 24);
+            for (int i = 0; i < ticketsToday; i++)
+            {
+                ticketNum++;
+                var customer = customers[rng.Next(customers.Count)];
+                var commodity = commodities[rng.Next(commodities.Count)];
+                var carrier = carriers[rng.Next(carriers.Count)];
+
+                // Randomly omit location and destination (30% chance each)
+                string? location = rng.NextDouble() < 0.3 ? null : locations[rng.Next(locations.Count)];
+                string? destination = rng.NextDouble() < 0.3 ? null : destinations[rng.Next(destinations.Count)];
+
+                // Pick a truck for this carrier
+                var carrierTrucks = trucks.Where(t => t.Carrier == carrier).ToList();
+                var truckId = carrierTrucks.Count > 0
+                    ? carrierTrucks[rng.Next(carrierTrucks.Count)].TruckId
+                    : "T-" + rng.Next(100, 999);
+
+                // Date in: 8am-4pm (leaves room for out time before 5pm)
+                var dateIn = date.AddHours(rng.Next(8, 16)).AddMinutes(rng.Next(0, 60));
+                // Date out: 5-20 min after date in
+                var dateOut = dateIn.AddMinutes(rng.Next(5, 21));
+
+                // Weights: one is tare (9000-25000), the other is gross (higher)
+                // Net is ~30% of the larger weight
+                var tareWeight = rng.Next(9000, 25001);
+                var netWeight = (int)(tareWeight * (0.25 + rng.NextDouble() * 0.15)); // 25-40% of tare
+                var grossWeight = tareWeight + netWeight;
+
+                // Randomly inbound > outbound (~40% of time, e.g. dumping material)
+                int inWeight, outWeight;
+                if (rng.NextDouble() < 0.4)
+                {
+                    // Inbound is heavy (loaded coming in, empty going out)
+                    inWeight = grossWeight;
+                    outWeight = tareWeight;
+                }
+                else
+                {
+                    // Outbound is heavy (picking up material)
+                    inWeight = tareWeight;
+                    outWeight = grossWeight;
+                }
+
+                var isVoid = rng.NextDouble() < 0.005;
+
+                _db.Transactions.Add(new Transaction
+                {
+                    Ticket = ticketNum.ToString(),
+                    DateIn = dateIn,
+                    DateOut = dateOut,
+                    InWeight = inWeight,
+                    OutWeight = outWeight,
+                    Customer = customer,
+                    Carrier = carrier,
+                    TruckId = truckId,
+                    Commodity = commodity,
+                    Location = location,
+                    Destination = destination,
+                    Void = isVoid
+                });
+
+                if (isVoid) voidedCount++;
+                else completedCount++;
+            }
+        }
+
+        // Add 5 inbound (trucks in yard) tickets
+        for (int i = 0; i < 5; i++)
         {
             ticketNum++;
-            var dateIn = now.AddDays(-d.daysAgo).AddHours(rng.Next(6, 10)).AddMinutes(rng.Next(0, 60));
+            var customer = customers[rng.Next(customers.Count)];
+            var commodity = commodities[rng.Next(commodities.Count)];
+            var carrier = carriers[rng.Next(carriers.Count)];
+            string? location = rng.NextDouble() < 0.3 ? null : locations[rng.Next(locations.Count)];
+            string? destination = rng.NextDouble() < 0.3 ? null : destinations[rng.Next(destinations.Count)];
+            var carrierTrucks = trucks.Where(t => t.Carrier == carrier).ToList();
+            var truckId = carrierTrucks.Count > 0
+                ? carrierTrucks[rng.Next(carrierTrucks.Count)].TruckId
+                : "T-" + rng.Next(100, 999);
+
             _db.Transactions.Add(new Transaction
             {
                 Ticket = ticketNum.ToString(),
-                DateIn = dateIn,
-                DateOut = dateIn.AddMinutes(rng.Next(20, 90)),
-                InWeight = d.inW,
-                OutWeight = d.outW,
-                Customer = d.cust,
-                Carrier = d.carr,
-                TruckId = d.truck,
-                Commodity = d.comm,
-                Location = d.loc,
-                Destination = d.dest,
+                DateIn = now.AddMinutes(-(rng.Next(10, 180))),
+                InWeight = rng.Next(9000, 110001),
+                Customer = customer,
+                Carrier = carrier,
+                TruckId = truckId,
+                Commodity = commodity,
+                Location = location,
+                Destination = destination,
                 Void = false
             });
         }
 
-        // Inbound tickets (weighed in, not yet out)
         ticketNum++;
-        _db.Transactions.Add(new Transaction
-        {
-            Ticket = ticketNum.ToString(),
-            DateIn = now.AddHours(-2),
-            InWeight = 15400,
-            Customer = "Valley Recycling",
-            Carrier = "Midwest Freight",
-            TruckId = "M-400",
-            Commodity = "Recycled Asphalt",
-            Location = "Yard 2",
-            Void = false
-        });
-
-        ticketNum++;
-        _db.Transactions.Add(new Transaction
-        {
-            Ticket = ticketNum.ToString(),
-            DateIn = now.AddHours(-1),
-            InWeight = 14900,
-            Customer = "Smith Farms",
-            Carrier = "River Road Transport",
-            TruckId = "R-200",
-            Commodity = "Topsoil",
-            Location = "Yard 1",
-            Void = false
-        });
-
-        // One voided ticket
-        ticketNum++;
-        _db.Transactions.Add(new Transaction
-        {
-            Ticket = ticketNum.ToString(),
-            DateIn = now.AddDays(-3).AddHours(8),
-            InWeight = 15600,
-            Customer = "Delta Concrete",
-            Carrier = "Eagle Logistics",
-            TruckId = "E-300",
-            Commodity = "Sand",
-            Location = "Pit B",
-            Void = true
-        });
-
-        ticketNum++;
-        var setup = _db.AppSetup.First();
         setup.TicketNumber = ticketNum;
         _db.SaveChanges();
+        _setupCache.Invalidate();
 
-        TempData["Message"] = "Test data loaded: 10 completed, 2 inbound, and 1 voided ticket with master data.";
+        TempData["Message"] = $"Test data loaded: {completedCount} completed, 5 in yard, and {voidedCount} voided tickets. Demo mode enabled with 1 kiosk (light).";
         return RedirectToAction("Index");
     }
 
     [HttpGet("api/setup/icon")]
     public IActionResult GetIcon()
     {
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
         if (setup.Icon != null && setup.IconContentType != null)
             return File(setup.Icon, setup.IconContentType);
 
@@ -265,13 +343,15 @@ public class SetupController : Controller
         return PhysicalFile(defaultPath, "image/svg+xml");
     }
 
+    // Camera settings endpoint moved to CameraController
+
     /// <summary>
     /// Returns the current system settings (excludes sensitive data like icon bytes).
     /// </summary>
     [HttpGet("api/setup/settings")]
     public IActionResult GetSettings()
     {
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
         var version = GetType().Assembly.GetName().Version?.ToString() ?? "unknown";
         return Json(new
         {

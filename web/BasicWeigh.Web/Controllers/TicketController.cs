@@ -15,14 +15,16 @@ public class TicketController : Controller
     private readonly ScaleDbContext _db;
     private readonly PrintQueueService _printQueue;
     private readonly IHubContext<ScaleHub> _hub;
+    private readonly AppSetupCache _setupCache;
     private static readonly string ReportPath = Path.Combine(
         Directory.GetCurrentDirectory(), "Reports", "TicketReport.repx");
 
-    public TicketController(ScaleDbContext db, PrintQueueService printQueue, IHubContext<ScaleHub> hub)
+    public TicketController(ScaleDbContext db, PrintQueueService printQueue, IHubContext<ScaleHub> hub, AppSetupCache setupCache)
     {
         _db = db;
         _printQueue = printQueue;
         _hub = hub;
+        _setupCache = setupCache;
     }
 
     public IActionResult Print(string id)
@@ -30,12 +32,18 @@ public class TicketController : Controller
         var transaction = _db.Transactions.Find(id);
         if (transaction == null) return NotFound();
 
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
         ViewBag.Header1 = setup.Header1;
         ViewBag.Header2 = setup.Header2;
         ViewBag.Header3 = setup.Header3;
         ViewBag.Header4 = setup.Header4;
         ViewBag.Theme = setup.Theme ?? "default";
+        ViewBag.SavePicture = setup.SavePicture;
+
+        // Check if camera images exist for this ticket
+        var imgDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "tickets");
+        ViewBag.HasInPhoto = System.IO.File.Exists(Path.Combine(imgDir, $"{id}_In.jpg"));
+        ViewBag.HasOutPhoto = System.IO.File.Exists(Path.Combine(imgDir, $"{id}_Out.jpg"));
 
         return View(transaction);
     }
@@ -46,7 +54,7 @@ public class TicketController : Controller
         var transaction = _db.Transactions.Find(id);
         if (transaction == null) return NotFound();
 
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
 
         // If this ticket was awaiting remote print confirmation, broadcast it
         if (_printQueue.TryConfirm(id))
@@ -90,7 +98,7 @@ public class TicketController : Controller
         var transaction = _db.Transactions.Find(id);
         if (transaction == null) return NotFound();
 
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
 
         // Load report template
         XtraReport report;
@@ -138,7 +146,7 @@ public class TicketController : Controller
         var transaction = _db.Transactions.Find(id);
         if (transaction == null) return NotFound();
 
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
 
         var kioskPath = Path.Combine(Directory.GetCurrentDirectory(), "Reports", "KioskTicketReport.repx");
         XtraReport report;
@@ -174,7 +182,7 @@ public class TicketController : Controller
         var transaction = _db.Transactions.Find(id);
         if (transaction == null) return NotFound();
 
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
 
         // Use KioskTicketReport for inbound (not yet completed), TicketReport for completed
         bool isInbound = transaction.DateOut == null;
@@ -250,7 +258,7 @@ public class TicketController : Controller
         var transaction = _db.Transactions.Find(id);
         if (transaction == null) return NotFound();
 
-        var setup = _db.AppSetup.First();
+        var setup = _setupCache.Get();
 
         if (setup.RemotePrintMode == "Scale")
         {

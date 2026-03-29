@@ -282,9 +282,40 @@
     </div>
 </div>
 
+<!-- Unsaved changes alert (hidden by default) -->
+<div class="alert alert-warning alert-dismissible fade py-1 mb-2 position-fixed top-0 start-50 translate-middle-x mt-3"
+     role="alert" id="unsavedAlert" style="display:none; z-index:9999;">
+    <strong>Unsaved changes!</strong> You have unsaved changes. Click <strong>Save</strong> to keep them.
+    <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+</div>
+
 @section Scripts {
 <script>
     $(function () {
+        var isDirty = false;
+        var isSaving = false;
+
+        $('form').on('change input', 'input, select, textarea', function () {
+            if (!isDirty) {
+                isDirty = true;
+                $('#unsavedAlert').fadeIn().addClass('show');
+            }
+        });
+
+        $('form').on('submit', function () { isSaving = true; });
+
+        $(window).on('beforeunload', function () {
+            if (isDirty && !isSaving) return 'You have unsaved changes.';
+        });
+
+        $('a').on('click', function (e) {
+            if (isDirty && !isSaving) {
+                if (!confirm('You have unsaved changes. Are you sure you want to leave?')) {
+                    e.preventDefault();
+                }
+            }
+        });
+
         var customerSelect = $('select[name="Customer"]');
         var carrierSelect = $('select[name="Carrier"]');
         var truckSelect = $('#truckSelect');
