@@ -1,7 +1,0 @@
-Camera connection strings:
-
-Hikvision_Network:
-admin:Scale_Us3r@10.5.1.111/h264/ch1/main/av_stream
-
-USB Camera:
-dshow:// :dshow-vdev=Kodak S101 Webcam :live-caching=1

@@ -1,7 +1,24 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find C:UsersSeanSollederDocumentsGitHubBasic_Weighvb -type f \\\\\\(-name *.mdb -o -name *.accdb -o -name *.sql \\\\\\))"
+      "Bash(find C:UsersSeanSollederDocumentsGitHubBasic_Weighvb -type f \\\\\\(-name *.mdb -o -name *.accdb -o -name *.sql \\\\\\))",
+      "Read(//c/Users/SeanSolleder/Documents/GitHub/scale-reader-service/**)",
+      "Bash(rm -rf bin obj .vs)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(dotnet ef:*)",
+      "Bash(ls C:/Users/SeanSolleder/Documents/GitHub/Basic_WeighQB/web/BasicWeigh.Web/Migrations/*CameraBrand*)",
+      "Bash(dotnet build:*)",
+      "Bash(taskkill //PID 37876 //F)",
+      "Bash(git remote:*)",
+      "Bash(git push:*)",
+      "Bash(dotnet run:*)",
+      "Bash(powershell -Command \"Get-NetTCPConnection -LocalPort 5220 -ErrorAction SilentlyContinue | Select-Object OwningProcess | ForEach-Object { Stop-Process -Id $_OwningProcess -Force -ErrorAction SilentlyContinue }\")",
+      "Bash(netstat -ano)",
+      "Bash(findstr :5220)",
+      "Bash(taskkill /PID 50760 /F)",
+      "Bash(taskkill //PID 50760 //F)",
+      "Bash(mkdir -p \"C:\\\\Users\\\\SeanSolleder\\\\Documents\\\\GitHub\\\\pi-print-service\")",
+      "Read(//c/Users/SeanSolleder/Documents/GitHub/**)"
     ]
   }
 }
