@@ -34,6 +34,14 @@ shift
 goto :parse_args
 :done_args
 
+REM Strip protocol prefix from domain if present
+if defined DOMAIN (
+    set "DOMAIN=%DOMAIN:https://=%"
+    set "DOMAIN=%DOMAIN:http://=%"
+    REM Remove trailing slash if any
+    if "%DOMAIN:~-1%"=="/" set "DOMAIN=%DOMAIN:~0,-1%"
+)
+
 if "%REMOTE%"=="" (
     echo Usage: deploy.bat ^<user@host^> [options]
     echo.

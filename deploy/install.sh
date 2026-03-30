@@ -16,6 +16,10 @@ set -euo pipefail
 APP_DIR="/opt/basicweigh"
 SERVICE_USER="admin"
 DOMAIN="${DOMAIN:-}"
+# Strip protocol prefix from domain if present
+DOMAIN="${DOMAIN#https://}"
+DOMAIN="${DOMAIN#http://}"
+DOMAIN="${DOMAIN%/}"
 EMAIL="${EMAIL:-}"
 APP_PORT="${PORT:-5110}"
 REBUILD_DB="${REBUILD_DB:-0}"

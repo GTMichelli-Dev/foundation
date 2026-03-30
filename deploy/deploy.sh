@@ -59,6 +59,13 @@ if [[ -n "$SSH_KEY" ]]; then
   SCP_OPTS="$SCP_OPTS -i $SSH_KEY"
 fi
 
+# Strip protocol prefix from domain if present
+if [[ -n "$DOMAIN" ]]; then
+  DOMAIN="${DOMAIN#https://}"
+  DOMAIN="${DOMAIN#http://}"
+  DOMAIN="${DOMAIN%/}"
+fi
+
 # Verify DNS resolves before deploying (if domain specified)
 if [[ -n "$DOMAIN" ]]; then
   echo "==> Verifying DNS for $DOMAIN..."
