@@ -84,7 +84,7 @@ exit
 On your **local development machine** (Windows/Mac/Linux with .NET 8 SDK installed):
 
 ```bash
-git clone https://github.com/TotalScaleService/Basic_Weigh.git
+git clone https://github.com/GTMichelli-Dev/Basic_Weigh.git
 cd Basic_Weigh
 ```
 
