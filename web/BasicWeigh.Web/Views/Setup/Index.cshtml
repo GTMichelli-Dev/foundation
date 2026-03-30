@@ -203,6 +203,28 @@
                 </div>
 
                 <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Icon</strong>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <img id="iconPreview" src="/api/setup/icon" alt="Current Icon" style="height: 36px; width: 36px;" />
+                                @if (Model.Icon != null)
+                                {
+                                    <label class="form-check-label small">
+                                        <input type="checkbox" name="removeIcon" id="removeIconCb" value="true" class="form-check-input" />
+                                        Remove
+                                    </label>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">Default</span>
+                                }
+                            </div>
+                            <input type="file" name="iconFile" id="iconFileInput" class="form-control form-control-sm" accept="image/*" />
+                        </div>
+                    </div>
                     <!-- Options (Cameras, QuickBooks, Scale) -->
                     <div class="card mb-3">
                         <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
@@ -250,29 +272,6 @@
                                     </a>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
-                            <strong>Icon</strong>
-                        </div>
-                        <div class="card-body py-2">
-                            <div class="d-flex align-items-center gap-2 mb-1">
-                                <img id="iconPreview" src="/api/setup/icon" alt="Current Icon" style="height: 36px; width: 36px;" />
-                                @if (Model.Icon != null)
-                                {
-                                    <label class="form-check-label small">
-                                        <input type="checkbox" name="removeIcon" id="removeIconCb" value="true" class="form-check-input" />
-                                        Remove
-                                    </label>
-                                }
-                                else
-                                {
-                                    <span class="text-muted small">Default</span>
-                                }
-                            </div>
-                            <input type="file" name="iconFile" id="iconFileInput" class="form-control form-control-sm" accept="image/*" />
                         </div>
                     </div>
                 </div>

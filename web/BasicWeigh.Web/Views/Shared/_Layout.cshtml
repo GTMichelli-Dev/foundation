@@ -76,7 +76,7 @@
                         @if (appSetup?.DemoMode == true)
                         {
                         <li class="nav-item">
-                            <a class="nav-link" href="/Kiosk@(useLogin ? "?pin=" + appSetup?.KioskCode : "")" target="_blank">Kiosk</a>
+                            <a class="nav-link" href="#" onclick="showKioskPrinterPicker(); return false;">Kiosk</a>
                         </li>
                         }
                     </ul>
@@ -258,5 +258,102 @@
     </script>
     }
     @await RenderSectionAsync("Scripts", required: false)
+
+    @if (appSetup?.DemoMode == true)
+    {
+    <!-- Kiosk Printer Picker Modal -->
+    <div class="modal fade" id="kioskPrinterPickerModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h5 class="modal-title">Select Kiosk Printer</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted mb-2">Choose a printer for this kiosk session, or select Browser to print via the browser.</p>
+                    <select id="kioskPrinterPickerSelect" class="form-select">
+                        <option value="Browser:Browser">Send to Browser (default)</option>
+                    </select>
+                    <div id="kioskPrinterPickerLoading" class="text-center text-muted small mt-2" style="display:none;">
+                        <i class="fa fa-spinner fa-spin"></i> Loading printers...
+                    </div>
+                </div>
+                <div class="modal-footer py-1">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="launchKiosk()">Launch Kiosk</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    var _kioskPrinterConnection = null;
+    var _kioskPrintersLoaded = false;
+
+    function showKioskPrinterPicker() {
+        var modal = new bootstrap.Modal(document.getElementById('kioskPrinterPickerModal'));
+        modal.show();
+
+        if (!_kioskPrintersLoaded) {
+            document.getElementById('kioskPrinterPickerLoading').style.display = 'block';
+
+            // Connect to SignalR to get available printers
+            if (!_kioskPrinterConnection) {
+                _kioskPrinterConnection = new signalR.HubConnectionBuilder().withUrl('/scaleHub').build();
+
+                _kioskPrinterConnection.on('PrintServiceReady', function (data) {
+                    addPrintersToDropdown(data);
+                });
+
+                _kioskPrinterConnection.on('PrinterListReceived', function (data) {
+                    addPrintersToDropdown(data);
+                });
+
+                _kioskPrinterConnection.start().then(function () {
+                    _kioskPrinterConnection.invoke('RequestPrinterList').catch(function () {});
+                    // Hide loading after a timeout even if no services respond
+                    setTimeout(function () {
+                        document.getElementById('kioskPrinterPickerLoading').style.display = 'none';
+                        _kioskPrintersLoaded = true;
+                    }, 3000);
+                });
+            }
+        }
+    }
+
+    function addPrintersToDropdown(data) {
+        var sel = document.getElementById('kioskPrinterPickerSelect');
+        var sid = data.serviceId || 'default';
+        var printers = data.printers || [];
+        printers.forEach(function (p) {
+            if (!p.enabled) return;
+            var val = sid + ':' + (p.printerId || p.PrinterId);
+            var label = (p.displayName || p.DisplayName || p.printerId || p.PrinterId);
+            // Check if already added
+            for (var i = 0; i < sel.options.length; i++) {
+                if (sel.options[i].value === val) return;
+            }
+            var opt = document.createElement('option');
+            opt.value = val;
+            opt.textContent = label + ' (' + sid + ')';
+            sel.appendChild(opt);
+        });
+        document.getElementById('kioskPrinterPickerLoading').style.display = 'none';
+        _kioskPrintersLoaded = true;
+    }
+
+    function launchKiosk() {
+        var sel = document.getElementById('kioskPrinterPickerSelect');
+        var val = sel.value;
+        var parts = val.split(':', 2);
+        var serviceId = encodeURIComponent(parts[0] || 'Browser');
+        var printerId = encodeURIComponent(parts[1] || 'Browser');
+        var pin = '@(appSetup?.UseLogin == true ? appSetup?.KioskCode ?? "" : "")';
+        var url = '/Kiosk?service-id=' + serviceId + '&printer-id=' + printerId;
+        if (pin) url += '&pin=' + encodeURIComponent(pin);
+        window.open(url, '_blank');
+        bootstrap.Modal.getInstance(document.getElementById('kioskPrinterPickerModal')).hide();
+    }
+    </script>
+    }
 </body>
 </html>

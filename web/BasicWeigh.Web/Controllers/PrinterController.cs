@@ -24,8 +24,6 @@ public class PrinterController : Controller
         var setup = _setupCache.Get();
         ViewBag.InboundPrinterId = setup.InboundPrinterId ?? "";
         ViewBag.OutboundPrinterId = setup.OutboundPrinterId ?? "";
-        ViewBag.KioskPrinterId = setup.KioskPrinterId ?? "";
-        ViewBag.KioskCount = setup.KioskCount;
         return View();
     }
 
@@ -35,7 +33,6 @@ public class PrinterController : Controller
         var setup = _db.AppSetup.First();
         if (dto.InboundPrinterId != null) setup.InboundPrinterId = dto.InboundPrinterId;
         if (dto.OutboundPrinterId != null) setup.OutboundPrinterId = dto.OutboundPrinterId;
-        if (dto.KioskPrinterId != null) setup.KioskPrinterId = dto.KioskPrinterId;
         _db.SaveChanges();
         _setupCache.Invalidate();
         return Ok(new { success = true });
@@ -46,5 +43,4 @@ public class PrinterAssignmentDto
 {
     public string? InboundPrinterId { get; set; }
     public string? OutboundPrinterId { get; set; }
-    public string? KioskPrinterId { get; set; }
 }

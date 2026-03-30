@@ -17,7 +17,7 @@ public class ScaleHub : Hub
     private static readonly object _printLock = new();
 
     /// <summary>
-    /// Called by Pi Print Service to join the PrintClients group.
+    /// Called by Web Print Service to join the PrintClients group.
     /// </summary>
     public async Task JoinPrintGroup(string serviceId = "default")
     {
@@ -60,6 +60,22 @@ public class ScaleHub : Hub
     public async Task TestPrint(string serviceId, string printerId)
     {
         await Clients.Group($"Print_{serviceId}").SendAsync("TestPrint", printerId);
+    }
+
+    /// <summary>
+    /// Called by the web app to print a ticket.
+    /// Routes to a specific print service by serviceId, or broadcasts to all if not specified.
+    /// </summary>
+    public async Task PrintTicket(string? serviceId, object ticketData)
+    {
+        if (!string.IsNullOrEmpty(serviceId))
+        {
+            await Clients.Group($"Print_{serviceId}").SendAsync("PrintTicket", ticketData);
+        }
+        else
+        {
+            await Clients.Group("PrintClients").SendAsync("PrintTicket", ticketData);
+        }
     }
 
     // ===== QB SYNC SERVICE =====

@@ -23,9 +23,13 @@ public class KioskController : Controller
         _setupCache = setupCache;
     }
 
-    public IActionResult Index()
+    public IActionResult Index([FromQuery(Name = "service-id")] string? serviceId = null,
+                               [FromQuery(Name = "printer-id")] string? printerId = null)
     {
         var setup = _setupCache.Get();
+        ViewBag.ServiceId = serviceId ?? "";
+        ViewBag.PrinterId = printerId ?? "";
+        ViewBag.HasPrinter = !string.IsNullOrEmpty(serviceId) && !string.IsNullOrEmpty(printerId);
         return View(setup);
     }
 
@@ -141,8 +145,8 @@ public class KioskController : Controller
         // Notify all clients that a ticket was created
         await _hub.Clients.All.SendAsync("TicketCreated", new { ticket = ticketNumber, type = "weighin" });
 
-        // Request remote print agents to print (always printer 1 for inbound)
-        await _hub.Clients.Group("PrintClients").SendAsync("PrintTicket", new { ticketId = ticketNumber, type = "weighin", printerId = 1 });
+        // Print the ticket
+        await SendPrintCommand(ticketNumber.ToString(), "weighin", request.PrinterId);
 
         return Json(new { ticket = ticketNumber });
     }
@@ -165,20 +169,17 @@ public class KioskController : Controller
 
         _db.SaveChanges();
 
-        var setup = _setupCache.Get();
-
         // Notify all clients that a ticket was completed
         await _hub.Clients.All.SendAsync("TicketCompleted", new { ticket = transaction.Ticket, type = "weighout" });
 
-        // Request remote print agents to print (printer 2 for outbound if 2 kiosks, else printer 1)
-        var outPrinterId = setup.KioskCount == 2 ? 2 : 1;
-        await _hub.Clients.Group("PrintClients").SendAsync("PrintTicket", new { ticketId = transaction.Ticket, type = "weighout", printerId = outPrinterId });
+        // Print the ticket
+        await SendPrintCommand(transaction.Ticket.ToString(), "weighout", request.PrinterId);
 
         return Json(new { ticket = transaction.Ticket });
     }
 
     [HttpPost("api/kiosk/reprint/{ticketId}")]
-    public async Task<IActionResult> Reprint(string ticketId, [FromQuery] int printerId = 0)
+    public async Task<IActionResult> Reprint(string ticketId, [FromQuery] string? printerId = null)
     {
         var transaction = _db.Transactions.Find(ticketId);
         if (transaction == null)
@@ -186,17 +187,60 @@ public class KioskController : Controller
 
         var type = transaction.DateOut != null ? "weighout" : "weighin";
 
-        // If no printerId specified, determine from kiosk setup
-        if (printerId == 0)
-        {
-            var setup = _setupCache.Get();
-            printerId = (type == "weighout" && setup.KioskCount == 2) ? 2 : 1;
-        }
-
-        // Request remote print agents to reprint
-        await _hub.Clients.Group("PrintClients").SendAsync("PrintTicket", new { ticketId, type, printerId });
+        await SendPrintCommand(ticketId, type, printerId);
 
         return Ok(new { message = "Reprint requested" });
+    }
+
+    /// <summary>
+    /// Sends a print command to the correct print service.
+    /// printerId format: "serviceId:printerId" (e.g., "office-1:BIXOLON BK3-3")
+    /// If not set and demo mode: uses "KioskPrinter"
+    /// If not set and not demo: returns without printing (kiosk should prompt)
+    /// </summary>
+    private async Task SendPrintCommand(string ticketId, string type, string? printerId)
+    {
+        var setup = _setupCache.Get();
+
+        // If no printer specified, use defaults
+        if (string.IsNullOrEmpty(printerId))
+        {
+            if (setup.DemoMode)
+            {
+                // In demo mode, use a virtual "KioskPrinter" so the flow works
+                printerId = "demo:KioskPrinter";
+            }
+            else
+            {
+                // Use the inbound/outbound printer assignment from setup
+                printerId = type == "weighout"
+                    ? setup.OutboundPrinterId
+                    : setup.InboundPrinterId;
+            }
+        }
+
+        if (string.IsNullOrEmpty(printerId)) return;
+
+        // Browser printing — handled client-side, skip server-side print command
+        if (printerId.Equals("Browser:Browser", StringComparison.OrdinalIgnoreCase)) return;
+
+        // Split serviceId:printerId
+        var parts = printerId.Split(':', 2);
+        var serviceId = parts.Length > 1 ? parts[0] : "";
+        var printerName = parts.Length > 1 ? parts[1] : parts[0];
+
+        if (!string.IsNullOrEmpty(serviceId))
+        {
+            // Route to specific service
+            await _hub.Clients.Group($"Print_{serviceId}").SendAsync("PrintTicket",
+                new { ticketId, type, printerId = printerName });
+        }
+        else
+        {
+            // Broadcast to all print services
+            await _hub.Clients.Group("PrintClients").SendAsync("PrintTicket",
+                new { ticketId, type, printerId = printerName });
+        }
     }
 
     public class KioskWeighInRequest
@@ -208,6 +252,11 @@ public class KioskController : Controller
         public string? TruckId { get; set; }
         public string? Location { get; set; }
         public string? Destination { get; set; }
+        /// <summary>
+        /// Optional printer in "serviceId:printerId" format.
+        /// If not set: demo mode uses "demo:KioskPrinter", normal mode uses inbound printer from Setup.
+        /// </summary>
+        public string? PrinterId { get; set; }
     }
 
     public class KioskWeighOutRequest
@@ -215,5 +264,10 @@ public class KioskController : Controller
         public string Ticket { get; set; } = string.Empty;
         public int Weight { get; set; }
         public string? Destination { get; set; }
+        /// <summary>
+        /// Optional printer in "serviceId:printerId" format.
+        /// If not set: demo mode uses "demo:KioskPrinter", normal mode uses outbound printer from Setup.
+        /// </summary>
+        public string? PrinterId { get; set; }
     }
 }

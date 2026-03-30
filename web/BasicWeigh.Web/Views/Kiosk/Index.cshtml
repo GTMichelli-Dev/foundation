@@ -736,6 +736,12 @@
         header4: '@Html.Raw((Model.Header4 ?? "").Replace("'", "\\'"))'
     };
 
+    // Printer params from URL query string
+    var kioskServiceId = '@Html.Raw((ViewBag.ServiceId ?? "").ToString().Replace("'", "\\'"))';
+    var kioskPrinterId = '@Html.Raw((ViewBag.PrinterId ?? "").ToString().Replace("'", "\\'"))';
+    var kioskHasPrinter = @(((bool)(ViewBag.HasPrinter ?? false)).ToString().ToLower());
+    var kioskIsBrowserPrint = kioskServiceId.toLowerCase() === 'browser' && kioskPrinterId.toLowerCase() === 'browser';
+
     // ===== STATE =====
     var currentState = 'idle';
     var scaleData = { weight: 0, motion: false, error: false, ok: true };
@@ -790,6 +796,26 @@
             });
         }, 500);
     });
+
+    // ===== NO-PRINTER WARNING =====
+    if (!kioskHasPrinter && !kioskSettings.demoMode) {
+        // Show warning overlay that blocks the kiosk until acknowledged
+        var warningHtml = '<div id="noPrinterWarning" style="' +
+            'position:fixed;top:0;left:0;width:100%;height:100%;z-index:99999;' +
+            'background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;">' +
+            '<div style="background:#fff;border-radius:12px;padding:40px;max-width:600px;text-align:center;">' +
+            '<div style="font-size:48px;margin-bottom:16px;">&#9888;</div>' +
+            '<h2 style="margin-bottom:12px;color:#dc3545;">No Printer Configured</h2>' +
+            '<p style="font-size:16px;color:#333;margin-bottom:16px;">This kiosk does not have a printer assigned. Tickets will <strong>not</strong> be printed.</p>' +
+            '<p style="font-size:14px;color:#666;margin-bottom:24px;">To configure printing, add printer parameters to the kiosk URL:</p>' +
+            '<code style="display:block;background:#f0f0f0;padding:10px;border-radius:6px;font-size:13px;margin-bottom:24px;word-break:break-all;">' +
+            window.location.origin + '/Kiosk?service-id=<em>your-service</em>&amp;printer-id=<em>your-printer</em></code>' +
+            '<p style="font-size:13px;color:#666;margin-bottom:24px;">Use <code>service-id=Browser&amp;printer-id=Browser</code> to print via browser.</p>' +
+            '<button onclick="document.getElementById(\'noPrinterWarning\').remove();" ' +
+            'style="padding:12px 40px;font-size:18px;background:#0d6efd;color:#fff;border:none;border-radius:8px;cursor:pointer;">OK</button>' +
+            '</div></div>';
+        $('body').append(warningHtml);
+    }
 
     // ===== WEIGHT DISPLAY =====
     function updateWeightDisplay() {
@@ -1138,7 +1164,8 @@
                 carrier: weighinData.carrier || null,
                 truckId: weighinData.truck || null,
                 location: weighinData.location || null,
-                destination: weighinData.destination || null
+                destination: weighinData.destination || null,
+                printerId: kioskHasPrinter ? (kioskServiceId + ':' + kioskPrinterId) : null
             }),
             success: function (result) {
                 showComplete('Weigh In', result.ticket, weight, null);
@@ -1158,7 +1185,8 @@
             data: JSON.stringify({
                 ticket: weighoutTicket.ticket,
                 weight: weight,
-                destination: weighinData.destination || null
+                destination: weighinData.destination || null,
+                printerId: kioskHasPrinter ? (kioskServiceId + ':' + kioskPrinterId) : null
             }),
             success: function (result) {
                 showComplete('Weigh Out', result.ticket, weighoutTicket.inWeight, weight);
@@ -1197,8 +1225,17 @@
         completedType = type; // 'Weigh In' or 'Weigh Out'
         setState('complete');
 
-        // Open ticket view in browser after a brief delay (demo mode salesman view)
-        if (kioskSettings.demoMode) {
+        // Browser print: open ticket in new window for printing
+        if (kioskIsBrowserPrint) {
+            setTimeout(function () {
+                var url = (type === 'Weigh In')
+                    ? '/Ticket/KioskView/' + encodeURIComponent(ticketNum)
+                    : '/Ticket/View/' + encodeURIComponent(ticketNum);
+                window.open(url, '_blank');
+            }, 500);
+        }
+        // Demo mode: also show in browser for preview
+        else if (kioskSettings.demoMode) {
             setTimeout(function () {
                 var url = (type === 'Weigh In')
                     ? '/Ticket/KioskView/' + encodeURIComponent(ticketNum)
@@ -1227,7 +1264,7 @@
         }
         // Request reprint via server (SignalR to print agents)
         $.ajax({
-            url: '/api/kiosk/reprint/' + encodeURIComponent(completedTicket),
+            url: '/api/kiosk/reprint/' + encodeURIComponent(completedTicket) + (kioskHasPrinter ? '?printerId=' + encodeURIComponent(kioskServiceId + ':' + kioskPrinterId) : ''),
             method: 'POST'
         });
     }

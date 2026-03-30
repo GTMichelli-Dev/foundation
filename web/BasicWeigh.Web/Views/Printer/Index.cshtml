@@ -1,6 +1,5 @@
 @{
     ViewData["Title"] = "Printer Management";
-    var kioskCount = (int)(ViewBag.KioskCount ?? 0);
 }
 
 <div class="d-flex justify-content-between align-items-center mb-2">
@@ -13,28 +12,19 @@
     <div class="card-header py-2"><strong>Printer Assignments</strong></div>
     <div class="card-body py-2">
         <div class="row g-3 align-items-end">
-            <div class="col-md-4">
+            <div class="col-md-5">
                 <label class="form-label mb-0 small fw-bold">Inbound Printer</label>
                 <select id="inboundPrinterSelect" class="form-select form-select-sm" onchange="saveAssignments()">
                     <option value="">-- None --</option>
                 </select>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-5">
                 <label class="form-label mb-0 small fw-bold">Outbound Printer</label>
                 <select id="outboundPrinterSelect" class="form-select form-select-sm" onchange="saveAssignments()">
                     <option value="">-- None --</option>
                 </select>
             </div>
-            @if (kioskCount > 0)
-            {
-                <div class="col-md-3">
-                    <label class="form-label mb-0 small fw-bold">Kiosk Printer</label>
-                    <select id="kioskPrinterSelect" class="form-select form-select-sm" onchange="saveAssignments()">
-                        <option value="">-- None --</option>
-                    </select>
-                </div>
-            }
-            <div class="col-md-1">
+            <div class="col-md-2">
                 <span id="assignmentStatus" class="small"></span>
             </div>
         </div>
@@ -50,7 +40,7 @@
 <div id="servicesContainer"></div>
 <div id="noServicesMessage" class="text-center text-muted py-4" style="display:none;">
     <h5>No Print Services Connected</h5>
-    <p>Start a Pi Print Service and point it to this server's SignalR hub.</p>
+    <p>Start a Web Print Service and point it to this server's SignalR hub.</p>
 </div>
 
 <!-- Toast container -->
@@ -84,14 +74,40 @@
     var connectedServices = {};
     var savedInboundPrinterId = '@(ViewBag.InboundPrinterId ?? "")';
     var savedOutboundPrinterId = '@(ViewBag.OutboundPrinterId ?? "")';
-    var savedKioskPrinterId = '@(ViewBag.KioskPrinterId ?? "")';
-    var kioskCount = @kioskCount;
 
     function escHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
     function escAttr(s) { return s.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
 
     // ===== SIGNALR =====
-    var connection = new signalR.HubConnectionBuilder().withUrl('/scaleHub').build();
+    var connection = new signalR.HubConnectionBuilder()
+        .withUrl('/scaleHub')
+        .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+        .build();
+
+    connection.onreconnecting(function () {
+        updateStatusBar();
+    });
+
+    connection.onreconnected(function () {
+        connectedServices = {};
+        connection.invoke('RequestPrinterList').catch(function () {});
+    });
+
+    connection.onclose(function () {
+        connectedServices = {};
+        updateStatusBar();
+        renderServices();
+        // Try to reconnect after a delay
+        setTimeout(startConnection, 5000);
+    });
+
+    function startConnection() {
+        connection.start().then(function () {
+            connection.invoke('RequestPrinterList').catch(function () {});
+        }).catch(function () {
+            setTimeout(startConnection, 5000);
+        });
+    }
 
     connection.on('PrintServiceReady', function (data) {
         connectedServices[data.serviceId] = data;
@@ -124,9 +140,7 @@
         }
     });
 
-    connection.start().then(function () {
-        connection.invoke('RequestPrinterList').catch(function () {});
-    });
+    startConnection();
 
     // ===== STATUS BAR =====
     function updateStatusBar() {
@@ -139,7 +153,7 @@
             noMsg.style.display = 'none';
         } else {
             bar.className = 'alert alert-warning py-2 mb-3 d-flex align-items-center';
-            bar.innerHTML = '<strong>No Print Services Connected</strong> — Start a Pi Print Service and point it to this server\'s SignalR hub.';
+            bar.innerHTML = '<strong>No Print Services Connected</strong> — Start a Web Print Service and point it to this server\'s SignalR hub.';
             noMsg.style.display = 'block';
         }
     }
@@ -192,10 +206,8 @@
     function updateAssignmentDropdowns() {
         var inSel = document.getElementById('inboundPrinterSelect');
         var outSel = document.getElementById('outboundPrinterSelect');
-        var kioskSel = document.getElementById('kioskPrinterSelect');
         var inVal = inSel.value || savedInboundPrinterId;
         var outVal = outSel.value || savedOutboundPrinterId;
-        var kioskVal = kioskSel ? (kioskSel.value || savedKioskPrinterId) : '';
 
         var options = '<option value="">-- None --</option>';
         Object.keys(connectedServices).forEach(function (sid) {
@@ -213,18 +225,11 @@
         outSel.innerHTML = options;
         inSel.value = inVal;
         outSel.value = outVal;
-
-        if (kioskSel) {
-            kioskSel.innerHTML = options;
-            kioskSel.value = kioskVal;
-        }
     }
 
     function saveAssignments() {
         var inVal = document.getElementById('inboundPrinterSelect').value;
         var outVal = document.getElementById('outboundPrinterSelect').value;
-        var kioskSel = document.getElementById('kioskPrinterSelect');
-        var kioskVal = kioskSel ? kioskSel.value : '';
         var status = document.getElementById('assignmentStatus');
         status.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
 
@@ -233,14 +238,12 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 inboundPrinterId: inVal,
-                outboundPrinterId: outVal,
-                kioskPrinterId: kioskVal
+                outboundPrinterId: outVal
             })
         }).then(function (r) {
             if (r.ok) {
                 savedInboundPrinterId = inVal;
                 savedOutboundPrinterId = outVal;
-                savedKioskPrinterId = kioskVal;
                 status.innerHTML = '<span class="text-success">&#10003; Saved</span>';
                 setTimeout(function () { status.innerHTML = ''; }, 2000);
             } else {
