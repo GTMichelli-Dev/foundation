@@ -30,6 +30,7 @@ public class KioskController : Controller
         ViewBag.ServiceId = serviceId ?? "";
         ViewBag.PrinterId = printerId ?? "";
         ViewBag.HasPrinter = !string.IsNullOrEmpty(serviceId) && !string.IsNullOrEmpty(printerId);
+        ViewBag.ScaleId = setup.ScaleId ?? "";
         return View(setup);
     }
 
@@ -119,6 +120,11 @@ public class KioskController : Controller
     public async Task<IActionResult> WeighIn([FromBody] KioskWeighInRequest request)
     {
         var setup = _db.AppSetup.First();
+        // Ensure ticket number doesn't collide with existing tickets
+        while (_db.Transactions.Any(t => t.Ticket == setup.TicketNumber.ToString()))
+        {
+            setup.TicketNumber++;
+        }
         var ticketNumber = setup.TicketNumber.ToString();
 
         var transaction = new Transaction

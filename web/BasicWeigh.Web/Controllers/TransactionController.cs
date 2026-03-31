@@ -116,6 +116,10 @@ public class TransactionController : Controller
         else
         {
             var setup = _db.AppSetup.First();
+            while (_db.Transactions.Any(t => t.Ticket == setup.TicketNumber.ToString()))
+            {
+                setup.TicketNumber++;
+            }
             transaction.Ticket = setup.TicketNumber.ToString();
             transaction.DateIn = transaction.DateIn == default ? DateTime.Now : transaction.DateIn;
             transaction.Void = false;
@@ -138,17 +142,24 @@ public class TransactionController : Controller
                     new { ticket = transaction.Ticket, direction = "in", cameraId });
             }
 
-            // Remote printing
-            if (setup.RemotePrintMode == "Scale")
+            // Auto-print to configured inbound printer
+            var inboundPrinter = setup.InboundPrinterId;
+            if (!string.IsNullOrEmpty(inboundPrinter))
             {
-                _printQueue.Enqueue(transaction.Ticket);
-                _printQueue.AwaitConfirmation(transaction.Ticket);
-            }
-            else if (setup.RemotePrintMode == "RemotePrinter")
-            {
-                _printQueue.AwaitConfirmation(transaction.Ticket);
-                await _hub.Clients.Group("PrintClients").SendAsync("PrintTicket",
-                    new { ticketId = transaction.Ticket, pdfUrl = $"/api/ticket/{transaction.Ticket}/pdf" });
+                if (inboundPrinter.Equals("Browser:Browser", StringComparison.OrdinalIgnoreCase))
+                {
+                    TempData["AutoPrintTicket"] = transaction.Ticket;
+                    TempData["AutoPrintType"] = "weighin";
+                }
+                else
+                {
+                    var parts2 = inboundPrinter.Split(':', 2);
+                    var svcId = parts2.Length > 1 ? parts2[0] : "";
+                    var pName = parts2.Length > 1 ? parts2[1] : parts2[0];
+                    var group = !string.IsNullOrEmpty(svcId) ? $"Print_{svcId}" : "PrintClients";
+                    await _hub.Clients.Group(group).SendAsync("PrintTicket",
+                        new { ticketId = transaction.Ticket, type = "weighin", printerId = pName });
+                }
             }
         }
 
@@ -203,16 +214,24 @@ public class TransactionController : Controller
                 new { ticket = id, direction = "out", cameraId });
         }
 
-        if (setup.RemotePrintMode == "Scale")
+        // Auto-print to configured outbound printer
+        var outboundPrinter = setup.OutboundPrinterId;
+        if (!string.IsNullOrEmpty(outboundPrinter))
         {
-            _printQueue.Enqueue(id);
-            _printQueue.AwaitConfirmation(id);
-        }
-        else if (setup.RemotePrintMode == "RemotePrinter")
-        {
-            _printQueue.AwaitConfirmation(id);
-            await _hub.Clients.Group("PrintClients").SendAsync("PrintTicket",
-                new { ticketId = id, pdfUrl = $"/api/ticket/{id}/pdf" });
+            if (outboundPrinter.Equals("Browser:Browser", StringComparison.OrdinalIgnoreCase))
+            {
+                // Redirect to ticket view with auto-print — opens in new window via CompletedTrucks
+                TempData["AutoPrintTicket"] = id;
+            }
+            else
+            {
+                var parts2 = outboundPrinter.Split(':', 2);
+                var svcId = parts2.Length > 1 ? parts2[0] : "";
+                var pName = parts2.Length > 1 ? parts2[1] : parts2[0];
+                var group = !string.IsNullOrEmpty(svcId) ? $"Print_{svcId}" : "PrintClients";
+                await _hub.Clients.Group(group).SendAsync("PrintTicket",
+                    new { ticketId = id, type = "weighout", printerId = pName });
+            }
         }
 
         return RedirectToAction("View", "Ticket", new { id });
@@ -257,6 +276,10 @@ public class TransactionController : Controller
     public IActionResult BasicTicket(Transaction transaction)
     {
         var setup = _db.AppSetup.First();
+        while (_db.Transactions.Any(t => t.Ticket == setup.TicketNumber.ToString()))
+        {
+            setup.TicketNumber++;
+        }
         transaction.Ticket = setup.TicketNumber.ToString();
         transaction.DateIn = transaction.DateIn == default ? DateTime.Now : transaction.DateIn;
         transaction.DateOut = transaction.DateIn;

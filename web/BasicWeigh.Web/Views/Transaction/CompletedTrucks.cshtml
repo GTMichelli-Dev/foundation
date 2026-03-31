@@ -549,103 +549,59 @@
         }
 
         // ===== PRINT OPTIONS =====
-        var kioskCount = @kioskCount;
-        var demoMode = @(demoMode.ToString().ToLower());
-        var remotePrintMode = '@remotePrintMode';
+        var availablePrinters = {}; // serviceId -> [{ printerId, status, enabled }]
 
         function showPrintOptions(ticketId) {
-            var hasExtraOptions = kioskCount > 0 || remotePrintMode !== 'None';
-            if (!hasExtraOptions) {
-                // No kiosks and no remote printer - print to browser directly
-                window.open('/Ticket/View/' + ticketId, '_blank');
-                return;
-            }
-
-            // Build popup options
             var $modal = $('#printModal');
             var $body = $('#printModalBody');
             $body.empty();
 
-            // Browser option
+            // Browser option (always available)
             $body.append(
                 $('<button>').addClass('btn btn-outline-primary w-100 mb-2 py-2')
-                    .text('Print to Browser')
+                    .html('<i class="fa fa-globe"></i> Print to Browser')
                     .on('click', function () {
                         window.open('/Ticket/View/' + ticketId, '_blank');
                         bootstrap.Modal.getInstance($modal[0]).hide();
                     })
             );
 
-            // Kiosk options
-            if (kioskCount === 2) {
-                $body.append(
-                    $('<button>').addClass('btn btn-outline-success w-100 mb-2 py-2')
-                        .text('Send to Kiosk 1 (Inbound)')
-                        .on('click', function () { sendToKiosk(ticketId, 1); })
-                );
-                $body.append(
-                    $('<button>').addClass('btn btn-outline-success w-100 mb-2 py-2')
-                        .text('Send to Kiosk 2 (Outbound)')
-                        .on('click', function () { sendToKiosk(ticketId, 2); })
-                );
-            } else if (kioskCount > 0) {
-                $body.append(
-                    $('<button>').addClass('btn btn-outline-success w-100 mb-2 py-2')
-                        .text('Send to Kiosk')
-                        .on('click', function () { sendToKiosk(ticketId, 1); })
-                );
-            }
+            // Add buttons for each available printer
+            var hasPrinters = false;
+            Object.keys(availablePrinters).forEach(function (sid) {
+                var printers = availablePrinters[sid] || [];
+                printers.forEach(function (p) {
+                    if (!p.enabled) return;
+                    hasPrinters = true;
+                    var label = p.printerId;
+                    if (Object.keys(availablePrinters).length > 1) label += ' (' + sid + ')';
+                    $body.append(
+                        $('<button>').addClass('btn btn-outline-success w-100 mb-2 py-2')
+                            .html('<i class="fa fa-print"></i> ' + $('<span>').text(label).html())
+                            .on('click', function () {
+                                sendToPrinter(ticketId, sid, p.printerId);
+                                bootstrap.Modal.getInstance($modal[0]).hide();
+                            })
+                    );
+                });
+            });
 
-            // Remote print options
-            if (remotePrintMode === 'Scale') {
-                $body.append(
-                    $('<button>').addClass('btn btn-outline-warning w-100 mb-2 py-2')
-                        .text('Send to Scale Printer')
-                        .on('click', function () { sendToRemote(ticketId); })
-                );
-            } else if (remotePrintMode === 'RemotePrinter') {
-                $body.append(
-                    $('<button>').addClass('btn btn-outline-warning w-100 mb-2 py-2')
-                        .text('Send to Remote Printer')
-                        .on('click', function () { sendToRemote(ticketId); })
-                );
+            if (!hasPrinters) {
+                $body.append('<p class="text-muted small text-center mb-0">No print services connected.</p>');
             }
 
             new bootstrap.Modal($modal[0]).show();
         }
 
-        function sendToKiosk(ticketId, printerId) {
-            var $modal = $('#printModal');
-            bootstrap.Modal.getInstance($modal[0]).hide();
-
-            if (demoMode) {
-                window.open('/Ticket/View/' + ticketId, '_blank');
-            } else {
-                $.ajax({
-                    url: '/api/kiosk/reprint/' + encodeURIComponent(ticketId) + '?printerId=' + printerId,
-                    method: 'POST',
-                    success: function () {
-                        DevExpress.ui.notify('Print sent to kiosk', 'success', 2000);
-                    },
-                    error: function () {
-                        DevExpress.ui.notify('Failed to send print', 'error', 2000);
-                    }
-                });
-            }
-        }
-
-        function sendToRemote(ticketId) {
-            var $modal = $('#printModal');
-            bootstrap.Modal.getInstance($modal[0]).hide();
+        function sendToPrinter(ticketId, serviceId, printerId) {
             $.ajax({
-                url: '/api/ticket/' + encodeURIComponent(ticketId) + '/reprint',
+                url: '/api/kiosk/reprint/' + encodeURIComponent(ticketId) + '?printerId=' + encodeURIComponent(serviceId + ':' + printerId),
                 method: 'POST',
                 success: function () {
-                    var label = remotePrintMode === 'Scale' ? 'scale printer' : 'remote printer';
-                    DevExpress.ui.notify('Print sent to ' + label, 'success', 2000);
+                    showAlert('<i class="bi bi-check-circle"></i> Print sent to ' + printerId, 'success');
                 },
                 error: function () {
-                    DevExpress.ui.notify('Failed to send print', 'error', 2000);
+                    showAlert('<i class="bi bi-x-circle"></i> Failed to send print', 'danger');
                 }
             });
         }
@@ -685,7 +641,22 @@
             showAlert('<i class="bi bi-exclamation-triangle"></i> ' + message, 'danger', false);
             setTimeout(function () { qbErrorReceived = false; }, 15000);
         });
-        connection.start().catch(function (err) { console.error('SignalR error:', err); });
+        // Track available printers
+        connection.on('PrintServiceReady', function (data) {
+            availablePrinters[data.serviceId] = data.printers || [];
+        });
+        connection.on('PrinterListReceived', function (data) {
+            availablePrinters[data.serviceId] = data.printers || [];
+        });
+        connection.on('PrintServiceStatusChanged', function () {
+            // Request updated printer list
+            connection.invoke('RequestPrinterList').catch(function () {});
+        });
+
+        connection.start().then(function () {
+            // Request printer list on connect
+            connection.invoke('RequestPrinterList').catch(function () {});
+        }).catch(function (err) { console.error('SignalR error:', err); });
     });
 </script>
 }

@@ -56,6 +56,10 @@
 
         #kiosk-wrapper {
             position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
         }
 
         #kiosk {
@@ -682,6 +686,10 @@
         <div class="overlay-message">Operation Cancelled</div>
         <div class="overlay-sub">Scale Error</div>
     </div>
+    <div id="overlay-server-error" class="overlay-screen overlay-red">
+        <div class="overlay-message">Save Failed</div>
+        <div class="overlay-sub" id="server-error-detail">Server error. Please try again.</div>
+    </div>
     <div id="overlay-ticket-not-found" class="overlay-screen overlay-red">
         <div class="overlay-message">Ticket Not Found</div>
         <div class="overlay-sub">Please try again</div>
@@ -779,7 +787,19 @@
         .withAutomaticReconnect()
         .build();
 
-    connection.on('ScaleUpdate', function (data) {
+    var configuredScaleId = '@(ViewBag.ScaleId ?? "")';
+
+    connection.on('ScaleWeight', function (data) {
+        // In demo mode, ignore real scale data — use the simulator instead
+        if (kioskSettings.demoMode) return;
+
+        // Filter by configured scale — match "serviceId:scaleId" or just "scaleId"
+        if (configuredScaleId) {
+            var fullId = (data.serviceId || '') + ':' + (data.scaleId || '');
+            if (fullId !== configuredScaleId && data.scaleId !== configuredScaleId) {
+                return; // Not our scale
+            }
+        }
         scaleData = data;
         updateWeightDisplay();
         handleScaleChange();
@@ -869,14 +889,15 @@
             return;
         }
 
-        // Error during active operation
-        if (scaleData.error && isActiveOperation()) {
+        // Error during active operation (don't cancel during saving — request is in flight)
+        if (scaleData.error && isActiveOperation() && currentState !== 'saving') {
             cancelOperation('error');
             return;
         }
 
         // Weight change during active operation (entering ticket, prompts, motion-wait)
-        if (isActiveOperation() && operationStartWeight !== null) {
+        // Don't cancel during 'saving' — the request is already in flight
+        if (isActiveOperation() && currentState !== 'saving' && operationStartWeight !== null) {
             if (Math.abs(scaleData.weight - operationStartWeight) >= OPERATION_WEIGHT_CHANGE) {
                 cancelOperation('weight-changed');
                 return;
@@ -1170,8 +1191,11 @@
             success: function (result) {
                 showComplete('Weigh In', result.ticket, weight, null);
             },
-            error: function () {
-                showOverlay('overlay-error-cancel', OVERLAY_DURATION_MS);
+            error: function (xhr) {
+                var msg = 'Server error (' + xhr.status + '). Please try again.';
+                try { var body = JSON.parse(xhr.responseText); if (body.message) msg = body.message; } catch(e) {}
+                $('#server-error-detail').text(msg);
+                showOverlay('overlay-server-error', OVERLAY_DURATION_MS * 2);
             }
         });
     }
@@ -1191,8 +1215,11 @@
             success: function (result) {
                 showComplete('Weigh Out', result.ticket, weighoutTicket.inWeight, weight);
             },
-            error: function () {
-                showOverlay('overlay-error-cancel', OVERLAY_DURATION_MS);
+            error: function (xhr) {
+                var msg = 'Server error (' + xhr.status + '). Please try again.';
+                try { var body = JSON.parse(xhr.responseText); if (body.message) msg = body.message; } catch(e) {}
+                $('#server-error-detail').text(msg);
+                showOverlay('overlay-server-error', OVERLAY_DURATION_MS * 2);
             }
         });
     }
@@ -1214,28 +1241,16 @@
         }
         $('#complete-info').text(info);
 
-        // Show demo ticket info if in demo mode
-        if (kioskSettings.demoMode) {
-            showDemoTicket(type, ticketNum, inWeight, outWeight);
-        } else {
-            $('#demo-ticket-area').empty();
-        }
+        // Show ticket info on complete screen
+        showDemoTicket(type, ticketNum, inWeight, outWeight);
 
         // Show the complete screen FIRST, then trigger print async
         completedType = type; // 'Weigh In' or 'Weigh Out'
         setState('complete');
 
         // Browser print: open ticket in new window for printing
+        // Only print to browser if service-id=Browser&printer-id=Browser
         if (kioskIsBrowserPrint) {
-            setTimeout(function () {
-                var url = (type === 'Weigh In')
-                    ? '/Ticket/KioskView/' + encodeURIComponent(ticketNum)
-                    : '/Ticket/View/' + encodeURIComponent(ticketNum);
-                window.open(url, '_blank');
-            }, 500);
-        }
-        // Demo mode: also show in browser for preview
-        else if (kioskSettings.demoMode) {
             setTimeout(function () {
                 var url = (type === 'Weigh In')
                     ? '/Ticket/KioskView/' + encodeURIComponent(ticketNum)
@@ -1256,12 +1271,16 @@
 
     function reprintTicket() {
         if (!completedTicket) return;
-        if (kioskSettings.demoMode) {
+
+        // Browser printing — open ticket in new window
+        if (kioskIsBrowserPrint || kioskSettings.demoMode) {
             var url = (completedType === 'Weigh In')
                 ? '/Ticket/KioskView/' + encodeURIComponent(completedTicket)
                 : '/Ticket/View/' + encodeURIComponent(completedTicket);
             window.open(url, '_blank');
+            return;
         }
+
         // Request reprint via server (SignalR to print agents)
         $.ajax({
             url: '/api/kiosk/reprint/' + encodeURIComponent(completedTicket) + (kioskHasPrinter ? '?printerId=' + encodeURIComponent(kioskServiceId + ':' + kioskPrinterId) : ''),
@@ -1458,12 +1477,30 @@
             }, 50);
         }
 
+        function updateLocalSimData() {
+            var w = parseInt($simSlider.val());
+            var m = $simMotion.is(':checked');
+            var e = $simError.is(':checked');
+            scaleData = {
+                weight: w,
+                motion: m,
+                error: e,
+                ok: !e,
+                comError: false,
+                scaleId: 'sim',
+                serviceId: 'sim'
+            };
+            updateWeightDisplay();
+            handleScaleChange();
+        }
+
         $simSlider.on('input', function () {
             $simVal.text(parseInt(this.value).toLocaleString());
+            updateLocalSimData();
             sendSimUpdate();
         });
-        $simMotion.on('change', sendSimUpdate);
-        $simError.on('change', sendSimUpdate);
+        $simMotion.on('change', function () { updateLocalSimData(); sendSimUpdate(); });
+        $simError.on('change', function () { updateLocalSimData(); sendSimUpdate(); });
     }
 
 })();

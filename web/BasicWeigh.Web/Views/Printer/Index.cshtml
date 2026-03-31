@@ -173,26 +173,24 @@
             html += '</div>';
 
             html += '<div class="card-body p-0"><table class="table table-sm table-hover mb-0">';
-            html += '<thead><tr><th>Printer ID</th><th>Display Name</th><th>Status</th><th>Default</th><th>Enabled</th><th style="width:100px;">Actions</th></tr></thead><tbody>';
+            html += '<thead><tr><th>Printer ID</th><th>Status</th><th>Enabled</th><th style="width:100px;">Actions</th></tr></thead><tbody>';
 
             printers.forEach(function (p) {
                 html += '<tr>';
                 html += '<td>' + escHtml(p.printerId) + '</td>';
-                html += '<td>' + escHtml(p.displayName) + '</td>';
                 html += '<td>';
                 if (p.status === 'idle') html += '<span class="text-success">Idle</span>';
                 else if (p.status === 'printing') html += '<span class="text-primary">Printing</span>';
                 else if (p.status === 'disabled') html += '<span class="text-danger">Disabled</span>';
                 else html += '<span class="text-muted">' + escHtml(p.status) + '</span>';
                 html += '</td>';
-                html += '<td>' + (p.isDefault ? '<span class="text-success fw-bold">&#10003;</span>' : '-') + '</td>';
                 html += '<td>' + (p.enabled ? '<span class="text-success fw-bold">&#10003;</span>' : '<span class="text-muted">&#10007;</span>') + '</td>';
                 html += '<td><button class="btn btn-outline-info btn-sm" onclick="testPrint(\'' + escAttr(serviceId) + '\',\'' + escAttr(p.printerId) + '\')">Test</button></td>';
                 html += '</tr>';
             });
 
             if (printers.length === 0) {
-                html += '<tr><td colspan="6" class="text-center text-muted py-3">No printers found on this service. Configure printers in CUPS (https://localhost:631).</td></tr>';
+                html += '<tr><td colspan="4" class="text-center text-muted py-3">No printers found on this service.</td></tr>';
             }
 
             html += '</tbody></table></div></div>';
@@ -210,12 +208,13 @@
         var outVal = outSel.value || savedOutboundPrinterId;
 
         var options = '<option value="">-- None --</option>';
+        options += '<option value="Browser:Browser">Print to Browser</option>';
         Object.keys(connectedServices).forEach(function (sid) {
             var printers = connectedServices[sid].printers || [];
             printers.forEach(function (p) {
                 if (!p.enabled) return;
                 var val = sid + ':' + p.printerId;
-                var label = p.displayName || p.printerId;
+                var label = p.printerId;
                 if (Object.keys(connectedServices).length > 1) label += ' (' + sid + ')';
                 options += '<option value="' + escAttr(val) + '">' + escHtml(label) + '</option>';
             });

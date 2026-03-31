@@ -259,6 +259,18 @@
     }
     @await RenderSectionAsync("Scripts", required: false)
 
+    @if (TempData["AutoPrintTicket"] != null)
+    {
+        var autoPrintTicket = TempData["AutoPrintTicket"]?.ToString();
+        var autoPrintType = TempData["AutoPrintType"]?.ToString() ?? "weighout";
+        var printUrl = autoPrintType == "weighin"
+            ? $"/Ticket/KioskView/{autoPrintTicket}"
+            : $"/Ticket/View/{autoPrintTicket}";
+        <script>
+        setTimeout(function () { window.open('@Html.Raw(printUrl)', '_blank'); }, 500);
+        </script>
+    }
+
     @if (appSetup?.DemoMode == true)
     {
     <!-- Kiosk Printer Picker Modal -->
