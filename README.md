@@ -83,6 +83,8 @@ exit
 
 On your **local development machine** (Windows/Mac/Linux with .NET 8 SDK installed):
 
+Make Make sure you have Git CLI installed https://cli.github.com/
+
 ```bash
 git clone https://github.com/GTMichelli-Dev/Basic_Weigh.git
 cd Basic_Weigh
