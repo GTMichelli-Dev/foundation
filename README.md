@@ -83,7 +83,16 @@ exit
 
 On your **local development machine** (Windows/Mac/Linux with .NET 8 SDK installed):
 
-Make Make sure you have Git CLI installed https://cli.github.com/
+If don't have Git installed (or it's not in your system PATH). Here's how to fix it:
+Install Git for Windows
+
+Go to https://git-scm.com/download/win
+
+Download the 64-bit installer
+
+Run the installer — the defaults are fine for most people, just click Next through the options
+
+When done, close and reopen your Command Prompt (important — the old window won't see Git)
 
 ```bash
 git clone https://github.com/GTMichelli-Dev/Basic_Weigh.git
