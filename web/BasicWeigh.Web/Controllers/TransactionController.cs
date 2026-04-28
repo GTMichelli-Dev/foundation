@@ -140,6 +140,17 @@ public class TransactionController : Controller
                 var car = transaction.Carrier.Trim().ToLower();
                 var truck = _db.Trucks.FirstOrDefault(x =>
                     x.TruckId.ToLower() == tid && x.CarrierName.ToLower() == car);
+
+                // Tares from a previous date are auto-expired.
+                if (truck?.RetainedTare.HasValue == true
+                    && (truck.RetainedTareUpdated?.Date ?? DateTime.MinValue) < DateTime.Today)
+                {
+                    Console.WriteLine($"[RetainedTare] cleared stale tare for '{truck.TruckId}' / '{truck.CarrierName}' (last seen {truck.RetainedTareUpdated:yyyy-MM-dd})");
+                    _log.LogInformation("RetainedTare: cleared stale tare for {TruckId}/{Carrier}", truck.TruckId, truck.CarrierName);
+                    truck.RetainedTare = null;
+                    truck.RetainedTareUpdated = null;
+                }
+
                 if (truck?.RetainedTare.HasValue == true)
                 {
                     transaction.OutWeight = truck.RetainedTare;

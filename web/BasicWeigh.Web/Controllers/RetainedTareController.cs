@@ -16,12 +16,34 @@ public class RetainedTareController : Controller
 
     public IActionResult Index()
     {
+        SweepStaleTares();
         var trucks = _db.Trucks
             .OrderByDescending(t => t.RetainedTare != null)
             .ThenBy(t => t.CarrierName)
             .ThenBy(t => t.TruckId)
             .ToList();
         return View(trucks);
+    }
+
+    /// <summary>
+    /// Auto-expire any retained tare whose update date is before today. Called on
+    /// the admin page and the lookup endpoint so the displayed/used data is always
+    /// current. Called outside a SaveChanges block — the caller persists.
+    /// </summary>
+    private void SweepStaleTares()
+    {
+        var today = DateTime.Today;
+        var stale = _db.Trucks
+            .Where(t => t.RetainedTare != null
+                && (t.RetainedTareUpdated == null || t.RetainedTareUpdated < today))
+            .ToList();
+        if (stale.Count == 0) return;
+        foreach (var t in stale)
+        {
+            t.RetainedTare = null;
+            t.RetainedTareUpdated = null;
+        }
+        _db.SaveChanges();
     }
 
     [HttpPost("api/retainedtares/{id:int}/clear")]
@@ -88,6 +110,15 @@ public class RetainedTareController : Controller
             x.TruckId.ToLower() == t && x.CarrierName.ToLower() == c);
 
         if (truck == null) return NotFound();
+
+        // Tares from a previous date are auto-expired before reporting.
+        if (truck.RetainedTare.HasValue
+            && (truck.RetainedTareUpdated?.Date ?? DateTime.MinValue) < DateTime.Today)
+        {
+            truck.RetainedTare = null;
+            truck.RetainedTareUpdated = null;
+            _db.SaveChanges();
+        }
 
         return Ok(new
         {

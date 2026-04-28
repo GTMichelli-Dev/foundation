@@ -139,6 +139,18 @@ public class KioskController : Controller
         {
             truck = _db.Trucks.FirstOrDefault(t =>
                 t.TruckId == request.TruckId && t.CarrierName == request.Carrier);
+
+            // Tares from a previous date are auto-expired — load may have changed
+            // overnight, so a stale tare can't be trusted. Clear and treat as none.
+            if (truck?.RetainedTare.HasValue == true
+                && (truck.RetainedTareUpdated?.Date ?? DateTime.MinValue) < DateTime.Today)
+            {
+                Console.WriteLine($"[RetainedTare] cleared stale tare for '{truck.TruckId}' / '{truck.CarrierName}' (last seen {truck.RetainedTareUpdated:yyyy-MM-dd})");
+                _log.LogInformation("RetainedTare: cleared stale tare for {TruckId}/{Carrier} (last seen {When})",
+                    truck.TruckId, truck.CarrierName, truck.RetainedTareUpdated);
+                truck.RetainedTare = null;
+                truck.RetainedTareUpdated = null;
+            }
         }
         bool tareApplied = truck?.RetainedTare.HasValue == true;
         var now = DateTime.Now;
@@ -181,6 +193,16 @@ public class KioskController : Controller
         {
             await _hub.Clients.All.SendAsync("TicketCreated",
                 new { ticket = ticketNumber, type = "weighin" });
+        }
+
+        // Camera capture: a tare-completed ticket is a weigh-out (use outbound camera);
+        // a regular weigh-in uses the inbound camera. Same convention as the admin flow.
+        if (setup.SavePicture)
+        {
+            await SendCameraCapture(
+                ticketNumber,
+                tareApplied ? "out" : "in",
+                tareApplied ? setup.OutboundCameraId : setup.InboundCameraId);
         }
 
         // Print: a tare-completed ticket is effectively a weigh-out, route to the outbound printer.
@@ -230,10 +252,31 @@ public class KioskController : Controller
         // Notify all clients that a ticket was completed
         await _hub.Clients.All.SendAsync("TicketCompleted", new { ticket = transaction.Ticket, type = "weighout" });
 
+        // Camera capture (outbound) — same convention as the admin web flow.
+        var outSetup = _setupCache.Get();
+        if (outSetup.SavePicture)
+        {
+            await SendCameraCapture(transaction.Ticket, "out", outSetup.OutboundCameraId);
+        }
+
         // Print the ticket
         await SendPrintCommand(transaction.Ticket.ToString(), "weighout", request.PrinterId);
 
         return Json(new { ticket = transaction.Ticket });
+    }
+
+    /// <summary>
+    /// Send a CaptureImage command to the camera service identified by the
+    /// "serviceId:cameraId" string from AppSetup. No-op if the setting is empty.
+    /// </summary>
+    private async Task SendCameraCapture(string ticketId, string direction, string? cameraIdSetting)
+    {
+        if (string.IsNullOrEmpty(cameraIdSetting)) return;
+        var parts = cameraIdSetting.Split(':', 2);
+        var serviceId = parts.Length > 1 ? parts[0] : "default";
+        var cameraId = parts.Length > 1 ? parts[1] : parts[0];
+        await _hub.Clients.Group($"Camera_{serviceId}").SendAsync("CaptureImage",
+            new { ticket = ticketId, direction, cameraId });
     }
 
     private void UpdateRetainedTare(Transaction tx)
