@@ -276,15 +276,35 @@
         }
 
         /* "Hide on-screen buttons" mode — driver uses physical keyboard /
-            barcode scanner. Keep New Load + Enter Ticket on the ready screen
-            and Reprint on the complete screen. */
+            barcode scanner. Keep New Load + Enter Ticket on the ready screen.
+            On the complete screen, hide Reprint AND Done; surface a plain
+            "PRESS ENTER FOR REPRINT" label instead. */
         body.kiosk-hide-buttons .numpad,
         body.kiosk-hide-buttons #ticket-cancel,
         body.kiosk-hide-buttons #prompt-cancel,
         body.kiosk-hide-buttons #prompt-skip,
         body.kiosk-hide-buttons #prompt-select,
+        body.kiosk-hide-buttons #btn-reprint,
         body.kiosk-hide-buttons #btn-complete-done {
             display: none !important;
+        }
+
+        /* Black instructional label shown on the complete screen when buttons
+            are hidden. Hidden by default. */
+        .kiosk-reprint-label {
+            display: none;
+            margin-top: 24px;
+            font-size: 1.6rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: #000;
+            background: #ffffff;
+            padding: 16px 32px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        body.kiosk-hide-buttons .kiosk-reprint-label {
+            display: inline-block;
         }
 
         /* ===== NUMPAD ===== */
@@ -694,9 +714,11 @@
             <div class="complete-info" id="complete-info"></div>
             <div id="demo-ticket-area"></div>
             <div class="complete-buttons">
-                <button class="kiosk-btn btn-blue" id="btn-reprint">@(Model.HideKioskOnScreenButtons ? "Press Enter for Reprint" : "Reprint")</button>
+                <button class="kiosk-btn btn-blue" id="btn-reprint">Reprint</button>
                 <button class="kiosk-btn btn-red" id="btn-complete-done">Done</button>
             </div>
+            <!-- Shown only when on-screen buttons are hidden — operator drives via Enter. -->
+            <div class="kiosk-reprint-label">PRESS ENTER FOR REPRINT</div>
         </div>
 
         <!-- SCALE ERROR (persistent) -->
