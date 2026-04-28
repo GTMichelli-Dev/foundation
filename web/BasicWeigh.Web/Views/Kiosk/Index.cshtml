@@ -1361,7 +1361,14 @@
     }
 
     function submitTicket() {
-        if (!ticketInput) return;
+        if (!ticketInput) {
+            // Empty Enter on the ticket-entry screen falls through to New Load,
+            // matching what pressing the green button does. Covers both the
+            // on-screen ENT key and a keyboard/scanner Enter.
+            clearOperationTracking();
+            startWeighIn();
+            return;
+        }
         setState('checking-ticket');
         $.ajax({
             url: '/api/kiosk/ticket/' + encodeURIComponent(ticketInput),
