@@ -27,10 +27,13 @@ public class SetupController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult Index(AppSetup setup, IFormFile? iconFile, bool removeIcon = false)
+    public IActionResult Index(AppSetup setup, IFormFile? iconFile, bool removeIcon = false, string? activeTab = null)
     {
         var existing = _db.AppSetup.Find(setup.Id);
         if (existing == null) return NotFound();
+
+        // Preserve the tab the operator was on so the redirect lands them back there.
+        if (!string.IsNullOrEmpty(activeTab)) TempData["ActiveTab"] = activeTab;
 
         existing.Header1 = setup.Header1;
         existing.Header2 = setup.Header2;

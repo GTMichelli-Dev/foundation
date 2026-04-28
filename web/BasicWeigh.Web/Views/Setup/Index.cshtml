@@ -22,6 +22,7 @@
 <form asp-action="Index" method="post" enctype="multipart/form-data" id="setupForm">
     @Html.AntiForgeryToken()
     <input type="hidden" asp-for="Id" />
+    <input type="hidden" name="activeTab" id="activeTabField" value="@(TempData["ActiveTab"] ?? "tabCompany")" />
 
     <ul class="nav nav-tabs" id="setupTabs" role="tablist">
         <li class="nav-item">
@@ -302,77 +303,124 @@
                 recalled. Both are kept on while Retained Tare is enabled in
                 <strong>System &rarr; Options</strong>.
             </div>
-            <div class="card">
-                <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
-                    <strong>Kiosk Prompts</strong>
-                </div>
-                <div class="card-body py-2">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead>
-                            <tr class="small text-muted">
-                                <th style="width:30%;">Prompt</th>
-                                <th class="text-center">On Inbound</th>
-                                <th class="text-center">On Outbound</th>
-                                <th class="text-center">Allow Skip</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td class="fw-bold">
-                                    Carrier
-                                    <span id="PromptKioskCarrierLock" class="badge bg-info text-dark ms-1"
-                                          style="display: @(Model.UseRetainedTare ? "inline" : "none");"
-                                          title="Required while Retained Tare is enabled">required</span>
-                                </td>
-                                <td colspan="2" class="text-center">
-                                    <input asp-for="PromptKioskCarrier" class="form-check-input" id="PromptKioskCarrier" />
-                                    <span class="small text-muted ms-1">(both directions)</span>
-                                </td>
-                                <td class="text-center">
-                                    <input asp-for="AllowSkipCarrier" class="form-check-input" id="AllowSkipCarrier" />
-                                </td>
-                            </tr>
-                            <tr id="truckIdPromptSection" style="display: @(Model.PromptKioskCarrier ? "table-row" : "none");">
-                                <td class="fw-bold">
-                                    Truck ID
-                                    <span id="PromptKioskTruckIdLock" class="badge bg-info text-dark ms-1"
-                                          style="display: @(Model.UseRetainedTare ? "inline" : "none");"
-                                          title="Required while Retained Tare is enabled">required</span>
-                                </td>
-                                <td colspan="2" class="text-center">
-                                    <input asp-for="PromptKioskTruckId" class="form-check-input" id="PromptKioskTruckId" />
-                                    <span class="small text-muted ms-1">(both directions)</span>
-                                </td>
-                                <td class="text-center">
-                                    <input asp-for="AllowSkipTruckId" class="form-check-input" id="AllowSkipTruckId" />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="fw-bold">Commodity</td>
-                                <td class="text-center"><input asp-for="PromptKioskCommodityOnInbound" class="form-check-input" /></td>
-                                <td class="text-center"><input asp-for="PromptKioskCommodityOnOutbound" class="form-check-input" /></td>
-                                <td class="text-center"><input asp-for="AllowSkipCommodity" class="form-check-input" /></td>
-                            </tr>
-                            <tr>
-                                <td class="fw-bold">Customer</td>
-                                <td class="text-center"><input asp-for="PromptKioskCustomerOnInbound" class="form-check-input" /></td>
-                                <td class="text-center"><input asp-for="PromptKioskCustomerOnOutbound" class="form-check-input" /></td>
-                                <td class="text-center"><input asp-for="AllowSkipCustomer" class="form-check-input" /></td>
-                            </tr>
-                            <tr>
-                                <td class="fw-bold">Location</td>
-                                <td class="text-center"><input asp-for="PromptKioskLocationOnInbound" class="form-check-input" /></td>
-                                <td class="text-center"><input asp-for="PromptKioskLocationOnOutbound" class="form-check-input" /></td>
-                                <td class="text-center"><input asp-for="AllowSkipLocation" class="form-check-input" /></td>
-                            </tr>
-                            <tr>
-                                <td class="fw-bold">Destination</td>
-                                <td class="text-center"><input asp-for="PromptKioskDestinationOnInbound" class="form-check-input" /></td>
-                                <td class="text-center"><input asp-for="PromptKioskDestinationOnOutbound" class="form-check-input" /></td>
-                                <td class="text-center"><input asp-for="AllowSkipDestination" class="form-check-input" /></td>
-                            </tr>
-                        </tbody>
-                    </table>
+            <div class="row">
+                <div class="col-lg-7 col-xl-6">
+                    <div class="card">
+                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Kiosk Prompts</strong>
+                        </div>
+                        <div class="card-body py-2">
+                            @{
+                                string Direction(bool inb, bool outb) =>
+                                    inb ? "inbound" : (outb ? "outbound" : "neither");
+                            }
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr class="small text-muted">
+                                        <th>Prompt</th>
+                                        <th class="text-center" style="width:50%;">When prompted</th>
+                                        <th class="text-center">Allow Skip</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="fw-bold">
+                                            Carrier
+                                            <span id="PromptKioskCarrierLock" class="badge bg-info text-dark ms-1"
+                                                  style="display: @(Model.UseRetainedTare ? "inline" : "none");"
+                                                  title="Required while Retained Tare is enabled">required</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="kioskCarrierDir" id="carrierDirNone"
+                                                       value="neither" @(!Model.PromptKioskCarrier ? "checked" : "") />
+                                                <label class="form-check-label small" for="carrierDirNone">Neither</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="kioskCarrierDir" id="carrierDirInbound"
+                                                       value="inbound" @(Model.PromptKioskCarrier ? "checked" : "") />
+                                                <label class="form-check-label small" for="carrierDirInbound">Inbound</label>
+                                            </div>
+                                            <input type="hidden" asp-for="PromptKioskCarrier" id="PromptKioskCarrier" />
+                                        </td>
+                                        <td class="text-center">
+                                            <input asp-for="AllowSkipCarrier" class="form-check-input" id="AllowSkipCarrier" />
+                                        </td>
+                                    </tr>
+                                    <tr id="truckIdPromptSection" style="display: @(Model.PromptKioskCarrier ? "table-row" : "none");">
+                                        <td class="fw-bold">
+                                            Truck ID
+                                            <span id="PromptKioskTruckIdLock" class="badge bg-info text-dark ms-1"
+                                                  style="display: @(Model.UseRetainedTare ? "inline" : "none");"
+                                                  title="Required while Retained Tare is enabled">required</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="kioskTruckDir" id="truckDirNone"
+                                                       value="neither" @(!Model.PromptKioskTruckId ? "checked" : "") />
+                                                <label class="form-check-label small" for="truckDirNone">Neither</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="kioskTruckDir" id="truckDirInbound"
+                                                       value="inbound" @(Model.PromptKioskTruckId ? "checked" : "") />
+                                                <label class="form-check-label small" for="truckDirInbound">Inbound</label>
+                                            </div>
+                                            <input type="hidden" asp-for="PromptKioskTruckId" id="PromptKioskTruckId" />
+                                        </td>
+                                        <td class="text-center">
+                                            <input asp-for="AllowSkipTruckId" class="form-check-input" id="AllowSkipTruckId" />
+                                        </td>
+                                    </tr>
+                                    @{
+                                        var splitPrompts = new[]
+                                        {
+                                            ("Commodity", "kioskCommodityDir", "PromptKioskCommodityOnInbound", "PromptKioskCommodityOnOutbound", "AllowSkipCommodity",
+                                                Direction(Model.PromptKioskCommodityOnInbound, Model.PromptKioskCommodityOnOutbound),
+                                                Model.PromptKioskCommodityOnInbound, Model.PromptKioskCommodityOnOutbound, Model.AllowSkipCommodity),
+                                            ("Customer", "kioskCustomerDir", "PromptKioskCustomerOnInbound", "PromptKioskCustomerOnOutbound", "AllowSkipCustomer",
+                                                Direction(Model.PromptKioskCustomerOnInbound, Model.PromptKioskCustomerOnOutbound),
+                                                Model.PromptKioskCustomerOnInbound, Model.PromptKioskCustomerOnOutbound, Model.AllowSkipCustomer),
+                                            ("Location", "kioskLocationDir", "PromptKioskLocationOnInbound", "PromptKioskLocationOnOutbound", "AllowSkipLocation",
+                                                Direction(Model.PromptKioskLocationOnInbound, Model.PromptKioskLocationOnOutbound),
+                                                Model.PromptKioskLocationOnInbound, Model.PromptKioskLocationOnOutbound, Model.AllowSkipLocation),
+                                            ("Destination", "kioskDestDir", "PromptKioskDestinationOnInbound", "PromptKioskDestinationOnOutbound", "AllowSkipDestination",
+                                                Direction(Model.PromptKioskDestinationOnInbound, Model.PromptKioskDestinationOnOutbound),
+                                                Model.PromptKioskDestinationOnInbound, Model.PromptKioskDestinationOnOutbound, Model.AllowSkipDestination),
+                                        };
+                                    }
+                                    @foreach (var (label, group, inField, outField, skipField, currentDir, inVal, outVal, skipVal) in splitPrompts)
+                                    {
+                                        <tr>
+                                            <td class="fw-bold">@label</td>
+                                            <td class="text-center">
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="radio" name="@group" id="@(group)None"
+                                                           value="neither" @(currentDir == "neither" ? "checked" : "") />
+                                                    <label class="form-check-label small" for="@(group)None">Neither</label>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="radio" name="@group" id="@(group)Inbound"
+                                                           value="inbound" @(currentDir == "inbound" ? "checked" : "") />
+                                                    <label class="form-check-label small" for="@(group)Inbound">Inbound</label>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="radio" name="@group" id="@(group)Outbound"
+                                                           value="outbound" @(currentDir == "outbound" ? "checked" : "") />
+                                                    <label class="form-check-label small" for="@(group)Outbound">Outbound</label>
+                                                </div>
+                                                <input type="hidden" name="@inField" id="@inField" value="@inVal.ToString().ToLower()" />
+                                                <input type="hidden" name="@outField" id="@outField" value="@outVal.ToString().ToLower()" />
+                                            </td>
+                                            <td class="text-center">
+                                                <input type="checkbox" name="@skipField" class="form-check-input" value="true" @(skipVal ? "checked" : "") />
+                                                <input type="hidden" name="@skipField" value="false" />
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -535,6 +583,22 @@
     </div>
 </form>
 
+<!-- Setup-wide notice modal (replaces native alert() calls) -->
+<div class="modal fade" id="setupAlertModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title">Notice</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body small" id="setupAlertBody"></div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Hidden forms for reset/database operations (outside main form) -->
 <form asp-action="ResetTicket" method="post" id="resetTicketForm" style="display:none;">
     @Html.AntiForgeryToken()
@@ -588,6 +652,30 @@
 @section Scripts {
 <script src="~/js/signalr/signalr.min.js"></script>
 <script>
+    // --- Bootstrap notice helper (replaces window.alert for in-form messages) ---
+    function showSetupAlert(message) {
+        document.getElementById('setupAlertBody').textContent = message;
+        var modalEl = document.getElementById('setupAlertModal');
+        var modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        modal.show();
+    }
+
+    // --- Tab persistence: remember which tab is active and re-activate after save ---
+    (function () {
+        var initial = document.getElementById('activeTabField').value || 'tabCompany';
+        var btn = document.querySelector('[data-bs-target="#' + initial + '"]');
+        if (btn && !btn.classList.contains('active')) {
+            new bootstrap.Tab(btn).show();
+        }
+        // When the user clicks a tab, record it so the form post carries it.
+        document.querySelectorAll('[data-bs-toggle="tab"]').forEach(function (b) {
+            b.addEventListener('shown.bs.tab', function (e) {
+                var target = (e.target.getAttribute('data-bs-target') || '').replace('#', '');
+                if (target) document.getElementById('activeTabField').value = target;
+            });
+        });
+    })();
+
     // --- Unsaved changes tracking ---
     var formDirty = false;
     var setupForm = document.getElementById('setupForm');
@@ -687,56 +775,60 @@
         el.style.display = this.value === 'true' ? 'flex' : 'none';
     });
 
-    document.getElementById('UseRetainedTare').addEventListener('change', function () {
-        var on = this.value === 'true';
-        document.getElementById('retainedTareManageSection').style.display = on ? 'flex' : 'none';
-
-        // Retained Tare needs Carrier + Truck ID prompts ON and Allow Skip OFF.
-        // Force them server-side too (SetupController) — this just keeps the UI
-        // in sync immediately for visual feedback.
-        var carrierCb        = document.getElementById('PromptKioskCarrier');
-        var truckCb          = document.getElementById('PromptKioskTruckId');
-        var allowSkipCarrier = document.getElementById('AllowSkipCarrier');
-        var allowSkipTruck   = document.getElementById('AllowSkipTruckId');
+    function applyRetainedTareLocks(on) {
+        // Visual lock + force values for Carrier/Truck while Retained Tare is on:
+        //   - Direction radios pinned to Inbound
+        //   - AllowSkip checkboxes unchecked AND disabled (greyed out)
+        //   - "required" badges + tab notice visible
         if (on) {
-            if (carrierCb && !carrierCb.checked) { carrierCb.checked = true; carrierCb.dispatchEvent(new Event('change')); }
-            if (truckCb && !truckCb.checked) { truckCb.checked = true; }
-            if (allowSkipCarrier && allowSkipCarrier.checked) allowSkipCarrier.checked = false;
-            if (allowSkipTruck && allowSkipTruck.checked) allowSkipTruck.checked = false;
+            var carrierInbound = document.getElementById('carrierDirInbound');
+            var truckInbound   = document.getElementById('truckDirInbound');
+            if (carrierInbound && !carrierInbound.checked) { carrierInbound.checked = true; carrierInbound.dispatchEvent(new Event('change')); }
+            if (truckInbound && !truckInbound.checked)     { truckInbound.checked = true;   truckInbound.dispatchEvent(new Event('change')); }
         }
-        var locks = ['PromptKioskCarrierLock', 'PromptKioskTruckIdLock'];
-        locks.forEach(function (id) {
+        ['AllowSkipCarrier', 'AllowSkipTruckId'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            if (on) { el.checked = false; el.disabled = true; }
+            else    { el.disabled = false; }
+        });
+        // Disable the "Neither" radio so it can't even be clicked while RT is on.
+        ['carrierDirNone', 'truckDirNone'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.disabled = on;
+        });
+        ['PromptKioskCarrierLock', 'PromptKioskTruckIdLock'].forEach(function (id) {
             var el = document.getElementById(id);
             if (el) el.style.display = on ? 'inline' : 'none';
         });
         var notice = document.getElementById('retainedTareRequiresPrompts');
         if (notice) notice.style.display = on ? 'block' : 'none';
-    });
+    }
 
-    // Block unchecking carrier/truck prompts and re-enabling their Allow Skip
-    // while retained tare is on.
+    document.getElementById('UseRetainedTare').addEventListener('change', function () {
+        var on = this.value === 'true';
+        document.getElementById('retainedTareManageSection').style.display = on ? 'flex' : 'none';
+        applyRetainedTareLocks(on);
+    });
+    // Apply on initial load too — covers the case where the page renders with
+    // Retained Tare already enabled.
+    applyRetainedTareLocks(document.getElementById('UseRetainedTare').value === 'true');
+
     function isRetainedTareOn() {
         var sel = document.getElementById('UseRetainedTare');
         return sel && sel.value === 'true';
     }
-    ['PromptKioskCarrier', 'PromptKioskTruckId'].forEach(function (id) {
-        var el = document.getElementById(id);
-        if (!el) return;
-        el.addEventListener('change', function () {
-            if (!this.checked && isRetainedTareOn()) {
-                this.checked = true;
-                alert('Carrier and Truck ID prompts are required while Retained Tare is enabled. Turn off Retained Tare first to disable them.');
-            }
-        });
-    });
-    ['AllowSkipCarrier', 'AllowSkipTruckId'].forEach(function (id) {
-        var el = document.getElementById(id);
-        if (!el) return;
-        el.addEventListener('change', function () {
-            if (this.checked && isRetainedTareOn()) {
-                this.checked = false;
-                alert('Carrier and Truck ID can\'t be skippable while Retained Tare is enabled — the truck must be identified to recall its tare.');
-            }
+    // Defense in depth: if a stale cached page somehow lets a user pick Neither
+    // on Carrier/Truck, snap back and surface a Bootstrap notice.
+    [['kioskCarrierDir', 'carrierDirInbound'], ['kioskTruckDir', 'truckDirInbound']].forEach(function (pair) {
+        document.querySelectorAll('input[name="' + pair[0] + '"]').forEach(function (r) {
+            r.addEventListener('change', function () {
+                if (this.value === 'neither' && isRetainedTareOn()) {
+                    var inboundRadio = document.getElementById(pair[1]);
+                    if (inboundRadio) { inboundRadio.checked = true; inboundRadio.dispatchEvent(new Event('change')); }
+                    showSetupAlert('Carrier and Truck ID prompts are required while Retained Tare is enabled. Turn off Retained Tare first to disable them.');
+                }
+            });
         });
     });
 
@@ -846,10 +938,38 @@
         document.getElementById('kioskDarkModeSection').style.display = hasKiosk ? 'block' : 'none';
     });
 
-    document.getElementById('PromptKioskCarrier').addEventListener('change', function () {
-        // Truck ID row uses table-row display, not block.
-        document.getElementById('truckIdPromptSection').style.display = this.checked ? 'table-row' : 'none';
-    });
+    // ===== Kiosk Prompt radios =====
+    // Carrier and Truck ID radios are 2-state (Neither / Inbound) — they only
+    // gate a single underlying bool, so map directly to the hidden input.
+    function bindBoolDirectionRadio(groupName, hiddenId) {
+        document.querySelectorAll('input[name="' + groupName + '"]').forEach(function (radio) {
+            radio.addEventListener('change', function () {
+                document.getElementById(hiddenId).value = (this.value === 'inbound').toString().toLowerCase();
+                if (groupName === 'kioskCarrierDir') {
+                    // Truck ID row visibility tracks the carrier prompt.
+                    document.getElementById('truckIdPromptSection').style.display =
+                        this.value === 'inbound' ? 'table-row' : 'none';
+                }
+            });
+        });
+    }
+    bindBoolDirectionRadio('kioskCarrierDir', 'PromptKioskCarrier');
+    bindBoolDirectionRadio('kioskTruckDir',   'PromptKioskTruckId');
+
+    // Splittable prompts (Commodity, Customer, Location, Destination) write
+    // separate OnInbound / OnOutbound hidden bools.
+    function bindSplitDirectionRadio(groupName, inHiddenId, outHiddenId) {
+        document.querySelectorAll('input[name="' + groupName + '"]').forEach(function (radio) {
+            radio.addEventListener('change', function () {
+                document.getElementById(inHiddenId).value  = (this.value === 'inbound').toString().toLowerCase();
+                document.getElementById(outHiddenId).value = (this.value === 'outbound').toString().toLowerCase();
+            });
+        });
+    }
+    bindSplitDirectionRadio('kioskCommodityDir', 'PromptKioskCommodityOnInbound',  'PromptKioskCommodityOnOutbound');
+    bindSplitDirectionRadio('kioskCustomerDir',  'PromptKioskCustomerOnInbound',   'PromptKioskCustomerOnOutbound');
+    bindSplitDirectionRadio('kioskLocationDir',  'PromptKioskLocationOnInbound',   'PromptKioskLocationOnOutbound');
+    bindSplitDirectionRadio('kioskDestDir',      'PromptKioskDestinationOnInbound', 'PromptKioskDestinationOnOutbound');
 
     // --- Confirm modal ---
     var _confirmFormId = null;
