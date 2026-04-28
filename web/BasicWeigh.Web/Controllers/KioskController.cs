@@ -127,11 +127,22 @@ public class KioskController : Controller
         }
         var ticketNumber = setup.TicketNumber.ToString();
 
+        // Look up retained tare for this truck. Match the (TruckId, Carrier) pair
+        // that already uniquely identifies a truck (ScaleDbContext unique index).
+        Truck? truck = null;
+        if (!string.IsNullOrEmpty(request.TruckId) && !string.IsNullOrEmpty(request.Carrier))
+        {
+            truck = _db.Trucks.FirstOrDefault(t =>
+                t.TruckId == request.TruckId && t.CarrierName == request.Carrier);
+        }
+        bool tareApplied = truck?.RetainedTare.HasValue == true;
+        var now = DateTime.Now;
+
         var transaction = new Transaction
         {
             Ticket = ticketNumber,
             InWeight = request.Weight,
-            DateIn = DateTime.Now,
+            DateIn = now,
             Commodity = request.Commodity,
             Customer = request.Customer,
             Carrier = request.Carrier,
@@ -142,19 +153,44 @@ public class KioskController : Controller
             ManualInbound = false
         };
 
+        if (tareApplied)
+        {
+            transaction.OutWeight = truck!.RetainedTare;
+            transaction.DateOut = now;
+            transaction.ManualOutbound = false;
+        }
+
         setup.TicketNumber++;
         _db.AppSetup.Update(setup);
         _db.Transactions.Add(transaction);
         _db.SaveChanges();
         _setupCache.Invalidate();
 
-        // Notify all clients that a ticket was created
-        await _hub.Clients.All.SendAsync("TicketCreated", new { ticket = ticketNumber, type = "weighin" });
+        // Notify all clients
+        if (tareApplied)
+        {
+            await _hub.Clients.All.SendAsync("TicketCompleted",
+                new { ticket = ticketNumber, type = "weighout" });
+        }
+        else
+        {
+            await _hub.Clients.All.SendAsync("TicketCreated",
+                new { ticket = ticketNumber, type = "weighin" });
+        }
 
-        // Print the ticket
-        await SendPrintCommand(ticketNumber.ToString(), "weighin", request.PrinterId);
+        // Print: a tare-completed ticket is effectively a weigh-out, route to the outbound printer.
+        await SendPrintCommand(ticketNumber, tareApplied ? "weighout" : "weighin", request.PrinterId);
 
-        return Json(new { ticket = ticketNumber });
+        return Json(new
+        {
+            ticket = ticketNumber,
+            inWeight = transaction.InWeight,
+            outWeight = transaction.OutWeight,
+            dateOut = transaction.DateOut,
+            tareApplied,
+            retainedTare = truck?.RetainedTare,
+            retainedTareUpdated = truck?.RetainedTareUpdated
+        });
     }
 
     [HttpPost("api/kiosk/weighout")]
@@ -173,6 +209,10 @@ public class KioskController : Controller
         if (!string.IsNullOrEmpty(request.Destination))
             transaction.Destination = request.Destination;
 
+        // Persist retained tare on the matching truck. Tare = lower of the two weights,
+        // matching how Transaction.TareWeight is computed.
+        UpdateRetainedTare(transaction);
+
         _db.SaveChanges();
 
         // Notify all clients that a ticket was completed
@@ -182,6 +222,19 @@ public class KioskController : Controller
         await SendPrintCommand(transaction.Ticket.ToString(), "weighout", request.PrinterId);
 
         return Json(new { ticket = transaction.Ticket });
+    }
+
+    private void UpdateRetainedTare(Transaction tx)
+    {
+        if (string.IsNullOrEmpty(tx.TruckId) || string.IsNullOrEmpty(tx.Carrier)) return;
+        if (tx.OutWeight == null) return;
+
+        var truck = _db.Trucks.FirstOrDefault(t =>
+            t.TruckId == tx.TruckId && t.CarrierName == tx.Carrier);
+        if (truck == null) return;
+
+        truck.RetainedTare = Math.Min(tx.InWeight, tx.OutWeight.Value);
+        truck.RetainedTareUpdated = tx.DateOut ?? DateTime.Now;
     }
 
     [HttpPost("api/kiosk/reprint/{ticketId}")]

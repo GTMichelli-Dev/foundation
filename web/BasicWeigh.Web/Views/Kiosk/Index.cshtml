@@ -1189,7 +1189,17 @@
                 printerId: kioskHasPrinter ? (kioskServiceId + ':' + kioskPrinterId) : null
             }),
             success: function (result) {
-                showComplete('Weigh In', result.ticket, weight, null);
+                // If the truck has a retained tare, the server completes the ticket
+                // in one shot and returns both weights. Skip straight to the
+                // completion screen with the recalled-tare badge visible.
+                if (result.tareApplied && result.outWeight !== null && typeof result.outWeight !== 'undefined') {
+                    showComplete('Weigh In', result.ticket, weight, result.outWeight, {
+                        retainedTare: result.retainedTare,
+                        retainedTareUpdated: result.retainedTareUpdated
+                    });
+                } else {
+                    showComplete('Weigh In', result.ticket, weight, null);
+                }
             },
             error: function (xhr) {
                 var msg = 'Server error (' + xhr.status + '). Please try again.';
@@ -1224,7 +1234,7 @@
         });
     }
 
-    function showComplete(type, ticketNum, inWeight, outWeight) {
+    function showComplete(type, ticketNum, inWeight, outWeight, tareInfo) {
         activeFlow = null;
         clearOperationTracking();
         completedWeight = scaleData.weight;
@@ -1236,13 +1246,14 @@
             var tare = Math.min(inWeight, outWeight);
             var net = Math.abs(inWeight - outWeight);
             info += ' — Net: ' + net.toLocaleString() + ' lb';
+            if (tareInfo) info += ' — Tare recalled';
         } else {
             info += ' — ' + inWeight.toLocaleString() + ' lb';
         }
         $('#complete-info').text(info);
 
         // Show ticket info on complete screen
-        showDemoTicket(type, ticketNum, inWeight, outWeight);
+        showDemoTicket(type, ticketNum, inWeight, outWeight, tareInfo);
 
         // Show the complete screen FIRST, then trigger print async
         completedType = type; // 'Weigh In' or 'Weigh Out'
@@ -1292,12 +1303,23 @@
     $('#btn-reprint').on('click', function () { reprintTicket(); });
     $('#btn-complete-done').on('click', function () { exitCompleteState(); });
 
-    function showDemoTicket(type, ticketNum, inWeight, outWeight) {
+    function showDemoTicket(type, ticketNum, inWeight, outWeight, tareInfo) {
         var html = '<div class="demo-ticket">';
         html += '<div class="dt-header">';
         if (kioskSettings.header1) html += '<div>' + escHtml(kioskSettings.header1) + '</div>';
         if (kioskSettings.header2) html += '<div>' + escHtml(kioskSettings.header2) + '</div>';
         html += '</div>';
+        if (tareInfo && tareInfo.retainedTare !== null && typeof tareInfo.retainedTare !== 'undefined') {
+            var when = '';
+            if (tareInfo.retainedTareUpdated) {
+                try { when = ' (last seen ' + new Date(tareInfo.retainedTareUpdated).toLocaleDateString() + ')'; }
+                catch (e) { /* ignore */ }
+            }
+            html += '<div class="dt-row" style="background:#fff3cd;border:1px solid #ffeeba;border-radius:6px;padding:6px 10px;margin:4px 0;font-weight:bold;">'
+                  + '<span class="dt-label">TARE RECALLED:</span>'
+                  + '<span>' + tareInfo.retainedTare.toLocaleString() + ' lb' + escHtml(when) + '</span>'
+                  + '</div>';
+        }
         html += '<div class="dt-row"><span class="dt-label">Ticket #:</span><span>' + escHtml(ticketNum) + '</span></div>';
         html += '<div class="dt-row"><span class="dt-label">Type:</span><span>' + type + '</span></div>';
 
