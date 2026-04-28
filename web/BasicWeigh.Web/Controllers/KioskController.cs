@@ -14,13 +14,15 @@ public class KioskController : Controller
     private readonly IScaleService _scaleService;
     private readonly IHubContext<ScaleHub> _hub;
     private readonly AppSetupCache _setupCache;
+    private readonly ILogger<KioskController> _log;
 
-    public KioskController(ScaleDbContext db, IScaleService scaleService, IHubContext<ScaleHub> hub, AppSetupCache setupCache)
+    public KioskController(ScaleDbContext db, IScaleService scaleService, IHubContext<ScaleHub> hub, AppSetupCache setupCache, ILogger<KioskController> log)
     {
         _db = db;
         _scaleService = scaleService;
         _hub = hub;
         _setupCache = setupCache;
+        _log = log;
     }
 
     public IActionResult Index([FromQuery(Name = "service-id")] string? serviceId = null,
@@ -214,7 +216,11 @@ public class KioskController : Controller
 
         // Persist retained tare on the matching truck (feature-gated). Tare = lower of
         // the two weights, matching how Transaction.TareWeight is computed.
-        if (_setupCache.Get().UseRetainedTare)
+        var useRetainedTare = _setupCache.Get().UseRetainedTare;
+        _log.LogInformation(
+            "WeighOut ticket {Ticket}: UseRetainedTare={UseRetainedTare} TruckId='{TruckId}' Carrier='{Carrier}'",
+            transaction.Ticket, useRetainedTare, transaction.TruckId, transaction.Carrier);
+        if (useRetainedTare)
         {
             UpdateRetainedTare(transaction);
         }
@@ -232,15 +238,60 @@ public class KioskController : Controller
 
     private void UpdateRetainedTare(Transaction tx)
     {
-        if (string.IsNullOrEmpty(tx.TruckId) || string.IsNullOrEmpty(tx.Carrier)) return;
-        if (tx.OutWeight == null) return;
+        if (tx.OutWeight == null)
+        {
+            _log.LogWarning("RetainedTare skipped for ticket {Ticket}: OutWeight is null", tx.Ticket);
+            return;
+        }
+        var truckId = tx.TruckId?.Trim();
+        var carrier = tx.Carrier?.Trim();
+        if (string.IsNullOrEmpty(truckId) || string.IsNullOrEmpty(carrier))
+        {
+            _log.LogWarning(
+                "RetainedTare skipped for ticket {Ticket}: TruckId='{TruckId}' Carrier='{Carrier}' — both required",
+                tx.Ticket, tx.TruckId, tx.Carrier);
+            return;
+        }
 
+        var tare = Math.Min(tx.InWeight, tx.OutWeight.Value);
+        var when = tx.DateOut ?? DateTime.Now;
+
+        // Match the kiosk's existing (TruckId, CarrierName) unique key. Use a
+        // case-insensitive comparison so subtle casing/spacing drift between the
+        // master row and the value typed at the kiosk doesn't silently skip the
+        // update.
         var truck = _db.Trucks.FirstOrDefault(t =>
-            t.TruckId == tx.TruckId && t.CarrierName == tx.Carrier);
-        if (truck == null) return;
+            t.TruckId.ToLower() == truckId.ToLower() &&
+            t.CarrierName.ToLower() == carrier.ToLower());
 
-        truck.RetainedTare = Math.Min(tx.InWeight, tx.OutWeight.Value);
-        truck.RetainedTareUpdated = tx.DateOut ?? DateTime.Now;
+        if (truck == null)
+        {
+            // Master data doesn't have this truck yet (e.g. it was deleted, or the
+            // kiosk wrote a value not in the dropdown). Create it so the retained-
+            // tare feature works without forcing the operator to set up master data
+            // first. The admin page will show it and the operator can edit/clear.
+            truck = new Truck
+            {
+                TruckId = truckId,
+                CarrierName = carrier,
+                UseAtKiosk = true,
+                Description = "Auto-created from kiosk weigh-out",
+                RetainedTare = tare,
+                RetainedTareUpdated = when
+            };
+            _db.Trucks.Add(truck);
+            _log.LogInformation(
+                "RetainedTare: auto-created Truck '{TruckId}' / '{Carrier}' with tare {Tare} lb (ticket {Ticket})",
+                truckId, carrier, tare, tx.Ticket);
+        }
+        else
+        {
+            truck.RetainedTare = tare;
+            truck.RetainedTareUpdated = when;
+            _log.LogInformation(
+                "RetainedTare: updated Truck '{TruckId}' / '{Carrier}' to {Tare} lb (ticket {Ticket})",
+                truck.TruckId, truck.CarrierName, tare, tx.Ticket);
+        }
     }
 
     [HttpPost("api/kiosk/reprint/{ticketId}")]
