@@ -694,7 +694,7 @@
             <div class="complete-info" id="complete-info"></div>
             <div id="demo-ticket-area"></div>
             <div class="complete-buttons">
-                <button class="kiosk-btn btn-blue" id="btn-reprint">Reprint</button>
+                <button class="kiosk-btn btn-blue" id="btn-reprint">@(Model.HideKioskOnScreenButtons ? "Press Enter for Reprint" : "Reprint")</button>
                 <button class="kiosk-btn btn-red" id="btn-complete-done">Done</button>
             </div>
         </div>
@@ -1547,6 +1547,10 @@
                 } else if (currentState === 'ready') {
                     // Matches the green "PRESS ENTER TO WEIGH IN" button.
                     startWeighIn();
+                } else if (currentState === 'complete') {
+                    // Matches the blue "Press Enter for Reprint" button when
+                    // on-screen buttons are hidden — keyboard-only operation.
+                    reprintTicket();
                 }
                 break;
 
