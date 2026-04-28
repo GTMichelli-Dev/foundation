@@ -15,15 +15,18 @@ public class TransactionController : Controller
     private readonly PrintQueueService _printQueue;
     private readonly IHubContext<ScaleHub> _hub;
     private readonly AppSetupCache _setupCache;
+    private readonly ILogger<TransactionController> _log;
 
     public TransactionController(ScaleDbContext db, IScaleService scaleService,
-        PrintQueueService printQueue, IHubContext<ScaleHub> hub, AppSetupCache setupCache)
+        PrintQueueService printQueue, IHubContext<ScaleHub> hub, AppSetupCache setupCache,
+        ILogger<TransactionController> log)
     {
         _db = db;
         _scaleService = scaleService;
         _printQueue = printQueue;
         _hub = hub;
         _setupCache = setupCache;
+        _log = log;
     }
 
     private void PopulateDropdowns()
@@ -199,10 +202,16 @@ public class TransactionController : Controller
         existing.Destination = transaction.Destination;
         existing.Notes = transaction.Notes;
 
-        _db.SaveChanges();
-
-        // Remote printing
         var setup = _setupCache.Get();
+        var weighOutMsg = $"WeighOut (admin) ticket {existing.Ticket}: UseRetainedTare={setup.UseRetainedTare} TruckId='{existing.TruckId}' Carrier='{existing.Carrier}'";
+        _log.LogInformation(weighOutMsg);
+        Console.WriteLine($"[RetainedTare] {weighOutMsg}");
+        if (setup.UseRetainedTare)
+        {
+            UpdateRetainedTare(existing);
+        }
+
+        _db.SaveChanges();
 
         // Camera capture on outbound (only if not manual weight)
         if (setup.SavePicture && !manualOutWeight && !string.IsNullOrEmpty(setup.OutboundCameraId))
@@ -371,6 +380,63 @@ public class TransactionController : Controller
 
     private static bool HasImage(string ticket, string direction)
         => System.IO.File.Exists(Path.Combine(TicketsImageDir, $"{ticket}_{direction}.jpg"));
+
+    /// <summary>
+    /// Persist the truck's empty weight so future weigh-ins for the same truck can
+    /// auto-recall it. Mirrors KioskController.UpdateRetainedTare — same matching
+    /// rules and auto-create-on-miss behavior.
+    /// </summary>
+    private void UpdateRetainedTare(Transaction tx)
+    {
+        if (tx.OutWeight == null)
+        {
+            var msg = $"skipped for ticket {tx.Ticket}: OutWeight is null";
+            _log.LogWarning(msg);
+            Console.WriteLine($"[RetainedTare] {msg}");
+            return;
+        }
+        var truckId = tx.TruckId?.Trim();
+        var carrier = tx.Carrier?.Trim();
+        if (string.IsNullOrEmpty(truckId) || string.IsNullOrEmpty(carrier))
+        {
+            var msg = $"skipped for ticket {tx.Ticket}: TruckId='{tx.TruckId}' Carrier='{tx.Carrier}' — both required";
+            _log.LogWarning(msg);
+            Console.WriteLine($"[RetainedTare] {msg}");
+            return;
+        }
+
+        var tare = Math.Min(tx.InWeight, tx.OutWeight.Value);
+        var when = tx.DateOut ?? DateTime.Now;
+
+        var truck = _db.Trucks.FirstOrDefault(t =>
+            t.TruckId.ToLower() == truckId.ToLower() &&
+            t.CarrierName.ToLower() == carrier.ToLower());
+
+        if (truck == null)
+        {
+            truck = new Truck
+            {
+                TruckId = truckId,
+                CarrierName = carrier,
+                UseAtKiosk = true,
+                Description = "Auto-created from weigh-out",
+                RetainedTare = tare,
+                RetainedTareUpdated = when
+            };
+            _db.Trucks.Add(truck);
+            var msg = $"auto-created Truck '{truckId}' / '{carrier}' with tare {tare} lb (ticket {tx.Ticket})";
+            _log.LogInformation(msg);
+            Console.WriteLine($"[RetainedTare] {msg}");
+        }
+        else
+        {
+            truck.RetainedTare = tare;
+            truck.RetainedTareUpdated = when;
+            var msg = $"updated Truck '{truck.TruckId}' / '{truck.CarrierName}' to {tare} lb (ticket {tx.Ticket})";
+            _log.LogInformation(msg);
+            Console.WriteLine($"[RetainedTare] {msg}");
+        }
+    }
 
     // API: GET api/transactions/inbound
     [HttpGet("api/transactions/inbound")]
