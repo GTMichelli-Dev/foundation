@@ -159,11 +159,40 @@ public class TransactionController : Controller
             _db.SaveChanges();
             _setupCache.Invalidate();
 
-            // Send the operator straight to the completed-trucks list (or the
-            // ticket viewer for browser-print) when the recalled-tare path closed
-            // the ticket in one shot.
+            // A tare-completed ticket is effectively a weigh-out — route the
+            // camera capture and the print to the outbound side and use type
+            // "weighout" so the print agent picks the right ticket layout.
+            // The regular open-ticket flow uses the inbound side below.
             if (completed)
             {
+                if (setup.SavePicture && !manualWeight && !string.IsNullOrEmpty(setup.OutboundCameraId))
+                {
+                    var parts = setup.OutboundCameraId.Split(':', 2);
+                    var serviceId = parts.Length > 1 ? parts[0] : "default";
+                    var cameraId = parts.Length > 1 ? parts[1] : parts[0];
+                    await _hub.Clients.Group($"Camera_{serviceId}").SendAsync("CaptureImage",
+                        new { ticket = transaction.Ticket, direction = "out", cameraId });
+                }
+
+                var outboundPrinter = setup.OutboundPrinterId;
+                if (!string.IsNullOrEmpty(outboundPrinter))
+                {
+                    if (outboundPrinter.Equals("Browser:Browser", StringComparison.OrdinalIgnoreCase))
+                    {
+                        TempData["AutoPrintTicket"] = transaction.Ticket;
+                        TempData["AutoPrintType"] = "weighout";
+                    }
+                    else
+                    {
+                        var parts2 = outboundPrinter.Split(':', 2);
+                        var svcId = parts2.Length > 1 ? parts2[0] : "";
+                        var pName = parts2.Length > 1 ? parts2[1] : parts2[0];
+                        var group = !string.IsNullOrEmpty(svcId) ? $"Print_{svcId}" : "PrintClients";
+                        await _hub.Clients.Group(group).SendAsync("PrintTicket",
+                            new { ticketId = transaction.Ticket, type = "weighout", printerId = pName });
+                    }
+                }
+
                 return RedirectToAction("CompletedTrucks");
             }
 
