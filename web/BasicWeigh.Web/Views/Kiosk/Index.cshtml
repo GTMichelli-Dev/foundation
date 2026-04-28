@@ -710,7 +710,7 @@
 
         <!-- COMPLETE -->
         <div id="state-complete" class="kiosk-state">
-            <div class="big-message">Complete</div>
+            <div class="big-message" id="complete-header">Complete</div>
             <div class="complete-info" id="complete-info"></div>
             <div id="demo-ticket-area"></div>
             <div class="complete-buttons">
@@ -1363,6 +1363,13 @@
         clearOperationTracking();
         completedWeight = scaleData.weight;
         completedTicket = ticketNum;
+
+        // Header reflects what just happened. A weigh-in alone leaves the
+        // ticket open ("WEIGH IN COMPLETE" — the truck still has to come back),
+        // both weights set means the ticket is closed ("WEIGH OUT COMPLETE",
+        // including the retained-tare auto-completion path).
+        var headerText = (outWeight !== null) ? 'WEIGH OUT COMPLETE' : 'WEIGH IN COMPLETE';
+        $('#complete-header').text(headerText);
 
         var info = 'Ticket #' + ticketNum;
         if (outWeight !== null) {
