@@ -345,6 +345,16 @@ public class ScaleHub : Hub
         await Clients.Group("ScaleClients").SendAsync("GetScaleList");
     }
 
+    public async Task RequestScaleBrands()
+    {
+        await Clients.Group("ScaleClients").SendAsync("GetScaleBrands");
+    }
+
+    public async Task ScaleBrandsResponse(object brands)
+    {
+        await Clients.All.SendAsync("ScaleBrandsReceived", brands);
+    }
+
     // ===== SCALE CRUD RELAY (Web UI -> Scale Service) =====
 
     public async Task AddScaleToService(string serviceId, object scaleConfig)

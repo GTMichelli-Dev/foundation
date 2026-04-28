@@ -64,26 +64,71 @@
                     <input type="text" class="form-control form-control-sm" id="scaleDisplayName" placeholder="e.g. Truck Scale 1" />
                 </div>
                 <div class="row g-2 mb-2">
-                    <div class="col-8">
-                        <label class="form-label mb-0 small">Brand / Protocol</label>
+                    <div class="col-12">
+                        <label class="form-label mb-0 small">Brand / Model</label>
                         <select class="form-select form-select-sm" id="scaleBrand">
                             <option value="Generic SMA">Generic SMA</option>
                         </select>
                     </div>
                 </div>
-                <div class="row g-2 mb-2">
-                    <div class="col-8">
-                        <label class="form-label mb-0 small">IP Address</label>
-                        <input type="text" class="form-control form-control-sm" id="scaleIp" placeholder="Enter IP address" />
-                    </div>
-                    <div class="col-4">
-                        <label class="form-label mb-0 small">Port</label>
-                        <input type="number" class="form-control form-control-sm" id="scalePort" value="10001" min="1" max="65535" />
+
+                <!-- TCP fields -->
+                <div id="scaleTcpFields">
+                    <div class="row g-2 mb-2">
+                        <div class="col-8">
+                            <label class="form-label mb-0 small">IP Address</label>
+                            <input type="text" class="form-control form-control-sm" id="scaleIp" placeholder="Enter IP address" />
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label mb-0 small">Port</label>
+                            <input type="number" class="form-control form-control-sm" id="scalePort" value="10001" min="1" max="65535" />
+                        </div>
                     </div>
                 </div>
+
+                <!-- Serial fields -->
+                <div id="scaleSerialFields" style="display:none;">
+                    <div class="row g-2 mb-2">
+                        <div class="col-12">
+                            <label class="form-label mb-0 small">Serial Port</label>
+                            <input type="text" class="form-control form-control-sm" id="scaleSerialPortName" placeholder="COM1 (Windows) or /dev/ttyUSB0 (Linux)" />
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-3">
+                            <label class="form-label mb-0 small">Baud</label>
+                            <input type="number" class="form-control form-control-sm" id="scaleBaudRate" value="9600" min="300" max="921600" />
+                        </div>
+                        <div class="col-3">
+                            <label class="form-label mb-0 small">Data Bits</label>
+                            <select class="form-select form-select-sm" id="scaleDataBits">
+                                <option value="7">7</option>
+                                <option value="8" selected>8</option>
+                            </select>
+                        </div>
+                        <div class="col-3">
+                            <label class="form-label mb-0 small">Parity</label>
+                            <select class="form-select form-select-sm" id="scaleParity">
+                                <option value="None" selected>None</option>
+                                <option value="Even">Even</option>
+                                <option value="Odd">Odd</option>
+                                <option value="Mark">Mark</option>
+                                <option value="Space">Space</option>
+                            </select>
+                        </div>
+                        <div class="col-3">
+                            <label class="form-label mb-0 small">Stop Bits</label>
+                            <select class="form-select form-select-sm" id="scaleStopBits">
+                                <option value="1" selected>1</option>
+                                <option value="2">2</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="mb-2">
                     <label class="form-label mb-0 small">Request Command (optional override)</label>
-                    <input type="text" class="form-control form-control-sm" id="scaleRequestCommand" placeholder="W\r\n (leave blank for brand default)" />
+                    <input type="text" class="form-control form-control-sm" id="scaleRequestCommand" placeholder="W\r\n (leave blank for brand default; ignored for streaming protocols)" />
                 </div>
                 <div class="row g-2 mb-2">
                     <div class="col-4">
@@ -217,8 +262,14 @@
         }
     });
 
+    connection.on('ScaleBrandsReceived', function (brands) {
+        scaleBrands = brands || [];
+        populateScaleBrandDropdown();
+    });
+
     connection.start().then(function () {
         connection.invoke('RequestScaleList').catch(function () {});
+        connection.invoke('RequestScaleBrands').catch(function () {});
     });
 
     // ===== STATUS BAR =====
@@ -320,8 +371,78 @@
         });
     }
 
+    // ===== BRAND DROPDOWN =====
+    function brandKey(b) { return b.model ? (b.brand + ' — ' + b.model) : b.brand; }
+    function brandLabel(b) {
+        var label = brandKey(b);
+        if (b.type) label += ' (' + b.type + ')';
+        return label;
+    }
+
+    function populateScaleBrandDropdown() {
+        var sel = document.getElementById('scaleBrand');
+        var currentVal = sel.value;
+        sel.innerHTML = '';
+        scaleBrands.forEach(function (b) {
+            var opt = document.createElement('option');
+            opt.value = brandKey(b);
+            opt.textContent = brandLabel(b);
+            sel.appendChild(opt);
+        });
+        if (currentVal && Array.from(sel.options).some(function (o) { return o.value === currentVal; })) {
+            sel.value = currentVal;
+        }
+        toggleScaleBrandFields(false);
+    }
+
+    function findBrandDef(key) {
+        return scaleBrands.find(function (b) { return brandKey(b) === key; });
+    }
+
+    function toggleScaleBrandFields(applyDefaults) {
+        var key = document.getElementById('scaleBrand').value;
+        var def = findBrandDef(key);
+        var type = def && def.type ? def.type : 'TCP';
+        var isSerial = type === 'Serial';
+
+        document.getElementById('scaleTcpFields').style.display = isSerial ? 'none' : '';
+        document.getElementById('scaleSerialFields').style.display = isSerial ? '' : 'none';
+
+        var notesEl = document.getElementById('brandNotes');
+        if (def && def.notes) {
+            notesEl.textContent = def.notes;
+            notesEl.style.display = '';
+        } else {
+            notesEl.style.display = 'none';
+        }
+
+        if (applyDefaults && def) {
+            if (isSerial) {
+                if (def.baudRate)  document.getElementById('scaleBaudRate').value  = def.baudRate;
+                if (def.dataBits)  document.getElementById('scaleDataBits').value  = def.dataBits;
+                if (def.parity)    document.getElementById('scaleParity').value    = def.parity;
+                if (def.stopBits)  document.getElementById('scaleStopBits').value  = def.stopBits;
+            } else {
+                if (def.defaultPort) document.getElementById('scalePort').value = def.defaultPort;
+            }
+            if (def.demandCommand) {
+                document.getElementById('scaleRequestCommand').placeholder =
+                    def.demandCommand + ' (leave blank for brand default)';
+            } else {
+                document.getElementById('scaleRequestCommand').placeholder =
+                    'W\\r\\n (leave blank for brand default; ignored for streaming protocols)';
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('scaleBrand').addEventListener('change', function () { toggleScaleBrandFields(true); });
+    });
+
     // ===== SCALE CRUD =====
     function addScale(serviceId) {
+        if (scaleBrands.length === 0) connection.invoke('RequestScaleBrands').catch(function () {});
+
         document.getElementById('scaleModalServiceId').value = serviceId;
         document.getElementById('scaleModalMode').value = 'add';
         document.getElementById('scaleModalOriginalId').value = '';
@@ -329,17 +450,25 @@
         document.getElementById('scaleScaleId').value = '';
         document.getElementById('scaleScaleId').readOnly = false;
         document.getElementById('scaleDisplayName').value = '';
-        document.getElementById('scaleBrand').value = 'Generic SMA';
+        document.getElementById('scaleBrand').value = scaleBrands.length > 0 ? brandKey(scaleBrands[0]) : 'Generic SMA';
         document.getElementById('scaleIp').value = '';
         document.getElementById('scalePort').value = '10001';
+        document.getElementById('scaleSerialPortName').value = '';
+        document.getElementById('scaleBaudRate').value = '9600';
+        document.getElementById('scaleDataBits').value = '8';
+        document.getElementById('scaleParity').value = 'None';
+        document.getElementById('scaleStopBits').value = '1';
         document.getElementById('scaleRequestCommand').value = '';
         document.getElementById('scalePollingInterval').value = '750';
         document.getElementById('scaleTimeout').value = '1000';
         document.getElementById('scaleActive').value = 'true';
+        toggleScaleBrandFields(true);
         new bootstrap.Modal('#scaleModal').show();
     }
 
     function editScale(serviceId, scaleId) {
+        if (scaleBrands.length === 0) connection.invoke('RequestScaleBrands').catch(function () {});
+
         var svc = connectedServices[serviceId];
         if (!svc) return;
         var scale = (svc.scales || []).find(function (s) { return s.scaleId === scaleId; });
@@ -355,22 +484,41 @@
         document.getElementById('scaleBrand').value = scale.scaleBrand || 'Generic SMA';
         document.getElementById('scaleIp').value = scale.ipAddress || '';
         document.getElementById('scalePort').value = scale.port || 10001;
+        document.getElementById('scaleSerialPortName').value = scale.serialPortName || '';
+        document.getElementById('scaleBaudRate').value = scale.baudRate || 9600;
+        document.getElementById('scaleDataBits').value = scale.dataBits || 8;
+        document.getElementById('scaleParity').value = scale.parity || 'None';
+        document.getElementById('scaleStopBits').value = scale.stopBits || 1;
         document.getElementById('scaleRequestCommand').value = scale.requestCommand || '';
         document.getElementById('scalePollingInterval').value = scale.pollingIntervalMs || 750;
         document.getElementById('scaleTimeout').value = scale.timeoutMs || 1000;
         document.getElementById('scaleActive').value = scale.active ? 'true' : 'false';
+        toggleScaleBrandFields(false); // honor existing values, just show/hide field groups
         new bootstrap.Modal('#scaleModal').show();
     }
 
     function saveScale() {
         var mode = document.getElementById('scaleModalMode').value;
         var serviceId = document.getElementById('scaleModalServiceId').value;
+
+        var brandKeyVal = document.getElementById('scaleBrand').value;
+        var def = findBrandDef(brandKeyVal);
+        var connectionType = (def && def.type === 'Serial') ? 'Serial' : 'TCP';
+        var protocol = def && def.protocol ? def.protocol : 'SMA';
+
         var data = {
             scaleId: document.getElementById('scaleScaleId').value.trim(),
             displayName: document.getElementById('scaleDisplayName').value.trim(),
-            scaleBrand: document.getElementById('scaleBrand').value,
+            scaleBrand: brandKeyVal,
+            connectionType: connectionType,
+            protocol: protocol,
             ipAddress: document.getElementById('scaleIp').value.trim(),
             port: parseInt(document.getElementById('scalePort').value) || 10001,
+            serialPortName: document.getElementById('scaleSerialPortName').value.trim() || null,
+            baudRate: parseInt(document.getElementById('scaleBaudRate').value) || 9600,
+            dataBits: parseInt(document.getElementById('scaleDataBits').value) || 8,
+            parity: document.getElementById('scaleParity').value,
+            stopBits: parseInt(document.getElementById('scaleStopBits').value) || 1,
             requestCommand: document.getElementById('scaleRequestCommand').value.trim() || null,
             pollingIntervalMs: parseInt(document.getElementById('scalePollingInterval').value) || 750,
             timeoutMs: parseInt(document.getElementById('scaleTimeout').value) || 1000,
@@ -378,6 +526,10 @@
         };
 
         if (!data.scaleId) { alert('Scale ID is required'); return; }
+        if (connectionType === 'Serial' && !data.serialPortName) {
+            alert('Serial Port is required for serial-connected scales (e.g. COM1, /dev/ttyUSB0)');
+            return;
+        }
 
         var method = mode === 'edit' ? 'UpdateScaleOnService' : 'AddScaleToService';
         var args = mode === 'edit'
