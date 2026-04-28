@@ -193,7 +193,10 @@ public class TransactionController : Controller
                     }
                 }
 
-                return RedirectToAction("CompletedTrucks");
+                // Same destination as the WeighOut page so the operator lands on
+                // the ticket they just completed and can print from there even
+                // when no printer is configured.
+                return RedirectToAction("View", "Ticket", new { id = transaction.Ticket });
             }
 
             // Camera capture on inbound (only if not manual weight)
