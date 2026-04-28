@@ -294,6 +294,14 @@
 
         <!-- TAB: Kiosk Prompts -->
         <div class="tab-pane fade" id="tabKioskPrompts">
+            <div id="retainedTareRequiresPrompts" class="alert alert-info py-1 mb-2 small"
+                 style="display: @(Model.UseRetainedTare ? "block" : "none");" role="alert">
+                <i class="fa fa-circle-info"></i>
+                <strong>Retained Tare requires</strong> the <em>Carrier</em> and <em>Truck&nbsp;ID</em>
+                prompts to be enabled — they identify the truck so the stored tare can be
+                recalled. Both are kept on while Retained Tare is enabled in
+                <strong>System &rarr; Options</strong>.
+            </div>
             <div class="card">
                 <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
                     <strong>Kiosk Prompts</strong>
@@ -304,12 +312,18 @@
                             <div class="form-check">
                                 <input asp-for="PromptKioskCarrier" class="form-check-input" id="PromptKioskCarrier" />
                                 <label asp-for="PromptKioskCarrier" class="form-check-label small"></label>
+                                <span id="PromptKioskCarrierLock" class="badge bg-info text-dark ms-1"
+                                      style="display: @(Model.UseRetainedTare ? "inline" : "none");"
+                                      title="Required while Retained Tare is enabled">required</span>
                             </div>
                         </div>
                         <div class="col-md-4" id="truckIdPromptSection" style="display: @(Model.PromptKioskCarrier ? "block" : "none");">
                             <div class="form-check">
-                                <input asp-for="PromptKioskTruckId" class="form-check-input" />
+                                <input asp-for="PromptKioskTruckId" class="form-check-input" id="PromptKioskTruckId" />
                                 <label asp-for="PromptKioskTruckId" class="form-check-label small"></label>
+                                <span id="PromptKioskTruckIdLock" class="badge bg-info text-dark ms-1"
+                                      style="display: @(Model.UseRetainedTare ? "inline" : "none");"
+                                      title="Required while Retained Tare is enabled">required</span>
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -668,8 +682,41 @@
     });
 
     document.getElementById('UseRetainedTare').addEventListener('change', function () {
-        var el = document.getElementById('retainedTareManageSection');
-        el.style.display = this.value === 'true' ? 'flex' : 'none';
+        var on = this.value === 'true';
+        document.getElementById('retainedTareManageSection').style.display = on ? 'flex' : 'none';
+
+        // Retained Tare needs Carrier + Truck ID prompts. Force them on,
+        // surface the "required" badge + tab notice, and the prompts tab JS
+        // (below) blocks unchecking them while the feature is on.
+        var carrierCb = document.getElementById('PromptKioskCarrier');
+        var truckCb   = document.getElementById('PromptKioskTruckId');
+        if (on) {
+            if (carrierCb && !carrierCb.checked) { carrierCb.checked = true; carrierCb.dispatchEvent(new Event('change')); }
+            if (truckCb && !truckCb.checked) { truckCb.checked = true; }
+        }
+        var locks = ['PromptKioskCarrierLock', 'PromptKioskTruckIdLock'];
+        locks.forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = on ? 'inline' : 'none';
+        });
+        var notice = document.getElementById('retainedTareRequiresPrompts');
+        if (notice) notice.style.display = on ? 'block' : 'none';
+    });
+
+    // Block unchecking the carrier/truck prompts while retained tare is on.
+    function isRetainedTareOn() {
+        var sel = document.getElementById('UseRetainedTare');
+        return sel && sel.value === 'true';
+    }
+    ['PromptKioskCarrier', 'PromptKioskTruckId'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('change', function () {
+            if (!this.checked && isRetainedTareOn()) {
+                this.checked = true;
+                alert('Carrier and Truck ID prompts are required while Retained Tare is enabled. Turn off Retained Tare first to disable them.');
+            }
+        });
     });
 
     document.getElementById('RemotePrintMode').addEventListener('change', function () {

@@ -357,6 +357,13 @@
         .list-item.selected::before {
             content: '\25B6  ';
         }
+        .list-item.list-item-none {
+            color: #888;
+            font-style: italic;
+        }
+        .list-item.list-item-none.selected {
+            color: #ffffff;
+        }
         .list-buttons {
             display: flex;
             justify-content: space-between;
@@ -1062,14 +1069,10 @@
     }
 
     function renderPrompt(prompt) {
-        currentListItems = prompt.items || [];
-        selectedListIndex = 0;
-
-        $('#prompt-title').text(prompt.title);
-        var $list = $('#prompt-list').empty().scrollTop(0);
-
-        if (currentListItems.length === 0) {
-            // Auto-skip empty lists
+        var rawItems = prompt.items || [];
+        // Auto-skip lists with no real items — no point showing only "— None —".
+        if (rawItems.length === 0) {
+            currentListItems = [];
             promptIndex++;
             if (promptIndex < promptQueue.length) {
                 showNextPrompt();
@@ -1077,19 +1080,29 @@
                 startMotionWait();
             }
             return;
-        } else {
-            currentListItems.forEach(function (item, i) {
-                var $item = $('<div class="list-item"></div>').text(item).attr('data-index', i);
-                if (i === 0) $item.addClass('selected');
-                $item.on('click', function () {
-                    selectedListIndex = i;
-                    updateListSelection();
-                });
-                $list.append($item);
-            });
-            $('#prompt-select').show();
-            $('#prompt-skip').show();
         }
+
+        // Prepend a blank "skip / none" row to every prompt — selecting it
+        // stores '' which the kiosk save coerces to null with `value || null`.
+        currentListItems = [''].concat(rawItems);
+        selectedListIndex = 0;
+
+        $('#prompt-title').text(prompt.title);
+        var $list = $('#prompt-list').empty().scrollTop(0);
+
+        currentListItems.forEach(function (item, i) {
+            var label = (item === '' || item == null) ? '— None —' : item;
+            var $item = $('<div class="list-item"></div>').text(label).attr('data-index', i);
+            if (item === '' || item == null) $item.addClass('list-item-none');
+            if (i === 0) $item.addClass('selected');
+            $item.on('click', function () {
+                selectedListIndex = i;
+                updateListSelection();
+            });
+            $list.append($item);
+        });
+        $('#prompt-select').show();
+        $('#prompt-skip').show();
 
         setState('prompt');
         scrollToSelected();
@@ -1104,8 +1117,18 @@
     function scrollToSelected() {
         var $selected = $('#prompt-list .list-item.selected');
         if ($selected.length) {
-            var container = $('#prompt-list')[0];
             var item = $selected[0];
+            // scrollIntoView({block:'nearest'}) is the right primitive here.
+            // The previous offsetTop math assumed offsetTop was relative to
+            // .list-container, but the container has no positioning context
+            // so offsetTop was actually relative to the page — items above
+            // the viewport never re-scrolled into view when the user
+            // arrowed back up.
+            if (item.scrollIntoView) {
+                item.scrollIntoView({ block: 'nearest' });
+            }
+            // Keep the legacy fallback below for browsers without scrollIntoView.
+            var container = $('#prompt-list')[0];
             if (item.offsetTop < container.scrollTop) {
                 container.scrollTop = item.offsetTop;
             } else if (item.offsetTop + item.offsetHeight > container.scrollTop + container.clientHeight) {

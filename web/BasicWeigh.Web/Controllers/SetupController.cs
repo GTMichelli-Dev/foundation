@@ -57,6 +57,15 @@ public class SetupController : Controller
         existing.UseQuickBooks = setup.UseQuickBooks;
         existing.SavePicture = setup.SavePicture;
         existing.UseRetainedTare = setup.UseRetainedTare;
+
+        // Retained Tare needs both carrier and truck to identify the truck.
+        // Force the prompts on regardless of what the form submitted so the
+        // kiosk flow always captures the identifying fields.
+        if (existing.UseRetainedTare)
+        {
+            existing.PromptKioskCarrier = true;
+            existing.PromptKioskTruckId = true;
+        }
         existing.InboundCameraId = setup.InboundCameraId;
         existing.OutboundCameraId = setup.OutboundCameraId;
         existing.ScaleId = setup.ScaleId;
