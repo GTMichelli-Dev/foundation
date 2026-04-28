@@ -70,6 +70,34 @@ public class RetainedTareController : Controller
         return Ok(new { cleared = count });
     }
 
+    /// <summary>
+    /// Look up the retained tare for a (carrier, truckId) pair. Returns 404 if no
+    /// truck found, 200 with retainedTare=null if the truck exists but has no
+    /// stored tare. The caller can use this to decide whether to show the
+    /// "TARE RECALLED" banner on the WeighIn page.
+    /// </summary>
+    [HttpGet("api/retainedtares/lookup")]
+    public IActionResult Lookup([FromQuery] string carrier, [FromQuery] string truckId)
+    {
+        if (string.IsNullOrWhiteSpace(carrier) || string.IsNullOrWhiteSpace(truckId))
+            return BadRequest(new { message = "carrier and truckId are required" });
+
+        var c = carrier.Trim().ToLower();
+        var t = truckId.Trim().ToLower();
+        var truck = _db.Trucks.FirstOrDefault(x =>
+            x.TruckId.ToLower() == t && x.CarrierName.ToLower() == c);
+
+        if (truck == null) return NotFound();
+
+        return Ok(new
+        {
+            truckId = truck.TruckId,
+            carrier = truck.CarrierName,
+            retainedTare = truck.RetainedTare,
+            retainedTareUpdated = truck.RetainedTareUpdated
+        });
+    }
+
     public class UpdateRequest
     {
         public int? RetainedTare { get; set; }

@@ -54,6 +54,7 @@
     @Html.AntiForgeryToken()
     <input type="hidden" name="isEdit" value="@isEdit.ToString().ToLower()" />
     <input type="hidden" name="goToWeighOut" id="goToWeighOut" value="false" />
+    <input type="hidden" name="completeWithRetainedTare" id="completeWithRetainedTare" value="false" />
     <input type="hidden" name="manualWeight" id="manualWeightFlag" value="@(isEdit && Model.ManualInbound ? "true" : "false")" />
     @if (isEdit)
     {
@@ -122,6 +123,13 @@
                             <button type="button" class="btn btn-outline-primary" id="addTruckBtn" disabled title="Add New Truck">+</button>
                         </div>
                     </div>
+
+                    <div id="retainedTareBanner" class="alert alert-warning py-2 mb-2" style="display:none;" role="alert">
+                        <i class="fa fa-clock-rotate-left me-1"></i>
+                        <strong>TARE RECALLED:</strong>
+                        <span id="retainedTareValue"></span> lb
+                        <span class="text-muted small" id="retainedTareUpdated"></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -183,6 +191,9 @@
                         }
                         else
                         {
+                            <button type="submit" class="btn btn-warning btn-lg me-2" id="completeWithTareBtn" style="display:none;">
+                                <i class="fa fa-clock-rotate-left"></i> Complete with Recalled Tare
+                            </button>
                             <a asp-controller="Home" asp-action="Index" class="btn btn-secondary btn-lg">Cancel</a>
                         }
                     </div>
@@ -593,6 +604,48 @@
         // Save & Weigh Out (edit mode only)
         $('#saveWeighOutBtn').on('click', function () {
             $('#goToWeighOut').val('true');
+        });
+
+        // ===== Retained-tare lookup + banner =====
+        function lookupRetainedTare() {
+            var carrier = carrierSelect.val();
+            var truckId = truckSelect.val();
+            var $banner = $('#retainedTareBanner');
+            var $btn = $('#completeWithTareBtn');
+            $banner.hide();
+            $btn.hide();
+            if (isEdit) return; // only on the new-ticket flow
+            if (!carrier || !truckId) return;
+
+            $.getJSON('/api/retainedtares/lookup', { carrier: carrier, truckId: truckId })
+                .done(function (data) {
+                    if (data.retainedTare == null) return;
+                    var when = '';
+                    if (data.retainedTareUpdated) {
+                        try {
+                            when = ' (last seen ' + new Date(data.retainedTareUpdated).toLocaleDateString() + ')';
+                        } catch (e) { /* ignore */ }
+                    }
+                    $('#retainedTareValue').text(Number(data.retainedTare).toLocaleString());
+                    $('#retainedTareUpdated').text(when);
+                    $banner.show();
+                    $btn.show();
+                })
+                .fail(function () { /* no truck or no tare — silently keep hidden */ });
+        }
+
+        truckSelect.on('change', lookupRetainedTare);
+        carrierSelect.on('change', function () {
+            // After loadTrucks fires, the truck dropdown re-renders; re-check then
+            setTimeout(lookupRetainedTare, 200);
+        });
+        // If a truck was preselected on initial render (edit-from-existing-flow), still try
+        setTimeout(lookupRetainedTare, 300);
+
+        // Complete-with-recalled-tare submit: flip the hidden flag, weight validator
+        // still requires Get Weight to capture the gross from the scale.
+        $('#completeWithTareBtn').on('click', function () {
+            $('#completeWithRetainedTare').val('true');
         });
 
         // Delete functionality (edit mode only)

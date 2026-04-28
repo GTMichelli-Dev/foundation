@@ -93,7 +93,7 @@ public class TransactionController : Controller
     // POST: Transaction/WeighIn
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> WeighIn(Transaction transaction, bool isEdit, bool goToWeighOut, bool manualWeight)
+    public async Task<IActionResult> WeighIn(Transaction transaction, bool isEdit, bool goToWeighOut, bool manualWeight, bool completeWithRetainedTare = false)
     {
         if (isEdit)
         {
@@ -128,12 +128,44 @@ public class TransactionController : Controller
             transaction.Void = false;
             transaction.ManualInbound = manualWeight;
 
+            // Complete-with-retained-tare path. Look up the truck server-side
+            // (don't trust the client) and, if the feature is on and a tare is
+            // stored, save the ticket as already completed using that tare.
+            bool completed = false;
+            if (completeWithRetainedTare && setup.UseRetainedTare
+                && !string.IsNullOrEmpty(transaction.TruckId)
+                && !string.IsNullOrEmpty(transaction.Carrier))
+            {
+                var tid = transaction.TruckId.Trim().ToLower();
+                var car = transaction.Carrier.Trim().ToLower();
+                var truck = _db.Trucks.FirstOrDefault(x =>
+                    x.TruckId.ToLower() == tid && x.CarrierName.ToLower() == car);
+                if (truck?.RetainedTare.HasValue == true)
+                {
+                    transaction.OutWeight = truck.RetainedTare;
+                    transaction.DateOut = transaction.DateIn;
+                    transaction.ManualOutbound = false;
+                    completed = true;
+                    var msg = $"WeighIn (admin) ticket {transaction.Ticket}: completed with recalled tare {truck.RetainedTare} lb (truck '{truck.TruckId}' / '{truck.CarrierName}')";
+                    _log.LogInformation(msg);
+                    Console.WriteLine($"[RetainedTare] {msg}");
+                }
+            }
+
             setup.TicketNumber++;
             _db.AppSetup.Update(setup);
 
             _db.Transactions.Add(transaction);
             _db.SaveChanges();
             _setupCache.Invalidate();
+
+            // Send the operator straight to the completed-trucks list (or the
+            // ticket viewer for browser-print) when the recalled-tare path closed
+            // the ticket in one shot.
+            if (completed)
+            {
+                return RedirectToAction("CompletedTrucks");
+            }
 
             // Camera capture on inbound (only if not manual weight)
             if (setup.SavePicture && !manualWeight && !string.IsNullOrEmpty(setup.InboundCameraId))
