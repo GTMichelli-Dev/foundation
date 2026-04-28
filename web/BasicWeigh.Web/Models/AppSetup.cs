@@ -50,27 +50,47 @@ public class AppSetup
     [Display(Name = "Theme")]
     public string Theme { get; set; } = "default";
 
-    // Kiosk prompts
-    [Display(Name = "Prompt Commodity")]
-    public bool PromptKioskCommodity { get; set; } = true;
+    // Kiosk prompts. Each user-facing prompt is split into "On Inbound" / "On Outbound"
+    // checkboxes (so the operator only sees it when relevant) plus an "Allow Skip" flag
+    // that controls whether the kiosk shows a "— None —" row + Skip button.
 
-    [Display(Name = "Prompt Customer")]
-    public bool PromptKioskCustomer { get; set; } = true;
+    [Display(Name = "Prompt Commodity on Inbound")]
+    public bool PromptKioskCommodityOnInbound { get; set; } = true;
+    [Display(Name = "Prompt Commodity on Outbound")]
+    public bool PromptKioskCommodityOnOutbound { get; set; }
+    [Display(Name = "Allow Skip Commodity")]
+    public bool AllowSkipCommodity { get; set; } = true;
+
+    [Display(Name = "Prompt Customer on Inbound")]
+    public bool PromptKioskCustomerOnInbound { get; set; } = true;
+    [Display(Name = "Prompt Customer on Outbound")]
+    public bool PromptKioskCustomerOnOutbound { get; set; }
+    [Display(Name = "Allow Skip Customer")]
+    public bool AllowSkipCustomer { get; set; } = true;
 
     [Display(Name = "Prompt Carrier")]
     public bool PromptKioskCarrier { get; set; } = true;
+    [Display(Name = "Allow Skip Carrier")]
+    public bool AllowSkipCarrier { get; set; } = true;
 
-    [Display(Name = "Prompt Location")]
-    public bool PromptKioskLocation { get; set; } = true;
+    [Display(Name = "Prompt Location on Inbound")]
+    public bool PromptKioskLocationOnInbound { get; set; } = true;
+    [Display(Name = "Prompt Location on Outbound")]
+    public bool PromptKioskLocationOnOutbound { get; set; }
+    [Display(Name = "Allow Skip Location")]
+    public bool AllowSkipLocation { get; set; } = true;
 
     [Display(Name = "Prompt Truck ID")]
     public bool PromptKioskTruckId { get; set; } = true;
+    [Display(Name = "Allow Skip Truck ID")]
+    public bool AllowSkipTruckId { get; set; } = true;
 
     [Display(Name = "Prompt Destination on Inbound")]
     public bool PromptKioskDestinationOnInbound { get; set; }
-
     [Display(Name = "Prompt Destination on Outbound")]
     public bool PromptKioskDestinationOnOutbound { get; set; } = true;
+    [Display(Name = "Allow Skip Destination")]
+    public bool AllowSkipDestination { get; set; } = true;
 
     [Display(Name = "Kiosk Dark Mode")]
     public bool KioskDarkMode { get; set; } = true;

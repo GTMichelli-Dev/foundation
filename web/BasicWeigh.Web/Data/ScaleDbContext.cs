@@ -67,12 +67,18 @@ public class ScaleDbContext : DbContext
         modelBuilder.Entity<AppSetup>(e =>
         {
             e.ToTable("AppSetup");
-            e.Property(s => s.PromptKioskCommodity).HasDefaultValue(true);
-            e.Property(s => s.PromptKioskCustomer).HasDefaultValue(true);
+            e.Property(s => s.PromptKioskCommodityOnInbound).HasDefaultValue(true);
+            e.Property(s => s.PromptKioskCustomerOnInbound).HasDefaultValue(true);
             e.Property(s => s.PromptKioskCarrier).HasDefaultValue(true);
-            e.Property(s => s.PromptKioskLocation).HasDefaultValue(true);
+            e.Property(s => s.PromptKioskLocationOnInbound).HasDefaultValue(true);
             e.Property(s => s.PromptKioskTruckId).HasDefaultValue(true);
             e.Property(s => s.PromptKioskDestinationOnOutbound).HasDefaultValue(true);
+            e.Property(s => s.AllowSkipCommodity).HasDefaultValue(true);
+            e.Property(s => s.AllowSkipCustomer).HasDefaultValue(true);
+            e.Property(s => s.AllowSkipCarrier).HasDefaultValue(true);
+            e.Property(s => s.AllowSkipLocation).HasDefaultValue(true);
+            e.Property(s => s.AllowSkipTruckId).HasDefaultValue(true);
+            e.Property(s => s.AllowSkipDestination).HasDefaultValue(true);
         });
 
         modelBuilder.Entity<AppUser>(e =>

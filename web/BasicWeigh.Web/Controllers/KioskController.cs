@@ -233,8 +233,13 @@ public class KioskController : Controller
         transaction.DateOut = DateTime.Now;
         transaction.ManualOutbound = false;
 
-        if (!string.IsNullOrEmpty(request.Destination))
-            transaction.Destination = request.Destination;
+        // Outbound-only prompts can override the values captured at weigh-in.
+        // Empty / null means "no change" — the kiosk JS already coerces a blank
+        // selection to null so it doesn't blow away an existing value here.
+        if (!string.IsNullOrEmpty(request.Destination)) transaction.Destination = request.Destination;
+        if (!string.IsNullOrEmpty(request.Commodity))   transaction.Commodity   = request.Commodity;
+        if (!string.IsNullOrEmpty(request.Customer))    transaction.Customer    = request.Customer;
+        if (!string.IsNullOrEmpty(request.Location))    transaction.Location    = request.Location;
 
         // Persist retained tare on the matching truck (feature-gated). Tare = lower of
         // the two weights, matching how Transaction.TareWeight is computed.
@@ -425,6 +430,12 @@ public class KioskController : Controller
         public string Ticket { get; set; } = string.Empty;
         public int Weight { get; set; }
         public string? Destination { get; set; }
+        // Outbound-only prompt values. Each is optional — empty means the
+        // operator wasn't prompted, or skipped, and the existing transaction
+        // value is preserved.
+        public string? Commodity { get; set; }
+        public string? Customer { get; set; }
+        public string? Location { get; set; }
         /// <summary>
         /// Optional printer in "serviceId:printerId" format.
         /// If not set: demo mode uses "demo:KioskPrinter", normal mode uses outbound printer from Setup.

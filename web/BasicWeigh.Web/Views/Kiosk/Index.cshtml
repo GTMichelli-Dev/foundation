@@ -747,13 +747,22 @@
 
     // ===== KIOSK SETTINGS FROM SERVER =====
     var kioskSettings = {
-        promptCommodity: @(Model.PromptKioskCommodity.ToString().ToLower()),
-        promptCustomer: @(Model.PromptKioskCustomer.ToString().ToLower()),
+        promptCommodityOnInbound: @(Model.PromptKioskCommodityOnInbound.ToString().ToLower()),
+        promptCommodityOnOutbound: @(Model.PromptKioskCommodityOnOutbound.ToString().ToLower()),
+        allowSkipCommodity: @(Model.AllowSkipCommodity.ToString().ToLower()),
+        promptCustomerOnInbound: @(Model.PromptKioskCustomerOnInbound.ToString().ToLower()),
+        promptCustomerOnOutbound: @(Model.PromptKioskCustomerOnOutbound.ToString().ToLower()),
+        allowSkipCustomer: @(Model.AllowSkipCustomer.ToString().ToLower()),
         promptCarrier: @(Model.PromptKioskCarrier.ToString().ToLower()),
+        allowSkipCarrier: @(Model.AllowSkipCarrier.ToString().ToLower()),
         promptTruckId: @(Model.PromptKioskTruckId.ToString().ToLower()),
-        promptLocation: @(Model.PromptKioskLocation.ToString().ToLower()),
+        allowSkipTruckId: @(Model.AllowSkipTruckId.ToString().ToLower()),
+        promptLocationOnInbound: @(Model.PromptKioskLocationOnInbound.ToString().ToLower()),
+        promptLocationOnOutbound: @(Model.PromptKioskLocationOnOutbound.ToString().ToLower()),
+        allowSkipLocation: @(Model.AllowSkipLocation.ToString().ToLower()),
         promptDestinationOnInbound: @(Model.PromptKioskDestinationOnInbound.ToString().ToLower()),
         promptDestinationOnOutbound: @(Model.PromptKioskDestinationOnOutbound.ToString().ToLower()),
+        allowSkipDestination: @(Model.AllowSkipDestination.ToString().ToLower()),
         demoMode: @(Model.DemoMode.ToString().ToLower()),
         header1: '@Html.Raw((Model.Header1 ?? "").Replace("'", "\\'"))',
         header2: '@Html.Raw((Model.Header2 ?? "").Replace("'", "\\'"))',
@@ -1031,13 +1040,45 @@
     }
 
     function buildWeighInPrompts() {
+        return buildPromptsForDirection('inbound');
+    }
+
+    /// Build the prompt queue for either an inbound (weigh-in) or outbound (weigh-out)
+    /// run. Each entry carries an `allowSkip` flag so renderPrompt can suppress the
+    /// "— None —" row + Skip button when the operator must pick a real value.
+    function buildPromptsForDirection(direction) {
+        var inbound = direction === 'inbound';
         var prompts = [];
-        if (kioskSettings.promptCarrier) prompts.push({ key: 'carrier', title: 'Select Carrier', items: lists.carriers });
-        if (kioskSettings.promptCarrier && kioskSettings.promptTruckId) prompts.push({ key: 'truck', title: 'Select Truck', items: [], loadFrom: 'carrier' });
-        if (kioskSettings.promptCommodity) prompts.push({ key: 'commodity', title: 'Select Commodity', items: lists.commodities });
-        if (kioskSettings.promptCustomer) prompts.push({ key: 'customer', title: 'Select Customer', items: lists.customers });
-        if (kioskSettings.promptLocation) prompts.push({ key: 'location', title: 'Select Location', items: lists.locations });
-        if (kioskSettings.promptDestinationOnInbound) prompts.push({ key: 'destination', title: 'Select Destination', items: lists.destinations });
+        if (kioskSettings.promptCarrier) {
+            prompts.push({ key: 'carrier', title: 'Select Carrier',
+                           items: lists.carriers,
+                           allowSkip: kioskSettings.allowSkipCarrier });
+        }
+        if (kioskSettings.promptCarrier && kioskSettings.promptTruckId) {
+            prompts.push({ key: 'truck', title: 'Select Truck',
+                           items: [], loadFrom: 'carrier',
+                           allowSkip: kioskSettings.allowSkipTruckId });
+        }
+        if (inbound ? kioskSettings.promptCommodityOnInbound : kioskSettings.promptCommodityOnOutbound) {
+            prompts.push({ key: 'commodity', title: 'Select Commodity',
+                           items: lists.commodities,
+                           allowSkip: kioskSettings.allowSkipCommodity });
+        }
+        if (inbound ? kioskSettings.promptCustomerOnInbound : kioskSettings.promptCustomerOnOutbound) {
+            prompts.push({ key: 'customer', title: 'Select Customer',
+                           items: lists.customers,
+                           allowSkip: kioskSettings.allowSkipCustomer });
+        }
+        if (inbound ? kioskSettings.promptLocationOnInbound : kioskSettings.promptLocationOnOutbound) {
+            prompts.push({ key: 'location', title: 'Select Location',
+                           items: lists.locations,
+                           allowSkip: kioskSettings.allowSkipLocation });
+        }
+        if (inbound ? kioskSettings.promptDestinationOnInbound : kioskSettings.promptDestinationOnOutbound) {
+            prompts.push({ key: 'destination', title: 'Select Destination',
+                           items: lists.destinations,
+                           allowSkip: kioskSettings.allowSkipDestination });
+        }
         return prompts;
     }
 
@@ -1082,9 +1123,12 @@
             return;
         }
 
-        // Prepend a blank "skip / none" row to every prompt — selecting it
-        // stores '' which the kiosk save coerces to null with `value || null`.
-        currentListItems = [''].concat(rawItems);
+        // Prepend a blank "skip / none" row only when the prompt allows skip.
+        // Selecting it stores '' which the kiosk save coerces to null with
+        // `value || null`. When skip is not allowed, the operator MUST pick a
+        // real item — no blank row, no Skip button.
+        var allowSkip = prompt.allowSkip !== false; // default true
+        currentListItems = allowSkip ? [''].concat(rawItems) : rawItems.slice();
         selectedListIndex = 0;
 
         $('#prompt-title').text(prompt.title);
@@ -1102,7 +1146,11 @@
             $list.append($item);
         });
         $('#prompt-select').show();
-        $('#prompt-skip').show();
+        if (allowSkip) {
+            $('#prompt-skip').show();
+        } else {
+            $('#prompt-skip').hide();
+        }
 
         setState('prompt');
         scrollToSelected();
@@ -1170,8 +1218,14 @@
         weighinData = {};
         // Keep operation tracking running from ticket entry (already started)
 
-        if (kioskSettings.promptDestinationOnOutbound) {
-            promptQueue = [{ key: 'destination', title: 'Select Destination', items: lists.destinations }];
+        // Build the outbound prompt queue. Carrier/Truck are only loaded from
+        // the existing transaction so we don't re-prompt for them on weigh-out
+        // — the operator entered the ticket # which already identifies the
+        // truck. Limit the queue to commodity/customer/location/destination.
+        var outboundPrompts = buildPromptsForDirection('outbound')
+            .filter(function (p) { return p.key !== 'carrier' && p.key !== 'truck'; });
+        if (outboundPrompts.length > 0) {
+            promptQueue = outboundPrompts;
             promptIndex = 0;
             showNextPrompt();
         } else {
@@ -1253,6 +1307,9 @@
                 ticket: weighoutTicket.ticket,
                 weight: weight,
                 destination: weighinData.destination || null,
+                commodity:   weighinData.commodity   || null,
+                customer:    weighinData.customer    || null,
+                location:    weighinData.location    || null,
                 printerId: kioskHasPrinter ? (kioskServiceId + ':' + kioskPrinterId) : null
             }),
             success: function (result) {

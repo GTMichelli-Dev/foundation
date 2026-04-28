@@ -41,13 +41,27 @@ public class SetupController : Controller
         existing.DemoMode = setup.DemoMode;
         existing.KioskCount = setup.KioskCount;
         existing.Theme = setup.Theme;
-        existing.PromptKioskCommodity = setup.PromptKioskCommodity;
-        existing.PromptKioskCustomer = setup.PromptKioskCustomer;
+        existing.PromptKioskCommodityOnInbound = setup.PromptKioskCommodityOnInbound;
+        existing.PromptKioskCommodityOnOutbound = setup.PromptKioskCommodityOnOutbound;
+        existing.AllowSkipCommodity = setup.AllowSkipCommodity;
+
+        existing.PromptKioskCustomerOnInbound = setup.PromptKioskCustomerOnInbound;
+        existing.PromptKioskCustomerOnOutbound = setup.PromptKioskCustomerOnOutbound;
+        existing.AllowSkipCustomer = setup.AllowSkipCustomer;
+
         existing.PromptKioskCarrier = setup.PromptKioskCarrier;
+        existing.AllowSkipCarrier = setup.AllowSkipCarrier;
+
+        existing.PromptKioskLocationOnInbound = setup.PromptKioskLocationOnInbound;
+        existing.PromptKioskLocationOnOutbound = setup.PromptKioskLocationOnOutbound;
+        existing.AllowSkipLocation = setup.AllowSkipLocation;
+
         existing.PromptKioskTruckId = setup.PromptKioskTruckId;
-        existing.PromptKioskLocation = setup.PromptKioskLocation;
+        existing.AllowSkipTruckId = setup.AllowSkipTruckId;
+
         existing.PromptKioskDestinationOnInbound = setup.PromptKioskDestinationOnInbound;
         existing.PromptKioskDestinationOnOutbound = setup.PromptKioskDestinationOnOutbound;
+        existing.AllowSkipDestination = setup.AllowSkipDestination;
         existing.KioskDarkMode = setup.KioskDarkMode;
         existing.UseLogin = setup.UseLogin;
         existing.KioskCode = setup.KioskCode ?? "12345";
@@ -59,12 +73,14 @@ public class SetupController : Controller
         existing.UseRetainedTare = setup.UseRetainedTare;
 
         // Retained Tare needs both carrier and truck to identify the truck.
-        // Force the prompts on regardless of what the form submitted so the
-        // kiosk flow always captures the identifying fields.
+        // Force the prompts on AND disable Allow Skip so the kiosk flow always
+        // captures the identifying fields with real values.
         if (existing.UseRetainedTare)
         {
             existing.PromptKioskCarrier = true;
             existing.PromptKioskTruckId = true;
+            existing.AllowSkipCarrier = false;
+            existing.AllowSkipTruckId = false;
         }
         existing.InboundCameraId = setup.InboundCameraId;
         existing.OutboundCameraId = setup.OutboundCameraId;
@@ -389,13 +405,22 @@ public class SetupController : Controller
             {
                 kioskCount = setup.KioskCount,
                 kioskDarkMode = setup.KioskDarkMode,
-                promptCommodity = setup.PromptKioskCommodity,
-                promptCustomer = setup.PromptKioskCustomer,
+                promptCommodityOnInbound = setup.PromptKioskCommodityOnInbound,
+                promptCommodityOnOutbound = setup.PromptKioskCommodityOnOutbound,
+                allowSkipCommodity = setup.AllowSkipCommodity,
+                promptCustomerOnInbound = setup.PromptKioskCustomerOnInbound,
+                promptCustomerOnOutbound = setup.PromptKioskCustomerOnOutbound,
+                allowSkipCustomer = setup.AllowSkipCustomer,
                 promptCarrier = setup.PromptKioskCarrier,
+                allowSkipCarrier = setup.AllowSkipCarrier,
                 promptTruckId = setup.PromptKioskTruckId,
-                promptLocation = setup.PromptKioskLocation,
+                allowSkipTruckId = setup.AllowSkipTruckId,
+                promptLocationOnInbound = setup.PromptKioskLocationOnInbound,
+                promptLocationOnOutbound = setup.PromptKioskLocationOnOutbound,
+                allowSkipLocation = setup.AllowSkipLocation,
                 promptDestinationOnInbound = setup.PromptKioskDestinationOnInbound,
-                promptDestinationOnOutbound = setup.PromptKioskDestinationOnOutbound
+                promptDestinationOnOutbound = setup.PromptKioskDestinationOnOutbound,
+                allowSkipDestination = setup.AllowSkipDestination
             },
             security = new
             {
