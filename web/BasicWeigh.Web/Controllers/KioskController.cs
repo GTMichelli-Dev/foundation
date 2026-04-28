@@ -217,9 +217,9 @@ public class KioskController : Controller
         // Persist retained tare on the matching truck (feature-gated). Tare = lower of
         // the two weights, matching how Transaction.TareWeight is computed.
         var useRetainedTare = _setupCache.Get().UseRetainedTare;
-        _log.LogInformation(
-            "WeighOut ticket {Ticket}: UseRetainedTare={UseRetainedTare} TruckId='{TruckId}' Carrier='{Carrier}'",
-            transaction.Ticket, useRetainedTare, transaction.TruckId, transaction.Carrier);
+        var weighOutMsg = $"WeighOut ticket {transaction.Ticket}: UseRetainedTare={useRetainedTare} TruckId='{transaction.TruckId}' Carrier='{transaction.Carrier}'";
+        _log.LogInformation(weighOutMsg);
+        Console.WriteLine($"[RetainedTare] {weighOutMsg}");
         if (useRetainedTare)
         {
             UpdateRetainedTare(transaction);
@@ -240,16 +240,18 @@ public class KioskController : Controller
     {
         if (tx.OutWeight == null)
         {
-            _log.LogWarning("RetainedTare skipped for ticket {Ticket}: OutWeight is null", tx.Ticket);
+            var msg = $"skipped for ticket {tx.Ticket}: OutWeight is null";
+            _log.LogWarning(msg);
+            Console.WriteLine($"[RetainedTare] {msg}");
             return;
         }
         var truckId = tx.TruckId?.Trim();
         var carrier = tx.Carrier?.Trim();
         if (string.IsNullOrEmpty(truckId) || string.IsNullOrEmpty(carrier))
         {
-            _log.LogWarning(
-                "RetainedTare skipped for ticket {Ticket}: TruckId='{TruckId}' Carrier='{Carrier}' — both required",
-                tx.Ticket, tx.TruckId, tx.Carrier);
+            var msg = $"skipped for ticket {tx.Ticket}: TruckId='{tx.TruckId}' Carrier='{tx.Carrier}' — both required";
+            _log.LogWarning(msg);
+            Console.WriteLine($"[RetainedTare] {msg}");
             return;
         }
 
@@ -280,17 +282,17 @@ public class KioskController : Controller
                 RetainedTareUpdated = when
             };
             _db.Trucks.Add(truck);
-            _log.LogInformation(
-                "RetainedTare: auto-created Truck '{TruckId}' / '{Carrier}' with tare {Tare} lb (ticket {Ticket})",
-                truckId, carrier, tare, tx.Ticket);
+            var msg = $"auto-created Truck '{truckId}' / '{carrier}' with tare {tare} lb (ticket {tx.Ticket})";
+            _log.LogInformation(msg);
+            Console.WriteLine($"[RetainedTare] {msg}");
         }
         else
         {
             truck.RetainedTare = tare;
             truck.RetainedTareUpdated = when;
-            _log.LogInformation(
-                "RetainedTare: updated Truck '{TruckId}' / '{Carrier}' to {Tare} lb (ticket {Ticket})",
-                truck.TruckId, truck.CarrierName, tare, tx.Ticket);
+            var msg = $"updated Truck '{truck.TruckId}' / '{truck.CarrierName}' to {tare} lb (ticket {tx.Ticket})";
+            _log.LogInformation(msg);
+            Console.WriteLine($"[RetainedTare] {msg}");
         }
     }
 
