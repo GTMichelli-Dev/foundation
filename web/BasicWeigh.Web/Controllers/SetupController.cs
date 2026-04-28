@@ -56,6 +56,7 @@ public class SetupController : Controller
         existing.RemotePrintMode = setup.RemotePrintMode ?? "None";
         existing.UseQuickBooks = setup.UseQuickBooks;
         existing.SavePicture = setup.SavePicture;
+        existing.UseRetainedTare = setup.UseRetainedTare;
         existing.InboundCameraId = setup.InboundCameraId;
         existing.OutboundCameraId = setup.OutboundCameraId;
         existing.ScaleId = setup.ScaleId;
