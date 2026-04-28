@@ -129,8 +129,11 @@ public class KioskController : Controller
 
         // Look up retained tare for this truck. Match the (TruckId, Carrier) pair
         // that already uniquely identifies a truck (ScaleDbContext unique index).
+        // Skip entirely if the feature toggle is off.
         Truck? truck = null;
-        if (!string.IsNullOrEmpty(request.TruckId) && !string.IsNullOrEmpty(request.Carrier))
+        if (setup.UseRetainedTare
+            && !string.IsNullOrEmpty(request.TruckId)
+            && !string.IsNullOrEmpty(request.Carrier))
         {
             truck = _db.Trucks.FirstOrDefault(t =>
                 t.TruckId == request.TruckId && t.CarrierName == request.Carrier);
@@ -209,9 +212,12 @@ public class KioskController : Controller
         if (!string.IsNullOrEmpty(request.Destination))
             transaction.Destination = request.Destination;
 
-        // Persist retained tare on the matching truck. Tare = lower of the two weights,
-        // matching how Transaction.TareWeight is computed.
-        UpdateRetainedTare(transaction);
+        // Persist retained tare on the matching truck (feature-gated). Tare = lower of
+        // the two weights, matching how Transaction.TareWeight is computed.
+        if (_setupCache.Get().UseRetainedTare)
+        {
+            UpdateRetainedTare(transaction);
+        }
 
         _db.SaveChanges();
 

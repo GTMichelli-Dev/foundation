@@ -273,11 +273,14 @@
                                 </div>
                             </div>
                             <div class="row g-2 mb-2">
-                                <div class="col-6">
-                                    <label class="form-label mb-0 small">Retained Tares</label>
-                                    <div class="small text-muted">Auto-recall a truck's empty weight on return visits.</div>
+                                <div class="col-4">
+                                    <label asp-for="UseRetainedTare" class="form-label mb-0 small"></label>
+                                    <select asp-for="UseRetainedTare" class="form-select form-select-sm" id="UseRetainedTare">
+                                        <option value="false">No</option>
+                                        <option value="true">Yes</option>
+                                    </select>
                                 </div>
-                                <div class="col-2 d-flex align-items-end">
+                                <div class="col-2 d-flex align-items-end" id="retainedTareManageSection" style="display: @(Model.UseRetainedTare ? "flex" : "none") !important;">
                                     <a href="/RetainedTare" class="btn btn-outline-secondary btn-sm w-100">
                                         Manage
                                     </a>
@@ -661,6 +664,11 @@
 
     document.getElementById('SavePicture').addEventListener('change', function () {
         var el = document.getElementById('cameraManageSection');
+        el.style.display = this.value === 'true' ? 'flex' : 'none';
+    });
+
+    document.getElementById('UseRetainedTare').addEventListener('change', function () {
+        var el = document.getElementById('retainedTareManageSection');
         el.style.display = this.value === 'true' ? 'flex' : 'none';
     });
 

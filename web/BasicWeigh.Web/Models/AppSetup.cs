@@ -113,6 +113,14 @@ public class AppSetup
     [Display(Name = "Recall Last Values")]
     public bool RecallLastValues { get; set; }
 
+    /// <summary>
+    /// When true, a weigh-out persists the truck's empty weight to Truck.RetainedTare,
+    /// and the next kiosk weigh-in for the same truck auto-completes the ticket using
+    /// that stored tare. When false, every truck does the normal two-pass in/out cycle.
+    /// </summary>
+    [Display(Name = "Use Retained Tare")]
+    public bool UseRetainedTare { get; set; }
+
     // Remote printing mode: None, Scale, RemotePrinter
     [StringLength(20)]
     [Display(Name = "Remote Printing")]
