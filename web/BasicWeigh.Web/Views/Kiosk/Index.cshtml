@@ -753,6 +753,10 @@
         <div class="overlay-message">Ticket Voided</div>
         <div class="overlay-sub">This ticket has been voided</div>
     </div>
+    <div id="overlay-no-trucks-for-carrier" class="overlay-screen overlay-red">
+        <div class="overlay-message">No Trucks Assigned</div>
+        <div class="overlay-sub" id="no-trucks-detail">No trucks are assigned to this carrier — see the office</div>
+    </div>
     <div id="overlay-operation-timeout" class="overlay-screen overlay-yellow">
         <div class="overlay-message">Operation Timed Out</div>
         <div class="overlay-sub">Please try again</div>
@@ -797,6 +801,7 @@
         promptDestinationOnInbound: @(Model.PromptKioskDestinationOnInbound.ToString().ToLower()),
         promptDestinationOnOutbound: @(Model.PromptKioskDestinationOnOutbound.ToString().ToLower()),
         allowSkipDestination: @(Model.AllowSkipDestination.ToString().ToLower()),
+        useRetainedTare: @(Model.UseRetainedTare.ToString().ToLower()),
         demoMode: @(Model.DemoMode.ToString().ToLower()),
         header1: '@Html.Raw((Model.Header1 ?? "").Replace("'", "\\'"))',
         header2: '@Html.Raw((Model.Header2 ?? "").Replace("'", "\\'"))',
@@ -1127,6 +1132,19 @@
         // If truck prompt, load trucks for selected carrier
         if (prompt.loadFrom === 'carrier' && weighinData.carrier) {
             $.getJSON('/api/kiosk/trucks/' + encodeURIComponent(weighinData.carrier), function (trucks) {
+                // Retained Tare can't function without a truck identity. If the
+                // selected carrier has zero trucks assigned, fail the operation
+                // with a clear error rather than silently dropping the truck
+                // prompt and writing a transaction we can't recall a tare for.
+                if (trucks.length === 0 && kioskSettings.useRetainedTare) {
+                    $('#no-trucks-detail').text(
+                        'No trucks are assigned to "' + weighinData.carrier + '" — see the office'
+                    );
+                    clearOperationTracking();
+                    activeFlow = null;
+                    showOverlay('overlay-no-trucks-for-carrier', OVERLAY_DURATION_MS * 2);
+                    return;
+                }
                 prompt.items = trucks;
                 renderPrompt(prompt);
             });
