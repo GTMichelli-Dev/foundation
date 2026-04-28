@@ -269,10 +269,22 @@
             gap: 24px;
         }
         .kiosk-btn.btn-wide {
-            width: 640px;
+            width: 720px;
             height: 130px;
-            font-size: 1.6rem;
+            font-size: 1.55rem;
             letter-spacing: 3px;
+        }
+
+        /* "Hide on-screen buttons" mode — driver uses physical keyboard /
+            barcode scanner. Keep New Load + Enter Ticket on the ready screen
+            and Reprint on the complete screen. */
+        body.kiosk-hide-buttons .numpad,
+        body.kiosk-hide-buttons #ticket-cancel,
+        body.kiosk-hide-buttons #prompt-cancel,
+        body.kiosk-hide-buttons #prompt-skip,
+        body.kiosk-hide-buttons #prompt-select,
+        body.kiosk-hide-buttons #btn-complete-done {
+            display: none !important;
         }
 
         /* ===== NUMPAD ===== */
@@ -576,7 +588,7 @@
         body.kiosk-light .demo-ticket { background: #fff; color: #000; border: 1px solid #ccc; }
     </style>
 </head>
-<body class="@(Model.DemoMode ? "demo-mode" : "") @(!Model.KioskDarkMode ? "kiosk-light" : "")">
+<body class="@(Model.DemoMode ? "demo-mode" : "") @(!Model.KioskDarkMode ? "kiosk-light" : "") @(Model.HideKioskOnScreenButtons ? "kiosk-hide-buttons" : "")">
 <div id="kiosk-wrapper">
 <div id="kiosk" data-theme="@theme">
     <!-- HEADER -->
@@ -617,7 +629,7 @@
                     PRESS ENTER TO WEIGH IN
                 </button>
                 <button class="kiosk-btn btn-blue btn-wide" id="btn-enter-ticket">
-                    ENTER TICKET # TO WEIGH OUT
+                    SCAN BAR CODE OR KEY IN TICKET #
                 </button>
             </div>
         </div>

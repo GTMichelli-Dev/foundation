@@ -65,6 +65,8 @@ public class SetupController : Controller
         existing.PromptKioskDestinationOnInbound = setup.PromptKioskDestinationOnInbound;
         existing.PromptKioskDestinationOnOutbound = setup.PromptKioskDestinationOnOutbound;
         existing.AllowSkipDestination = setup.AllowSkipDestination;
+
+        existing.HideKioskOnScreenButtons = setup.HideKioskOnScreenButtons;
         existing.KioskDarkMode = setup.KioskDarkMode;
         existing.UseLogin = setup.UseLogin;
         existing.KioskCode = setup.KioskCode ?? "12345";

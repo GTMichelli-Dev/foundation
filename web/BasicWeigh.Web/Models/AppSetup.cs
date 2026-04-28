@@ -92,6 +92,15 @@ public class AppSetup
     [Display(Name = "Allow Skip Destination")]
     public bool AllowSkipDestination { get; set; } = true;
 
+    /// <summary>
+    /// Hide the on-screen interactive buttons on the kiosk (numpad, Cancel,
+    /// Skip, Select, Done) so the operator drives entirely with a physical
+    /// keyboard / barcode scanner. The two ready-state buttons (New Load /
+    /// Enter Ticket) and the post-print Reprint button stay visible.
+    /// </summary>
+    [Display(Name = "Hide On-Screen Buttons")]
+    public bool HideKioskOnScreenButtons { get; set; }
+
     [Display(Name = "Kiosk Dark Mode")]
     public bool KioskDarkMode { get; set; } = true;
 
