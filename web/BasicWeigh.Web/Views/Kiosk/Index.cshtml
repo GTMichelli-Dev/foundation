@@ -262,6 +262,18 @@
             justify-content: center;
             margin-top: 20px;
         }
+        /* Vertical stack for the ready-state buttons (longer instructional labels). */
+        .btn-row.btn-stack {
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+        }
+        .kiosk-btn.btn-wide {
+            width: 640px;
+            height: 130px;
+            font-size: 1.6rem;
+            letter-spacing: 3px;
+        }
 
         /* ===== NUMPAD ===== */
         .ticket-entry { text-align: center; }
@@ -591,16 +603,14 @@
             <div class="big-message">Place Truck on Scale</div>
         </div>
 
-        <!-- READY: New Load / Enter Ticket -->
+        <!-- READY: Weigh In / Weigh Out -->
         <div id="state-ready" class="kiosk-state">
-            <div class="btn-row">
-                <button class="kiosk-btn btn-green" id="btn-new-load">
-                    New Load
-                    <span class="btn-sub">Weigh In</span>
+            <div class="btn-row btn-stack">
+                <button class="kiosk-btn btn-green btn-wide" id="btn-new-load">
+                    PRESS ENTER TO WEIGH IN
                 </button>
-                <button class="kiosk-btn btn-blue" id="btn-enter-ticket">
-                    Enter Ticket #
-                    <span class="btn-sub">Weigh Out</span>
+                <button class="kiosk-btn btn-blue btn-wide" id="btn-enter-ticket">
+                    ENTER TICKET # TO WEIGH OUT
                 </button>
             </div>
         </div>
@@ -1442,6 +1452,9 @@
                     submitTicket();
                 } else if (currentState === 'prompt') {
                     selectCurrentPromptItem();
+                } else if (currentState === 'ready') {
+                    // Matches the green "PRESS ENTER TO WEIGH IN" button.
+                    startWeighIn();
                 }
                 break;
 
@@ -1462,6 +1475,7 @@
                 break;
 
             case 'ArrowUp':
+            case 'PageUp':
                 e.preventDefault();
                 if (currentState === 'prompt' && currentListItems.length > 0) {
                     selectedListIndex = Math.max(0, selectedListIndex - 1);
@@ -1470,6 +1484,7 @@
                 break;
 
             case 'ArrowDown':
+            case 'PageDown':
                 e.preventDefault();
                 if (currentState === 'prompt' && currentListItems.length > 0) {
                     selectedListIndex = Math.min(currentListItems.length - 1, selectedListIndex + 1);
