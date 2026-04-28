@@ -236,14 +236,27 @@
                 weightVal.textContent = data.weight.toLocaleString();
                 weightVal.style.color = data.motion ? '#ffc107' : '#0f0';
                 weightUnit.style.color = data.motion ? '#cc9900' : '#0a0';
-                status.innerHTML = data.motion
-                    ? '<span style="color:#ffc107;">MOTION</span>'
-                    : '<span style="color:#0a0;">STABLE</span>';
+
+                // Use the service-supplied status when it's more specific than the
+                // generic "Ok" / "Motion" defaults (e.g. "Below Zero", ">0<").
+                var statusText, statusColor;
+                if (data.status && data.status !== 'Ok' && data.status !== 'Motion') {
+                    statusText = String(data.status).toUpperCase();
+                    statusColor = '#0dcaf0'; // info cyan
+                } else if (data.motion) {
+                    statusText = 'MOTION';
+                    statusColor = '#ffc107';
+                } else {
+                    statusText = 'STABLE';
+                    statusColor = '#0a0';
+                }
+                status.innerHTML = '<span style="color:' + statusColor + ';">' + escHtml(statusText) + '</span>';
             } else {
                 weightVal.textContent = '---';
                 weightVal.style.color = '#f00';
                 weightUnit.style.color = '#a00';
-                status.innerHTML = '<span style="color:#f00;">ERROR</span>';
+                var errText = (data.status ? String(data.status).toUpperCase() : 'ERROR');
+                status.innerHTML = '<span style="color:#f00;">' + escHtml(errText) + '</span>';
             }
             // Update diagnostic raw response
             var rawText = document.getElementById('diagRawText');
