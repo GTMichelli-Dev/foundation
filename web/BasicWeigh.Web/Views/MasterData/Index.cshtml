@@ -6,6 +6,41 @@
     var useRetainedTare = (bool)(ViewBag.UseRetainedTare ?? false);
 }
 
+<style>
+    /* Style DevExtreme batch-edit Delete / Undelete links as Bootstrap
+       outline buttons so they match the rest of the page. */
+    .dx-datagrid .dx-link-delete,
+    .dx-datagrid .dx-link-undelete {
+        display: inline-block;
+        padding: 0.2rem 0.55rem;
+        font-size: 0.8125rem;
+        line-height: 1.4;
+        border-radius: 0.3rem;
+        border: 1px solid transparent;
+        text-decoration: none !important;
+        font-weight: 500;
+        transition: color .12s, background-color .12s, border-color .12s;
+    }
+    .dx-datagrid .dx-link-delete {
+        color: #dc3545;
+        border-color: #dc3545;
+        background: transparent;
+    }
+    .dx-datagrid .dx-link-delete:hover {
+        color: #fff;
+        background: #dc3545;
+    }
+    .dx-datagrid .dx-link-undelete {
+        color: #0dcaf0;
+        border-color: #0dcaf0;
+        background: transparent;
+    }
+    .dx-datagrid .dx-link-undelete:hover {
+        color: #000;
+        background: #0dcaf0;
+    }
+</style>
+
 <div class="d-flex justify-content-between align-items-center mb-2">
     <h3 class="mb-0">Edit Tables</h3>
     <div>
@@ -165,7 +200,10 @@
                     cellTemplate: function (container, options) {
                         var data = options.data || {};
                         if (data.isCarrier) {
-                            $('<span class="badge bg-secondary">Carrier</span>').appendTo(container);
+                            // Same outline-button shape as Add to Carriers so
+                            // the column has consistent vertical rhythm.
+                            $('<button type="button" class="btn btn-sm btn-outline-secondary" disabled>Carrier</button>')
+                                .appendTo(container);
                         } else if (data.id) {
                             $('<button type="button" class="btn btn-sm btn-outline-primary">Add to Carriers</button>')
                                 .on('click', function () {
@@ -205,7 +243,8 @@
                     mode: 'batch',
                     allowAdding: !lockName,
                     allowUpdating: true,
-                    allowDeleting: !lockName
+                    allowDeleting: !lockName,
+                    useIcons: false
                 },
                 columns: cols
             });
@@ -273,7 +312,8 @@
                 mode: 'batch',
                 allowAdding: true,
                 allowUpdating: true,
-                allowDeleting: true
+                allowDeleting: true,
+                useIcons: false
             },
             columns: carrierCols,
             onInitNewRow: function () {
@@ -377,7 +417,8 @@
                             mode: 'batch',
                             allowAdding: true,
                             allowUpdating: true,
-                            allowDeleting: true
+                            allowDeleting: true,
+                            useIcons: false
                         },
                         columns: truckCols
                     }).appendTo(container);
