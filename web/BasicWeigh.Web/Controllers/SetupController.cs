@@ -67,6 +67,10 @@ public class SetupController : Controller
         existing.AllowSkipDestination = setup.AllowSkipDestination;
 
         existing.HideKioskOnScreenButtons = setup.HideKioskOnScreenButtons;
+        existing.TimeZoneId = string.IsNullOrWhiteSpace(setup.TimeZoneId) ? "America/Chicago" : setup.TimeZoneId;
+        // Apply the new TZ to the running app immediately so subsequent
+        // requests (and the redirect's GET render) use it without a restart.
+        AppTimeZone.Configure(existing.TimeZoneId);
         existing.KioskDarkMode = setup.KioskDarkMode;
         existing.UseLogin = setup.UseLogin;
         existing.KioskCode = setup.KioskCode ?? "12345";

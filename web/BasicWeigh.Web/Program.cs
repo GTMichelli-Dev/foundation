@@ -112,6 +112,11 @@ using (var scope = app.Services.CreateScope())
     var context = scope.ServiceProvider.GetRequiredService<ScaleDbContext>();
     context.Database.Migrate();
     DbInitializer.Seed(context);
+
+    // Apply the saved display TZ from AppSetup. SetupController will re-Configure
+    // on each save so a restart isn't needed.
+    var savedTz = context.AppSetup.AsNoTracking().FirstOrDefault()?.TimeZoneId;
+    if (!string.IsNullOrWhiteSpace(savedTz)) AppTimeZone.Configure(savedTz);
 }
 
 if (app.Environment.IsDevelopment())

@@ -101,6 +101,16 @@ public class AppSetup
     [Display(Name = "Hide On-Screen Buttons")]
     public bool HideKioskOnScreenButtons { get; set; }
 
+    /// <summary>
+    /// IANA timezone ID used to format dates everywhere user-facing — date-range
+    /// filters, completed-tickets grid, ticket prints. Stored separately from
+    /// host OS clock so a UTC cloud server still shows local time. Examples:
+    /// America/Chicago, America/New_York, America/Denver, America/Los_Angeles.
+    /// </summary>
+    [Display(Name = "Display Time Zone")]
+    [StringLength(100)]
+    public string? TimeZoneId { get; set; } = "America/Chicago";
+
     [Display(Name = "Kiosk Dark Mode")]
     public bool KioskDarkMode { get; set; } = true;
 

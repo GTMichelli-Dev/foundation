@@ -147,6 +147,41 @@
                                     <option value="earth">Earth (Brown, Black &amp; Green)</option>
                                 </select>
                             </div>
+                            <div class="mb-2">
+                                <label asp-for="TimeZoneId" class="form-label mb-0 small"></label>
+                                @{
+                                    var commonTimeZones = new (string Id, string Label)[]
+                                    {
+                                        ("America/New_York",    "Eastern (New York)"),
+                                        ("America/Chicago",     "Central (Chicago)"),
+                                        ("America/Denver",      "Mountain (Denver)"),
+                                        ("America/Phoenix",     "Mountain — Arizona (no DST)"),
+                                        ("America/Los_Angeles", "Pacific (Los Angeles)"),
+                                        ("America/Anchorage",   "Alaska (Anchorage)"),
+                                        ("Pacific/Honolulu",    "Hawaii (Honolulu)"),
+                                        ("America/Halifax",     "Atlantic (Halifax)"),
+                                        ("America/Toronto",     "Eastern — Canada (Toronto)"),
+                                        ("America/Mexico_City", "Central — Mexico (Mexico City)"),
+                                        ("UTC",                 "UTC (Coordinated Universal Time)"),
+                                        ("Europe/London",       "London (UK)"),
+                                        ("Europe/Berlin",       "Berlin / Paris / Madrid"),
+                                        ("Australia/Sydney",    "Sydney"),
+                                    };
+                                    var current = string.IsNullOrWhiteSpace(Model.TimeZoneId) ? "America/Chicago" : Model.TimeZoneId;
+                                    var inList = commonTimeZones.Any(t => t.Id == current);
+                                }
+                                <select asp-for="TimeZoneId" class="form-select form-select-sm">
+                                    @foreach (var tz in commonTimeZones)
+                                    {
+                                        <option value="@tz.Id" selected="@(current == tz.Id ? "selected" : null)">@tz.Label</option>
+                                    }
+                                    @if (!inList)
+                                    {
+                                        <option value="@current" selected="selected">@current (custom)</option>
+                                    }
+                                </select>
+                                <div class="form-text small">Used for date pickers, completed-tickets grid, ticket prints. Pick a custom IANA ID by editing the database directly if your zone isn't listed.</div>
+                            </div>
                         </div>
                     </div>
 
