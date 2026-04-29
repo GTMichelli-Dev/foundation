@@ -875,6 +875,7 @@
     var completedWeight = null;  // weight at time of completion
     var completedTicket = null;  // ticket number for reprint
     var completedType = null;    // 'Weigh In' or 'Weigh Out'
+    var completedTicketIsOpen = false; // true when only inWeight is set (open ticket); false when both weights set (closed)
     var WEIGHT_CHANGE_EXIT = 1000; // exit complete screen when weight changes this much
     var operationStartWeight = null; // weight when operation started
     var operationTimer = null; // 60-sec timeout for operations
@@ -1497,13 +1498,21 @@
 
         // Show the complete screen FIRST, then trigger print async
         completedType = type; // 'Weigh In' or 'Weigh Out'
+        completedTicketIsOpen = (outWeight === null || typeof outWeight === 'undefined');
         setState('complete');
 
         // Browser print: open ticket in new window for printing
         // Only print to browser if service-id=Browser&printer-id=Browser
         if (kioskIsBrowserPrint) {
+            // KioskView prints the inbound layout; View prints the outbound
+            // (completed) layout. Decide by whether the ticket is closed —
+            // both weights set — so a tare-completed weigh-in correctly
+            // prints the outbound ticket. (type='Weigh In' alone isn't
+            // enough because the retained-tare path passes 'Weigh In' for
+            // a closed ticket.)
+            var ticketIsOpen = (outWeight === null || typeof outWeight === 'undefined');
             setTimeout(function () {
-                var url = (type === 'Weigh In')
+                var url = ticketIsOpen
                     ? '/Ticket/KioskView/' + encodeURIComponent(ticketNum)
                     : '/Ticket/View/' + encodeURIComponent(ticketNum);
                 window.open(url, '_blank');
@@ -1523,9 +1532,11 @@
     function reprintTicket() {
         if (!completedTicket) return;
 
-        // Browser printing — open ticket in new window
+        // Browser printing — open ticket in new window. Use the same
+        // open-vs-closed signal as the initial print so a tare-completed
+        // weigh-in correctly reprints the outbound layout.
         if (kioskIsBrowserPrint || kioskSettings.demoMode) {
-            var url = (completedType === 'Weigh In')
+            var url = completedTicketIsOpen
                 ? '/Ticket/KioskView/' + encodeURIComponent(completedTicket)
                 : '/Ticket/View/' + encodeURIComponent(completedTicket);
             window.open(url, '_blank');
