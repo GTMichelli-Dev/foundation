@@ -33,10 +33,15 @@ public class TransactionController : Controller
     {
         ViewBag.Customers = _db.Customers.Where(c => c.Active).OrderBy(c => c.CustomerName).ToList();
 
-        // Carriers = dedicated carriers + all active customers (any customer can be a carrier)
-        var carrierNames = _db.Carriers.Where(c => c.Active).Select(c => c.CarrierName).ToList();
-        var customerNames = _db.Customers.Where(c => c.Active).Select(c => c.CustomerName).ToList();
-        ViewBag.CarrierOptions = carrierNames.Union(customerNames).OrderBy(n => n).ToList();
+        // Carrier dropdown — only entries explicitly marked as Carriers in
+        // master data. Customers who also haul are added to Carriers via the
+        // "Add to Carriers" button on MasterData → Customers; from then on
+        // they appear in this list.
+        ViewBag.CarrierOptions = _db.Carriers
+            .Where(c => c.Active)
+            .OrderBy(c => c.CarrierName)
+            .Select(c => c.CarrierName)
+            .ToList();
 
         // Trucks loaded via AJAX based on selected carrier
         ViewBag.Commodities = _db.Commodities.Where(c => c.Active).OrderBy(c => c.CommodityName).ToList();
