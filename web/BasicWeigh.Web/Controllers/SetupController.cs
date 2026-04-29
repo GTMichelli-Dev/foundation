@@ -79,13 +79,21 @@ public class SetupController : Controller
 
         // Retained Tare needs both carrier and truck to identify the truck.
         // Force the prompts on AND disable Allow Skip so the kiosk flow always
-        // captures the identifying fields with real values.
+        // captures the identifying fields with real values. Also force every
+        // OnOutbound flag false — under Retained Tare the weigh-out is
+        // auto-completed when the truck weighs in, so an outbound prompt would
+        // never fire and would be a footgun if left checked.
         if (existing.UseRetainedTare)
         {
             existing.PromptKioskCarrier = true;
             existing.PromptKioskTruckId = true;
             existing.AllowSkipCarrier = false;
             existing.AllowSkipTruckId = false;
+
+            existing.PromptKioskCommodityOnOutbound = false;
+            existing.PromptKioskCustomerOnOutbound = false;
+            existing.PromptKioskLocationOnOutbound = false;
+            existing.PromptKioskDestinationOnOutbound = false;
         }
         existing.InboundCameraId = setup.InboundCameraId;
         existing.OutboundCameraId = setup.OutboundCameraId;

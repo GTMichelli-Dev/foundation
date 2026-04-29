@@ -298,7 +298,9 @@
                 <i class="fa fa-circle-info"></i>
                 <strong>Retained Tare requires</strong> the <em>Carrier</em> and <em>Truck&nbsp;ID</em>
                 prompts to be enabled — they identify the truck so the stored tare can be
-                recalled. Both are kept on while Retained Tare is enabled in
+                recalled. Outbound prompts are disabled because the weigh-out is
+                auto-completed via the recalled tare — they would never fire. Both rules
+                stay in effect while Retained Tare is enabled in
                 <strong>System &rarr; Options</strong>.
             </div>
             <div class="row">
@@ -786,9 +788,14 @@
 
     function applyRetainedTareLocks(on) {
         // Visual lock + force values for Carrier/Truck while Retained Tare is on:
-        //   - Direction radios pinned to Inbound
+        //   - Direction radios pinned to Inbound (Neither disabled too)
         //   - AllowSkip checkboxes unchecked AND disabled (greyed out)
         //   - "required" badges + tab notice visible
+        // For the splittable prompts (Commodity / Customer / Location /
+        // Destination), the Outbound radio is disabled — the auto-completed
+        // weigh-out under Retained Tare never fires those prompts. Any
+        // Outbound selection is bumped to Inbound so the prompt still happens
+        // somewhere reasonable.
         if (on) {
             var carrierInbound = document.getElementById('carrierDirInbound');
             var truckInbound   = document.getElementById('truckDirInbound');
@@ -805,6 +812,18 @@
         ['carrierDirNone', 'truckDirNone'].forEach(function (id) {
             var el = document.getElementById(id);
             if (el) el.disabled = on;
+        });
+        // Outbound radios for splittable prompts: disable while RT is on; if
+        // currently checked, push selection to Inbound.
+        ['kioskCommodityDirOutbound', 'kioskCustomerDirOutbound', 'kioskLocationDirOutbound', 'kioskDestDirOutbound'].forEach(function (id) {
+            var outRadio = document.getElementById(id);
+            if (!outRadio) return;
+            outRadio.disabled = on;
+            if (on && outRadio.checked) {
+                var inboundId = id.replace(/Outbound$/, 'Inbound');
+                var inboundRadio = document.getElementById(inboundId);
+                if (inboundRadio) { inboundRadio.checked = true; inboundRadio.dispatchEvent(new Event('change')); }
+            }
         });
         ['PromptKioskCarrierLock', 'PromptKioskTruckIdLock'].forEach(function (id) {
             var el = document.getElementById(id);
