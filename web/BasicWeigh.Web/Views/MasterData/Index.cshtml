@@ -7,8 +7,16 @@
 }
 
 <style>
+    /* Customers grid Carrier column — keep "Carrier" badge and "Add to
+       Carriers" button at the same width so the column reads cleanly. */
+    .btn-carrier-cell {
+        width: 140px;
+        text-align: center;
+    }
+
     /* Style DevExtreme batch-edit Delete / Undelete links as Bootstrap
-       outline buttons so they match the rest of the page. */
+       buttons. Delete is inverse-danger (solid red default, outline on
+       hover); Undelete is outline-info. */
     .dx-datagrid .dx-link-delete,
     .dx-datagrid .dx-link-undelete {
         display: inline-block;
@@ -22,13 +30,14 @@
         transition: color .12s, background-color .12s, border-color .12s;
     }
     .dx-datagrid .dx-link-delete {
-        color: #dc3545;
-        border-color: #dc3545;
-        background: transparent;
-    }
-    .dx-datagrid .dx-link-delete:hover {
         color: #fff;
         background: #dc3545;
+        border-color: #dc3545;
+    }
+    .dx-datagrid .dx-link-delete:hover {
+        color: #dc3545;
+        background: transparent;
+        border-color: #dc3545;
     }
     .dx-datagrid .dx-link-undelete {
         color: #0dcaf0;
@@ -200,12 +209,12 @@
                     cellTemplate: function (container, options) {
                         var data = options.data || {};
                         if (data.isCarrier) {
-                            // Same outline-button shape as Add to Carriers so
-                            // the column has consistent vertical rhythm.
-                            $('<button type="button" class="btn btn-sm btn-outline-secondary" disabled>Carrier</button>')
+                            // Same outline-button shape AND width as Add to
+                            // Carriers so the column reads cleanly.
+                            $('<button type="button" class="btn btn-sm btn-outline-secondary btn-carrier-cell" disabled>Carrier</button>')
                                 .appendTo(container);
                         } else if (data.id) {
-                            $('<button type="button" class="btn btn-sm btn-outline-primary">Add to Carriers</button>')
+                            $('<button type="button" class="btn btn-sm btn-outline-primary btn-carrier-cell">Add to Carriers</button>')
                                 .on('click', function () {
                                     var $btn = $(this).prop('disabled', true).text('Adding…');
                                     $.ajax({
