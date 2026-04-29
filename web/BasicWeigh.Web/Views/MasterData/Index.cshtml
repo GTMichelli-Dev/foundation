@@ -3,6 +3,7 @@
     var kioskCount = (int)ViewBag.KioskCount;
     var showKiosk = kioskCount > 0;
     var useQuickBooks = (bool)ViewBag.UseQuickBooks;
+    var useRetainedTare = (bool)(ViewBag.UseRetainedTare ?? false);
 }
 
 <div class="d-flex justify-content-between align-items-center mb-2">
@@ -66,6 +67,7 @@
     $(function () {
         var showKiosk = @(showKiosk ? "true" : "false");
         var useQuickBooks = @(useQuickBooks ? "true" : "false");
+        var useRetainedTare = @(useRetainedTare ? "true" : "false");
 
         function createIdStore(endpoint) {
             return new DevExpress.data.CustomStore({
@@ -218,6 +220,45 @@
                     ];
                     if (showKiosk) {
                         truckCols.push({ dataField: 'useAtKiosk', caption: 'Kiosk', dataType: 'boolean', width: 100 });
+                    }
+                    if (useRetainedTare) {
+                        truckCols.push({
+                            dataField: 'retainedTare',
+                            caption: 'Retained Tare (lb)',
+                            dataType: 'number',
+                            format: { type: 'fixedPoint', precision: 0 },
+                            width: 140,
+                            allowEditing: false
+                        });
+                        truckCols.push({
+                            dataField: 'retainedTareUpdated',
+                            caption: 'Tare Updated',
+                            dataType: 'datetime',
+                            format: 'MM/dd/yyyy hh:mm a',
+                            width: 160,
+                            allowEditing: false
+                        });
+                        truckCols.push({
+                            type: 'buttons',
+                            caption: 'Clear Tare',
+                            width: 110,
+                            buttons: [{
+                                hint: 'Clear retained tare',
+                                text: 'Clear',
+                                cssClass: 'text-danger fw-bold',
+                                visible: function (e) { return e.row && e.row.data && e.row.data.retainedTare != null; },
+                                onClick: function (e) {
+                                    var rowData = e.row.data;
+                                    if (!confirm('Clear retained tare for ' + rowData.truckId + '?')) return;
+                                    $.ajax({
+                                        url: '/api/retainedtares/' + rowData.id + '/clear',
+                                        method: 'POST'
+                                    }).done(function () {
+                                        e.component.refresh();
+                                    });
+                                }
+                            }]
+                        });
                     }
 
                     $('<div>').dxDataGrid({

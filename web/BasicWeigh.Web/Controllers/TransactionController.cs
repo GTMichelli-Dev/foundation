@@ -141,8 +141,10 @@ public class TransactionController : Controller
                 var truck = _db.Trucks.FirstOrDefault(x =>
                     x.TruckId.ToLower() == tid && x.CarrierName.ToLower() == car);
 
-                // Tares from a previous date are auto-expired.
-                if (truck?.RetainedTare.HasValue == true
+                // Tares from a previous date are auto-expired (gated on
+                // AutoClearStaleRetainedTare).
+                if (setup.AutoClearStaleRetainedTare
+                    && truck?.RetainedTare.HasValue == true
                     && (truck.RetainedTareUpdated?.Date ?? DateTime.MinValue) < DateTime.Today)
                 {
                     Console.WriteLine($"[RetainedTare] cleared stale tare for '{truck.TruckId}' / '{truck.CarrierName}' (last seen {truck.RetainedTareUpdated:yyyy-MM-dd})");

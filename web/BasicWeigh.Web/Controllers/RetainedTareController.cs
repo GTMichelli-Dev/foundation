@@ -2,16 +2,19 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BasicWeigh.Web.Data;
 using BasicWeigh.Web.Models;
+using BasicWeigh.Web.Services;
 
 namespace BasicWeigh.Web.Controllers;
 
 public class RetainedTareController : Controller
 {
     private readonly ScaleDbContext _db;
+    private readonly AppSetupCache _setupCache;
 
-    public RetainedTareController(ScaleDbContext db)
+    public RetainedTareController(ScaleDbContext db, AppSetupCache setupCache)
     {
         _db = db;
+        _setupCache = setupCache;
     }
 
     public IActionResult Index()
@@ -32,6 +35,7 @@ public class RetainedTareController : Controller
     /// </summary>
     private void SweepStaleTares()
     {
+        if (!_setupCache.Get().AutoClearStaleRetainedTare) return;
         var today = DateTime.Today;
         var stale = _db.Trucks
             .Where(t => t.RetainedTare != null
@@ -111,8 +115,11 @@ public class RetainedTareController : Controller
 
         if (truck == null) return NotFound();
 
-        // Tares from a previous date are auto-expired before reporting.
-        if (truck.RetainedTare.HasValue
+        // Tares from a previous date are auto-expired before reporting (gated
+        // on AutoClearStaleRetainedTare so the operator can disable midnight
+        // expiry for fleets where tares are stable across days).
+        if (_setupCache.Get().AutoClearStaleRetainedTare
+            && truck.RetainedTare.HasValue
             && (truck.RetainedTareUpdated?.Date ?? DateTime.MinValue) < DateTime.Today)
         {
             truck.RetainedTare = null;

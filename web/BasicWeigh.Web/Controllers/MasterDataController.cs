@@ -23,6 +23,7 @@ public class MasterDataController : Controller
         var setup = _setupCache.Get();
         ViewBag.KioskCount = setup.KioskCount;
         ViewBag.UseQuickBooks = setup.UseQuickBooks;
+        ViewBag.UseRetainedTare = setup.UseRetainedTare;
         return View();
     }
 

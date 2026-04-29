@@ -141,8 +141,11 @@ public class KioskController : Controller
                 t.TruckId == request.TruckId && t.CarrierName == request.Carrier);
 
             // Tares from a previous date are auto-expired — load may have changed
-            // overnight, so a stale tare can't be trusted. Clear and treat as none.
-            if (truck?.RetainedTare.HasValue == true
+            // overnight, so a stale tare can't be trusted. Gated on
+            // AutoClearStaleRetainedTare so an operator can disable midnight
+            // expiry if their fleet's tares are stable across days.
+            if (setup.AutoClearStaleRetainedTare
+                && truck?.RetainedTare.HasValue == true
                 && (truck.RetainedTareUpdated?.Date ?? DateTime.MinValue) < DateTime.Today)
             {
                 Console.WriteLine($"[RetainedTare] cleared stale tare for '{truck.TruckId}' / '{truck.CarrierName}' (last seen {truck.RetainedTareUpdated:yyyy-MM-dd})");

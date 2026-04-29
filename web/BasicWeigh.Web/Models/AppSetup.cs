@@ -160,6 +160,14 @@ public class AppSetup
     [Display(Name = "Use Retained Tare")]
     public bool UseRetainedTare { get; set; }
 
+    /// <summary>
+    /// When true, retained tares older than today are automatically cleared on
+    /// the next read (kiosk weigh-in lookup, RetainedTare admin page, MasterData
+    /// truck grid). When false, stored tares persist until manually cleared.
+    /// </summary>
+    [Display(Name = "Auto-Clear Tares at Midnight")]
+    public bool AutoClearStaleRetainedTare { get; set; } = true;
+
     // Remote printing mode: None, Scale, RemotePrinter
     [StringLength(20)]
     [Display(Name = "Remote Printing")]

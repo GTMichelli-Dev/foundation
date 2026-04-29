@@ -80,6 +80,7 @@ public class SetupController : Controller
         existing.UseQuickBooks = setup.UseQuickBooks;
         existing.SavePicture = setup.SavePicture;
         existing.UseRetainedTare = setup.UseRetainedTare;
+        existing.AutoClearStaleRetainedTare = setup.AutoClearStaleRetainedTare;
 
         // Retained Tare needs both carrier and truck to identify the truck.
         // Force the prompts on AND disable Allow Skip so the kiosk flow always
