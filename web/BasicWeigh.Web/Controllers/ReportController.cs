@@ -28,12 +28,13 @@ public class ReportController : Controller
     [HttpGet("api/reports/transactions")]
     public IActionResult GetTransactions(DateTime? startDate, DateTime? endDate)
     {
-        // Filter: query strings come in as user-local dates. Convert to UTC
-        // bounds so the comparison against stored UTC values is correct.
+        // Filter range in the configured display TZ. endInclusive = midnight
+        // at the START of (endDate + 1) so the chosen endDate includes every
+        // record through 23:59:59.999 of that local date.
         var localStart = startDate ?? DateTime.Today.AddDays(-30);
-        var localEnd   = (endDate ?? DateTime.Today).AddDays(1);
-        var start = localStart.ToUniversalTime();
-        var end   = localEnd.ToUniversalTime();
+        var localEnd   = (endDate ?? DateTime.Today).Date.AddDays(1);
+        var start = AppTimeZone.ToUtc(localStart);
+        var end   = AppTimeZone.ToUtc(localEnd);
 
         // Count voided tickets in the date range
         var voidCount = _db.Transactions
@@ -72,9 +73,9 @@ public class ReportController : Controller
     public IActionResult GetVoided(DateTime? startDate, DateTime? endDate)
     {
         var localStart = startDate ?? DateTime.Today.AddDays(-30);
-        var localEnd   = (endDate ?? DateTime.Today).AddDays(1);
-        var start = localStart.ToUniversalTime();
-        var end   = localEnd.ToUniversalTime();
+        var localEnd   = (endDate ?? DateTime.Today).Date.AddDays(1);
+        var start = AppTimeZone.ToUtc(localStart);
+        var end   = AppTimeZone.ToUtc(localEnd);
 
         var results = _db.Transactions
             .Where(t => t.DateOut != null && t.Void && t.DateOut >= start && t.DateOut < end)

@@ -20,13 +20,14 @@ public static class DateTimeExtensions
         stored.HasValue ? DateTime.SpecifyKind(stored.Value, DateTimeKind.Utc) : (DateTime?)null;
 
     /// <summary>
-    /// Convert a stored UTC DateTime to the server's local timezone for
-    /// server-side rendering (DevExpress reports, ticket prints). The Linux
-    /// host's TZ should be set via <c>timedatectl set-timezone</c>.
+    /// Convert a stored UTC DateTime to the configured display TZ
+    /// (AppTimeZone, "Display:TimeZone" in appsettings.json — defaults to
+    /// host local). Use for server-side rendering (DevExpress reports,
+    /// ticket prints) so the result doesn't depend on the host OS clock.
     /// </summary>
     public static DateTime ToServerLocal(this DateTime stored) =>
-        DateTime.SpecifyKind(stored, DateTimeKind.Utc).ToLocalTime();
+        AppTimeZone.FromUtc(stored);
 
     public static DateTime? ToServerLocal(this DateTime? stored) =>
-        stored.HasValue ? stored.Value.ToServerLocal() : (DateTime?)null;
+        stored.HasValue ? AppTimeZone.FromUtc(stored.Value) : (DateTime?)null;
 }

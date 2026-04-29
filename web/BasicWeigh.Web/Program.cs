@@ -13,6 +13,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Query", LogLevel.Error);
 
+// Display timezone (UTC -> user-local conversions for filters, ticket prints,
+// date-range queries). Reads "Display:TimeZone" from appsettings.json; falls
+// back to the host OS local TZ if unset or invalid.
+AppTimeZone.Configure(builder.Configuration["Display:TimeZone"]);
+
 // Database provider switching
 var dbProvider = builder.Configuration["DatabaseProvider"] ?? "SQLite";
 var connectionString = builder.Configuration.GetConnectionString(dbProvider)

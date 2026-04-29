@@ -545,12 +545,16 @@ public class TransactionController : Controller
     [HttpGet("api/transactions/completed")]
     public IActionResult GetCompleted(DateTime? startDate, DateTime? endDate)
     {
-        // Filter range: query strings come in as user-local dates. Convert to
-        // UTC bounds so the comparison against stored UTC values is correct.
+        // Filter range: query strings come in as user-local dates in the
+        // configured display TZ. Convert to UTC bounds so the comparison
+        // against stored UTC values is correct regardless of host TZ.
+        // endInclusive = midnight at the START of (endDate + 1) in the
+        // display TZ — so an endDate of 2026-04-29 includes everything up
+        // through 2026-04-29 23:59:59.999 local time.
         var localStart = startDate ?? DateTime.Today.AddDays(-30);
-        var localEnd   = (endDate ?? DateTime.Today).Date.AddDays(1); // end-inclusive
-        var start = localStart.ToUniversalTime();
-        var endInclusive = localEnd.ToUniversalTime();
+        var localEnd   = (endDate ?? DateTime.Today).Date.AddDays(1);
+        var start = AppTimeZone.ToUtc(localStart);
+        var endInclusive = AppTimeZone.ToUtc(localEnd);
 
         var transactions = _db.Transactions
             .Where(t => t.DateOut != null && t.DateIn >= start && t.DateIn < endInclusive)
