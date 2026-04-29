@@ -202,6 +202,10 @@
 
         .kiosk-state { display: none; width: 100%; text-align: center; }
         .kiosk-state.active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        /* Prompt list anchors near the top of the content area so it has room
+            to be tall — vertical-centering would push the bottom rows below
+            the fold on smaller kiosk screens. */
+        #state-prompt.active { justify-content: flex-start; padding-top: 24px; }
 
         /* ===== BIG MESSAGE ===== */
         .big-message {
@@ -364,28 +368,29 @@
         .numpad-btn.btn-ent { background: #1a4d1a; border-color: #00cc00; color: #00ff41; }
 
         /* ===== LIST SELECTOR ===== */
-        .list-selector { width: 100%; max-width: 700px; }
+        .list-selector { width: 100%; max-width: 1100px; }
         .list-title {
-            font-size: 2.5rem;
-            font-weight: 700;
-            letter-spacing: 2px;
-            margin-bottom: 12px;
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: 3px;
+            margin-bottom: 16px;
             text-transform: uppercase;
         }
         .list-container {
             background: #111;
-            border: 2px solid #666;
-            border-radius: 12px;
-            max-height: 420px;
+            border: 3px solid #666;
+            border-radius: 16px;
+            max-height: 620px;
             overflow-y: auto;
             scrollbar-width: thin;
             scrollbar-color: #666 #111;
         }
         .list-item {
-            padding: 18px 24px;
-            font-size: 1.8rem;
+            padding: 26px 40px;
+            font-size: 2.4rem;
+            font-weight: 600;
             color: #ffffff;
-            border-bottom: 1px solid #444;
+            border-bottom: 2px solid #444;
             cursor: pointer;
             transition: background 0.1s;
         }
