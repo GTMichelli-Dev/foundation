@@ -1181,8 +1181,11 @@
                 // Retained Tare can't function without a truck identity. If the
                 // selected carrier has zero trucks assigned, fail the operation
                 // with a clear error rather than silently dropping the truck
-                // prompt and writing a transaction we can't recall a tare for.
-                if (trucks.length === 0 && kioskSettings.useRetainedTare) {
+                // prompt and creating a no-Truck-ID ticket. Fires whenever the
+                // truck prompt is enabled, regardless of Retained Tare state —
+                // a kiosk that's configured to ask for the Truck ID should
+                // always actually ask for it.
+                if (trucks.length === 0) {
                     $('#no-trucks-detail').text(
                         'No trucks are assigned to "' + weighinData.carrier + '" — see the office'
                     );
