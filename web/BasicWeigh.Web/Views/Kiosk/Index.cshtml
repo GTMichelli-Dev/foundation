@@ -401,8 +401,14 @@
             background: #111;
             border: 3px solid #666;
             border-radius: 16px;
+            /* Hard cap so the Cancel/Skip/Select buttons always have room on
+                the 800px-tall kiosk frame (740px content area minus title,
+                button row, padding leaves ~520px for the list). flex:1 lets
+                short lists collapse; max-height keeps long lists from
+                pushing the buttons off-screen. */
             flex: 1 1 auto;
             min-height: 0;
+            max-height: 480px;
             overflow-y: auto;
             scrollbar-width: thin;
             scrollbar-color: #666 #111;
