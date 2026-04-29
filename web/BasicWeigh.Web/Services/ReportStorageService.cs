@@ -23,32 +23,33 @@ public class ReportStorageService : ReportStorageWebExtension
     {
         var path = GetPath(url);
         if (File.Exists(path))
+        {
+            Console.WriteLine($"[ReportStorage] load '{url}' from {path}");
             return File.ReadAllBytes(path);
-
-        // If no saved file, generate from the coded report
-        if (url == "TicketReport")
-        {
-            using var stream = new MemoryStream();
-            var report = new TicketReport();
-            report.SaveLayoutToXml(stream);
-            return stream.ToArray();
         }
 
-        if (url == "KioskTicketReport")
+        // No saved .repx yet — generate from the coded report and persist
+        // immediately so the file exists on disk after the very first time
+        // the designer is opened. Subsequent saves (and the View / KioskView
+        // print paths, which also check File.Exists) then read the same file.
+        XtraReport? report = url switch
         {
-            using var stream = new MemoryStream();
-            var report = new KioskTicketReport();
-            report.SaveLayoutToXml(stream);
-            return stream.ToArray();
-        }
+            "TicketReport" => new TicketReport(),
+            "KioskTicketReport" => new KioskTicketReport(),
+            _ => null
+        };
+        if (report == null) throw new FileNotFoundException($"Report '{url}' not found.");
 
-        throw new FileNotFoundException($"Report '{url}' not found.");
+        report.SaveLayoutToXml(path);
+        Console.WriteLine($"[ReportStorage] seed '{url}' to {path}");
+        return File.ReadAllBytes(path);
     }
 
     public override void SetData(XtraReport report, string url)
     {
         var path = GetPath(url);
         report.SaveLayoutToXml(path);
+        Console.WriteLine($"[ReportStorage] save '{url}' to {path}");
     }
 
     public override string SetNewData(XtraReport report, string defaultUrl)
