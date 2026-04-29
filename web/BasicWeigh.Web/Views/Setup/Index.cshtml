@@ -786,10 +786,39 @@
         el.style.display = this.value === 'true' ? 'flex' : 'none';
     });
 
+    // Single source of truth for whether each "Allow Skip" checkbox is enabled.
+    // A prompt set to Neither will never fire, so its skip flag is meaningless;
+    // unchecked + disabled. Carrier/Truck additionally have skip locked off
+    // whenever Retained Tare is on (handled here too).
+    var SKIP_RULES = [
+        { group: 'kioskCarrierDir',   skip: 'AllowSkipCarrier',     rtForcesOff: true  },
+        { group: 'kioskTruckDir',     skip: 'AllowSkipTruckId',     rtForcesOff: true  },
+        { group: 'kioskCommodityDir', skip: 'AllowSkipCommodity',   rtForcesOff: false },
+        { group: 'kioskCustomerDir',  skip: 'AllowSkipCustomer',    rtForcesOff: false },
+        { group: 'kioskLocationDir',  skip: 'AllowSkipLocation',    rtForcesOff: false },
+        { group: 'kioskDestDir',      skip: 'AllowSkipDestination', rtForcesOff: false }
+    ];
+    function syncAllowSkipState() {
+        var rtOn = isRetainedTareOn();
+        SKIP_RULES.forEach(function (row) {
+            var skip = document.getElementById(row.skip);
+            if (!skip) return;
+            var checkedRadio = document.querySelector('input[name="' + row.group + '"]:checked');
+            var dir = checkedRadio ? checkedRadio.value : 'neither';
+            var force = dir === 'neither' || (row.rtForcesOff && rtOn);
+            if (force) {
+                skip.checked = false;
+                skip.disabled = true;
+            } else {
+                skip.disabled = false;
+            }
+        });
+    }
+
     function applyRetainedTareLocks(on) {
         // Visual lock + force values for Carrier/Truck while Retained Tare is on:
         //   - Direction radios pinned to Inbound (Neither disabled too)
-        //   - AllowSkip checkboxes unchecked AND disabled (greyed out)
+        //   - AllowSkip — handled by syncAllowSkipState below
         //   - "required" badges + tab notice visible
         // For the splittable prompts (Commodity / Customer / Location /
         // Destination), the Outbound radio is disabled — the auto-completed
@@ -802,12 +831,6 @@
             if (carrierInbound && !carrierInbound.checked) { carrierInbound.checked = true; carrierInbound.dispatchEvent(new Event('change')); }
             if (truckInbound && !truckInbound.checked)     { truckInbound.checked = true;   truckInbound.dispatchEvent(new Event('change')); }
         }
-        ['AllowSkipCarrier', 'AllowSkipTruckId'].forEach(function (id) {
-            var el = document.getElementById(id);
-            if (!el) return;
-            if (on) { el.checked = false; el.disabled = true; }
-            else    { el.disabled = false; }
-        });
         // Disable the "Neither" radio so it can't even be clicked while RT is on.
         ['carrierDirNone', 'truckDirNone'].forEach(function (id) {
             var el = document.getElementById(id);
@@ -831,6 +854,7 @@
         });
         var notice = document.getElementById('retainedTareRequiresPrompts');
         if (notice) notice.style.display = on ? 'block' : 'none';
+        syncAllowSkipState();
     }
 
     document.getElementById('UseRetainedTare').addEventListener('change', function () {
@@ -978,6 +1002,7 @@
                     document.getElementById('truckIdPromptSection').style.display =
                         this.value === 'inbound' ? 'table-row' : 'none';
                 }
+                syncAllowSkipState();
             });
         });
     }
@@ -991,6 +1016,7 @@
             radio.addEventListener('change', function () {
                 document.getElementById(inHiddenId).value  = (this.value === 'inbound').toString().toLowerCase();
                 document.getElementById(outHiddenId).value = (this.value === 'outbound').toString().toLowerCase();
+                syncAllowSkipState();
             });
         });
     }
@@ -998,6 +1024,8 @@
     bindSplitDirectionRadio('kioskCustomerDir',  'PromptKioskCustomerOnInbound',   'PromptKioskCustomerOnOutbound');
     bindSplitDirectionRadio('kioskLocationDir',  'PromptKioskLocationOnInbound',   'PromptKioskLocationOnOutbound');
     bindSplitDirectionRadio('kioskDestDir',      'PromptKioskDestinationOnInbound', 'PromptKioskDestinationOnOutbound');
+    // Apply the rule on initial load (covers prompts already set to Neither).
+    syncAllowSkipState();
 
     // --- Confirm modal ---
     var _confirmFormId = null;
