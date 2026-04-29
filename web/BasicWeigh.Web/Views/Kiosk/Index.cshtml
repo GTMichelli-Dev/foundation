@@ -887,9 +887,15 @@
     var $scaleStatus = $('#scale-status');
 
     // ===== LOAD MASTER DATA =====
-    $.getJSON('/api/kiosk/lists', function (data) {
-        lists = data;
-    });
+    // Reloaded at startup AND at the beginning of every weigh-in so master-data
+    // edits made while the kiosk page is open (new carriers, commodities, etc.)
+    // show up on the next operation without a page refresh. Returns a Promise.
+    function loadKioskLists() {
+        return $.getJSON('/api/kiosk/lists').done(function (data) {
+            lists = data;
+        });
+    }
+    loadKioskLists();
 
     // ===== SIGNALR CONNECTION =====
     var connection = new signalR.HubConnectionBuilder()
@@ -1114,15 +1120,20 @@
     function startWeighIn() {
         activeFlow = 'weighin';
         weighinData = {};
-        promptQueue = buildWeighInPrompts();
-        promptIndex = 0;
         startOperationTracking();
 
-        if (promptQueue.length > 0) {
-            showNextPrompt();
-        } else {
-            startMotionWait();
-        }
+        // Refresh master-data lists before building the prompt queue so any
+        // edits made on the MasterData page since the kiosk loaded show up
+        // on this run. Build prompts AFTER the refresh resolves.
+        loadKioskLists().always(function () {
+            promptQueue = buildWeighInPrompts();
+            promptIndex = 0;
+            if (promptQueue.length > 0) {
+                showNextPrompt();
+            } else {
+                startMotionWait();
+            }
+        });
     }
 
     function buildWeighInPrompts() {
@@ -1362,19 +1373,24 @@
         weighinData = {};
         // Keep operation tracking running from ticket entry (already started)
 
-        // Build the outbound prompt queue. Carrier/Truck are only loaded from
-        // the existing transaction so we don't re-prompt for them on weigh-out
-        // — the operator entered the ticket # which already identifies the
-        // truck. Limit the queue to commodity/customer/location/destination.
-        var outboundPrompts = buildPromptsForDirection('outbound')
-            .filter(function (p) { return p.key !== 'carrier' && p.key !== 'truck'; });
-        if (outboundPrompts.length > 0) {
-            promptQueue = outboundPrompts;
-            promptIndex = 0;
-            showNextPrompt();
-        } else {
-            startMotionWait();
-        }
+        // Refresh master-data lists so newly-added commodities / customers /
+        // locations / destinations show up in the outbound prompt sequence.
+        loadKioskLists().always(function () {
+            // Build the outbound prompt queue. Carrier/Truck are only loaded
+            // from the existing transaction so we don't re-prompt for them on
+            // weigh-out — the operator entered the ticket # which already
+            // identifies the truck. Limit the queue to commodity/customer/
+            // location/destination.
+            var outboundPrompts = buildPromptsForDirection('outbound')
+                .filter(function (p) { return p.key !== 'carrier' && p.key !== 'truck'; });
+            if (outboundPrompts.length > 0) {
+                promptQueue = outboundPrompts;
+                promptIndex = 0;
+                showNextPrompt();
+            } else {
+                startMotionWait();
+            }
+        });
     }
 
     // ===== MOTION WAIT =====
