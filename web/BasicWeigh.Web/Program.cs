@@ -119,6 +119,18 @@ using (var scope = app.Services.CreateScope())
     if (!string.IsNullOrWhiteSpace(savedTz)) AppTimeZone.Configure(savedTz);
 }
 
+// Seed the report .repx files on every startup so Visual Studio's DevExpress
+// designer can open them directly without first running the web designer.
+// GetData() is a no-op when the file already exists; preserves any edits.
+{
+    var storage = new ReportStorageService();
+    foreach (var report in new[] { "TicketReport", "KioskTicketReport" })
+    {
+        try { storage.GetData(report); }
+        catch (Exception ex) { Console.WriteLine($"[ReportStorage] seed failed for {report}: {ex.Message}"); }
+    }
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
