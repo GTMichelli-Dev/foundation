@@ -89,6 +89,42 @@ public class KioskController : Controller
         return Json(trucks);
     }
 
+    /// <summary>
+    /// Find the open inbound ticket (no DateOut, not voided) for a given
+    /// (Carrier, TruckId). Used by the kiosk so a driver who walks through
+    /// the inbound prompt sequence on a return trip is automatically
+    /// switched to the weigh-out flow instead of being forced to back out
+    /// and key in a ticket number.
+    /// </summary>
+    [HttpGet("api/kiosk/open-ticket-for-truck")]
+    public IActionResult FindOpenTicketForTruck([FromQuery] string carrier, [FromQuery] string truckId)
+    {
+        if (string.IsNullOrWhiteSpace(carrier) || string.IsNullOrWhiteSpace(truckId))
+            return BadRequest(new { message = "carrier and truckId are required" });
+
+        var c = carrier.Trim();
+        var t = truckId.Trim();
+        var transaction = _db.Transactions
+            .Where(x => !x.Void && x.DateOut == null && x.Carrier == c && x.TruckId == t)
+            .OrderByDescending(x => x.DateIn)
+            .FirstOrDefault();
+
+        if (transaction == null) return NotFound(new { message = "No open ticket" });
+
+        return Json(new
+        {
+            ticket = transaction.Ticket,
+            inWeight = transaction.InWeight,
+            dateIn = transaction.DateIn.AsUtc(),
+            customer = transaction.Customer,
+            carrier = transaction.Carrier,
+            truckId = transaction.TruckId,
+            commodity = transaction.Commodity,
+            location = transaction.Location,
+            destination = transaction.Destination
+        });
+    }
+
     [HttpGet("api/kiosk/ticket/{ticketNumber}")]
     public IActionResult FindTicket(string ticketNumber)
     {

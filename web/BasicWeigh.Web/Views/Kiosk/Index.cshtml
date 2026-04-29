@@ -1309,7 +1309,46 @@
         var selected = currentListItems[selectedListIndex];
         weighinData[prompt.key] = selected;
         promptIndex++;
+
+        // After Carrier + Truck are picked during a weigh-IN, see if there's
+        // already an open ticket for this truck. If so, the driver is on a
+        // return trip — switch to the weigh-out flow so the operator doesn't
+        // have to back out and key in the ticket number.
+        if (activeFlow === 'weighin' && prompt.key === 'truck'
+            && weighinData.truck && weighinData.carrier) {
+            $.getJSON('/api/kiosk/open-ticket-for-truck',
+                { carrier: weighinData.carrier, truckId: weighinData.truck })
+                .done(function (openTicket) {
+                    switchToWeighOutMidFlow(openTicket);
+                })
+                .fail(function () {
+                    // 404 (no open ticket) or transient — continue normal weigh-in.
+                    showNextPrompt();
+                });
+            return;
+        }
+
         showNextPrompt();
+    }
+
+    /// Driver picked Carrier + Truck on the weigh-in flow but the truck is
+    /// already inbound — flip into the weigh-out flow, replace the remaining
+    /// inbound prompts with the configured outbound prompts (minus carrier /
+    /// truck which are already answered), and continue.
+    function switchToWeighOutMidFlow(ticket) {
+        activeFlow = 'weighout';
+        weighoutTicket = ticket;
+
+        var outboundPrompts = buildPromptsForDirection('outbound')
+            .filter(function (p) { return p.key !== 'carrier' && p.key !== 'truck'; });
+
+        promptQueue = outboundPrompts;
+        promptIndex = 0;
+        if (outboundPrompts.length > 0) {
+            showNextPrompt();
+        } else {
+            startMotionWait();
+        }
     }
 
     // ===== WEIGH-OUT FLOW =====
