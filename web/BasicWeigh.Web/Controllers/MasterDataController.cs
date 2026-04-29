@@ -212,7 +212,10 @@ public class MasterDataController : Controller
     [HttpGet("api/masterdata/trucks")]
     public IActionResult GetTrucks()
     {
-        return Json(_db.Trucks.OrderBy(t => t.CarrierName).ThenBy(t => t.TruckId).ToList());
+        return Json(_db.Trucks
+            .OrderBy(t => t.CarrierName).ThenBy(t => t.TruckId)
+            .ToList()
+            .Select(ProjectTruck));
     }
 
     [HttpGet("api/masterdata/trucks/{carrierName}")]
@@ -221,9 +224,28 @@ public class MasterDataController : Controller
         var trucks = _db.Trucks
             .Where(t => t.CarrierName == carrierName)
             .OrderBy(t => t.TruckId)
+            .ToList()
+            .Select(ProjectTruck)
             .ToList();
         return Json(trucks);
     }
+
+    /// <summary>
+    /// Stamp Kind=Utc on RetainedTareUpdated so the JSON output carries the
+    /// 'Z' suffix and the DevExtreme datetime column converts to the user's
+    /// local timezone instead of rendering the raw UTC value.
+    /// </summary>
+    private static object ProjectTruck(Truck t) => new
+    {
+        t.Id,
+        t.TruckId,
+        t.CarrierName,
+        t.Description,
+        t.Notes,
+        t.UseAtKiosk,
+        t.RetainedTare,
+        RetainedTareUpdated = t.RetainedTareUpdated.AsUtc()
+    };
 
     [HttpPost("api/masterdata/trucks")]
     public IActionResult AddTruck([FromBody] Truck truck)
@@ -253,6 +275,24 @@ public class MasterDataController : Controller
         if (body.TryGetProperty("description", out var desc)) existing.Description = desc.ValueKind == JsonValueKind.Null ? null : desc.GetString();
         if (body.TryGetProperty("notes", out var notes)) existing.Notes = notes.ValueKind == JsonValueKind.Null ? null : notes.GetString();
         if (body.TryGetProperty("useAtKiosk", out var kiosk)) existing.UseAtKiosk = kiosk.GetBoolean();
+        // Inline edit of the retained tare — null/empty clears it; any other
+        // value updates and stamps the timestamp so the "Tare Updated" column
+        // reflects the change immediately.
+        if (body.TryGetProperty("retainedTare", out var tare))
+        {
+            int? newTare = tare.ValueKind switch
+            {
+                JsonValueKind.Null => null,
+                JsonValueKind.Number => tare.GetInt32(),
+                JsonValueKind.String => int.TryParse(tare.GetString(), out var parsed) ? parsed : (int?)null,
+                _ => null
+            };
+            if (newTare != existing.RetainedTare)
+            {
+                existing.RetainedTare = newTare;
+                existing.RetainedTareUpdated = newTare.HasValue ? DateTime.UtcNow : (DateTime?)null;
+            }
+        }
         _db.SaveChanges();
         return Json(existing);
     }

@@ -227,8 +227,11 @@
                             caption: 'Retained Tare (lb)',
                             dataType: 'number',
                             format: { type: 'fixedPoint', precision: 0 },
-                            width: 140,
-                            allowEditing: false
+                            width: 150,
+                            // Editable inline. Type a value or clear the cell to
+                            // wipe the stored tare. Server stamps the
+                            // retainedTareUpdated column on save.
+                            editorOptions: { min: 0, step: 1 }
                         });
                         truckCols.push({
                             dataField: 'retainedTareUpdated',
@@ -240,15 +243,20 @@
                         });
                         truckCols.push({
                             type: 'buttons',
-                            caption: 'Clear Tare',
-                            width: 110,
+                            caption: 'Clear',
+                            width: 90,
                             buttons: [{
                                 hint: 'Clear retained tare',
                                 text: 'Clear',
                                 cssClass: 'text-danger fw-bold',
-                                visible: function (e) { return e.row && e.row.data && e.row.data.retainedTare != null; },
+                                // Always visible so the column header is consistent;
+                                // disabled when there's nothing to clear.
+                                disabled: function (e) {
+                                    return !e.row || !e.row.data || e.row.data.retainedTare == null;
+                                },
                                 onClick: function (e) {
-                                    var rowData = e.row.data;
+                                    var rowData = e.row && e.row.data;
+                                    if (!rowData || rowData.retainedTare == null) return;
                                     if (!confirm('Clear retained tare for ' + rowData.truckId + '?')) return;
                                     $.ajax({
                                         url: '/api/retainedtares/' + rowData.id + '/clear',
