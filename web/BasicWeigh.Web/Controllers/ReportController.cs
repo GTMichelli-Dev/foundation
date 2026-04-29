@@ -28,8 +28,12 @@ public class ReportController : Controller
     [HttpGet("api/reports/transactions")]
     public IActionResult GetTransactions(DateTime? startDate, DateTime? endDate)
     {
-        var start = startDate ?? DateTime.Today.AddDays(-30);
-        var end = (endDate ?? DateTime.Today).AddDays(1);
+        // Filter: query strings come in as user-local dates. Convert to UTC
+        // bounds so the comparison against stored UTC values is correct.
+        var localStart = startDate ?? DateTime.Today.AddDays(-30);
+        var localEnd   = (endDate ?? DateTime.Today).AddDays(1);
+        var start = localStart.ToUniversalTime();
+        var end   = localEnd.ToUniversalTime();
 
         // Count voided tickets in the date range
         var voidCount = _db.Transactions
@@ -43,8 +47,8 @@ public class ReportController : Controller
             .Select(t => new
             {
                 t.Ticket,
-                t.DateIn,
-                t.DateOut,
+                DateIn = t.DateIn.AsUtc(),
+                DateOut = t.DateOut.AsUtc(),
                 t.Customer,
                 t.Carrier,
                 t.TruckId,
@@ -67,8 +71,10 @@ public class ReportController : Controller
     [HttpGet("api/reports/voided")]
     public IActionResult GetVoided(DateTime? startDate, DateTime? endDate)
     {
-        var start = startDate ?? DateTime.Today.AddDays(-30);
-        var end = (endDate ?? DateTime.Today).AddDays(1);
+        var localStart = startDate ?? DateTime.Today.AddDays(-30);
+        var localEnd   = (endDate ?? DateTime.Today).AddDays(1);
+        var start = localStart.ToUniversalTime();
+        var end   = localEnd.ToUniversalTime();
 
         var results = _db.Transactions
             .Where(t => t.DateOut != null && t.Void && t.DateOut >= start && t.DateOut < end)
@@ -77,8 +83,8 @@ public class ReportController : Controller
             .Select(t => new
             {
                 t.Ticket,
-                t.DateIn,
-                t.DateOut,
+                DateIn = t.DateIn.AsUtc(),
+                DateOut = t.DateOut.AsUtc(),
                 t.Customer,
                 t.Carrier,
                 t.TruckId,

@@ -124,7 +124,7 @@ public class TransactionController : Controller
                 setup.TicketNumber++;
             }
             transaction.Ticket = setup.TicketNumber.ToString();
-            transaction.DateIn = transaction.DateIn == default ? DateTime.Now : transaction.DateIn;
+            transaction.DateIn = transaction.DateIn == default ? DateTime.UtcNow : transaction.DateIn;
             transaction.Void = false;
             transaction.ManualInbound = manualWeight;
 
@@ -267,7 +267,7 @@ public class TransactionController : Controller
         existing.ManualInbound = manualInWeight;
         existing.OutWeight = transaction.OutWeight;
         existing.ManualOutbound = manualOutWeight;
-        existing.DateOut = transaction.DateOut ?? DateTime.Now;
+        existing.DateOut = transaction.DateOut ?? DateTime.UtcNow;
         existing.DateIn = transaction.DateIn;
         existing.Customer = transaction.Customer;
         existing.Carrier = transaction.Carrier;
@@ -365,7 +365,7 @@ public class TransactionController : Controller
             setup.TicketNumber++;
         }
         transaction.Ticket = setup.TicketNumber.ToString();
-        transaction.DateIn = transaction.DateIn == default ? DateTime.Now : transaction.DateIn;
+        transaction.DateIn = transaction.DateIn == default ? DateTime.UtcNow : transaction.DateIn;
         transaction.DateOut = transaction.DateIn;
         transaction.OutWeight = transaction.InWeight;
         transaction.Void = false;
@@ -481,7 +481,7 @@ public class TransactionController : Controller
         }
 
         var tare = Math.Min(tx.InWeight, tx.OutWeight.Value);
-        var when = tx.DateOut ?? DateTime.Now;
+        var when = tx.DateOut ?? DateTime.UtcNow;
 
         var truck = _db.Trucks.FirstOrDefault(t =>
             t.TruckId.ToLower() == truckId.ToLower() &&
@@ -529,7 +529,7 @@ public class TransactionController : Controller
                 t.TruckId,
                 t.Commodity,
                 t.InWeight,
-                t.DateIn,
+                DateIn = t.DateIn.AsUtc(),
                 t.Location,
                 t.Destination,
                 t.Notes,
@@ -545,10 +545,12 @@ public class TransactionController : Controller
     [HttpGet("api/transactions/completed")]
     public IActionResult GetCompleted(DateTime? startDate, DateTime? endDate)
     {
-        var start = startDate ?? DateTime.Today.AddDays(-30);
-        var end = endDate ?? DateTime.Today;
-        // Make end date inclusive — include all tickets through end of that day
-        var endInclusive = end.Date.AddDays(1);
+        // Filter range: query strings come in as user-local dates. Convert to
+        // UTC bounds so the comparison against stored UTC values is correct.
+        var localStart = startDate ?? DateTime.Today.AddDays(-30);
+        var localEnd   = (endDate ?? DateTime.Today).Date.AddDays(1); // end-inclusive
+        var start = localStart.ToUniversalTime();
+        var endInclusive = localEnd.ToUniversalTime();
 
         var transactions = _db.Transactions
             .Where(t => t.DateOut != null && t.DateIn >= start && t.DateIn < endInclusive)
@@ -566,8 +568,8 @@ public class TransactionController : Controller
                 t.NetWeight,
                 t.GrossWeight,
                 t.TareWeight,
-                t.DateIn,
-                t.DateOut,
+                DateIn = t.DateIn.AsUtc(),
+                DateOut = t.DateOut.AsUtc(),
                 t.Location,
                 t.Destination,
                 t.Notes,

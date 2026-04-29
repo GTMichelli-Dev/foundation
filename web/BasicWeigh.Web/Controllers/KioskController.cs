@@ -153,7 +153,7 @@ public class KioskController : Controller
             }
         }
         bool tareApplied = truck?.RetainedTare.HasValue == true;
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
 
         var transaction = new Transaction
         {
@@ -230,7 +230,7 @@ public class KioskController : Controller
             return NotFound(new { message = "Ticket not found" });
 
         transaction.OutWeight = request.Weight;
-        transaction.DateOut = DateTime.Now;
+        transaction.DateOut = DateTime.UtcNow;
         transaction.ManualOutbound = false;
 
         // Outbound-only prompts can override the values captured at weigh-in.
@@ -304,7 +304,7 @@ public class KioskController : Controller
         }
 
         var tare = Math.Min(tx.InWeight, tx.OutWeight.Value);
-        var when = tx.DateOut ?? DateTime.Now;
+        var when = tx.DateOut ?? DateTime.UtcNow;
 
         // Match the kiosk's existing (TruckId, CarrierName) unique key. Use a
         // case-insensitive comparison so subtle casing/spacing drift between the

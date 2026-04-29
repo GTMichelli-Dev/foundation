@@ -66,8 +66,8 @@ public class TicketController : Controller
         return Json(new
         {
             ticket = transaction.Ticket,
-            dateIn = transaction.DateIn.ToString("MM/dd/yyyy hh:mm tt"),
-            dateOut = transaction.DateOut?.ToString("MM/dd/yyyy hh:mm tt"),
+            dateIn = transaction.DateIn.ToServerLocal().ToString("MM/dd/yyyy hh:mm tt"),
+            dateOut = transaction.DateOut.ToServerLocal()?.ToString("MM/dd/yyyy hh:mm tt"),
             customer = transaction.Customer,
             carrier = transaction.Carrier,
             truckId = transaction.TruckId,
@@ -116,8 +116,8 @@ public class TicketController : Controller
 
         // Set parameters
         SetParam(report, "Ticket", transaction.Ticket);
-        SetParam(report, "DateIn", transaction.DateIn.ToString("MM/dd/yyyy hh:mm tt"));
-        SetParam(report, "DateOut", transaction.DateOut?.ToString("MM/dd/yyyy hh:mm tt") ?? "");
+        SetParam(report, "DateIn", transaction.DateIn.ToServerLocal().ToString("MM/dd/yyyy hh:mm tt"));
+        SetParam(report, "DateOut", transaction.DateOut.ToServerLocal()?.ToString("MM/dd/yyyy hh:mm tt") ?? "");
         SetParam(report, "Customer", transaction.Customer ?? "");
         SetParam(report, "Carrier", transaction.Carrier ?? "");
         SetParam(report, "TruckId", transaction.TruckId ?? "");
@@ -160,7 +160,7 @@ public class TicketController : Controller
         }
 
         SetParam(report, "Ticket", transaction.Ticket);
-        SetParam(report, "DateIn", transaction.DateIn.ToString("MM/dd/yyyy hh:mm tt"));
+        SetParam(report, "DateIn", transaction.DateIn.ToServerLocal().ToString("MM/dd/yyyy hh:mm tt"));
         SetParam(report, "Customer", transaction.Customer ?? "");
         SetParam(report, "Carrier", transaction.Carrier ?? "");
         SetParam(report, "TruckId", transaction.TruckId ?? "");
@@ -196,7 +196,7 @@ public class TicketController : Controller
                 : new KioskTicketReport();
 
             SetParam(report, "Ticket", transaction.Ticket);
-            SetParam(report, "DateIn", transaction.DateIn.ToString("MM/dd/yyyy hh:mm tt"));
+            SetParam(report, "DateIn", transaction.DateIn.ToServerLocal().ToString("MM/dd/yyyy hh:mm tt"));
             SetParam(report, "Customer", transaction.Customer ?? "");
             SetParam(report, "Carrier", transaction.Carrier ?? "");
             SetParam(report, "TruckId", transaction.TruckId ?? "");
@@ -216,8 +216,8 @@ public class TicketController : Controller
 
             SetLogoImage(report, setup);
             SetParam(report, "Ticket", transaction.Ticket);
-            SetParam(report, "DateIn", transaction.DateIn.ToString("MM/dd/yyyy hh:mm tt"));
-            SetParam(report, "DateOut", transaction.DateOut?.ToString("MM/dd/yyyy hh:mm tt") ?? "");
+            SetParam(report, "DateIn", transaction.DateIn.ToServerLocal().ToString("MM/dd/yyyy hh:mm tt"));
+            SetParam(report, "DateOut", transaction.DateOut.ToServerLocal()?.ToString("MM/dd/yyyy hh:mm tt") ?? "");
             SetParam(report, "Customer", transaction.Customer ?? "");
             SetParam(report, "Carrier", transaction.Carrier ?? "");
             SetParam(report, "TruckId", transaction.TruckId ?? "");
