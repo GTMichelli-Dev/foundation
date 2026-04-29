@@ -182,6 +182,13 @@
             min-height: 1.6em;
             margin-top: 4px;
         }
+        /* Status text colors per state. Dark theme keeps the original yellow/red
+            on dark background. Light theme uses dark text on the yellow motion
+            background (yellow-on-yellow was unreadable) and white on red. */
+        #scale-status.status-error  { color: #ff0000; }
+        #scale-status.status-motion { color: #ffff00; }
+        body.kiosk-light #scale-status.status-error  { color: #fff; }
+        body.kiosk-light #scale-status.status-motion { color: #000; }
 
         /* ===== CONTENT AREA ===== */
         #content-area {
@@ -290,7 +297,7 @@
         }
 
         /* Black instructional label shown on the complete screen when buttons
-            are hidden. Hidden by default. */
+            are hidden. Hidden by default; full-width when shown. */
         .kiosk-reprint-label {
             display: none;
             margin-top: 24px;
@@ -302,9 +309,11 @@
             padding: 16px 32px;
             border-radius: 12px;
             text-align: center;
+            width: 100%;
+            box-sizing: border-box;
         }
         body.kiosk-hide-buttons .kiosk-reprint-label {
-            display: inline-block;
+            display: block;
         }
 
         /* ===== NUMPAD ===== */
@@ -908,17 +917,19 @@
             $weightValue.text('------');
             $weightUnit.text('');
             $weightDisplay.removeClass('weight-ok weight-motion').addClass('weight-error');
-            $scaleStatus.css('color', '#ff0000').text('ERROR');
+            // Use CSS classes (not inline color) so light/dark themes can theme
+            // the status text per-state — yellow on yellow was unreadable.
+            $scaleStatus.removeClass('status-motion').addClass('status-error').text('ERROR');
         } else if (scaleData.motion) {
             $weightValue.text(scaleData.weight.toLocaleString());
             $weightUnit.text(' lb');
             $weightDisplay.removeClass('weight-ok weight-error').addClass('weight-motion');
-            $scaleStatus.css('color', '#ffff00').text('MOTION');
+            $scaleStatus.removeClass('status-error').addClass('status-motion').text('MOTION');
         } else {
             $weightValue.text(scaleData.weight.toLocaleString());
             $weightUnit.text(' lb');
             $weightDisplay.removeClass('weight-motion weight-error').addClass('weight-ok');
-            $scaleStatus.html('&nbsp;');
+            $scaleStatus.removeClass('status-error status-motion').html('&nbsp;');
         }
     }
 
