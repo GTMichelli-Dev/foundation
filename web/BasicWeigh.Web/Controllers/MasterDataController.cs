@@ -31,7 +31,41 @@ public class MasterDataController : Controller
     [HttpGet("api/masterdata/customers")]
     public IActionResult GetCustomers()
     {
-        return Json(_db.Customers.OrderBy(c => c.CustomerName).ToList());
+        var carrierNames = _db.Carriers.Select(c => c.CarrierName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var customers = _db.Customers
+            .OrderBy(c => c.CustomerName)
+            .ToList()
+            .Select(c => new
+            {
+                c.Id,
+                c.CustomerName,
+                c.Active,
+                c.UseAtKiosk,
+                IsCarrier = carrierNames.Contains(c.CustomerName)
+            });
+        return Json(customers);
+    }
+
+    /// <summary>
+    /// Add a customer's name to the Carriers table so the kiosk's Carrier
+    /// prompt picks them up. No-op if the carrier already exists.
+    /// </summary>
+    [HttpPost("api/masterdata/customers/{id:int}/promote-to-carrier")]
+    public IActionResult PromoteCustomerToCarrier(int id)
+    {
+        var customer = _db.Customers.Find(id);
+        if (customer == null) return NotFound();
+        if (!_db.Carriers.Any(c => c.CarrierName == customer.CustomerName))
+        {
+            _db.Carriers.Add(new Carrier
+            {
+                CarrierName = customer.CustomerName,
+                Active = true,
+                UseAtKiosk = customer.UseAtKiosk
+            });
+            _db.SaveChanges();
+        }
+        return Ok(new { customerId = id, customerName = customer.CustomerName });
     }
 
     [HttpPost("api/masterdata/customers")]

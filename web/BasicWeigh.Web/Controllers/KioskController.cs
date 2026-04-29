@@ -51,16 +51,15 @@ public class KioskController : Controller
             .Select(c => c.CustomerName)
             .ToList();
 
-        // Carriers = dedicated carriers + all active kiosk customers
-        var carrierNames = _db.Carriers
+        // Kiosk Carrier prompt: only show entries that are explicitly marked
+        // as Carriers in master data. Customers who also haul can be added to
+        // Carriers via the "Add to Carriers" button on the MasterData
+        // Customers grid; from then on they appear in this list.
+        var carriers = _db.Carriers
             .Where(c => c.Active && c.UseAtKiosk)
+            .OrderBy(c => c.CarrierName)
             .Select(c => c.CarrierName)
             .ToList();
-        var customerNames = _db.Customers
-            .Where(c => c.Active && c.UseAtKiosk)
-            .Select(c => c.CustomerName)
-            .ToList();
-        var carriers = carrierNames.Union(customerNames).OrderBy(n => n).ToList();
 
         var locations = _db.Locations
             .Where(l => l.Active && l.UseAtKiosk)

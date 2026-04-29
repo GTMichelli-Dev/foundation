@@ -147,7 +147,7 @@
             });
         }
 
-        function initNameActiveGrid(selector, endpoint, nameField, nameCaption, qbManaged) {
+        function initNameActiveGrid(selector, endpoint, nameField, nameCaption, qbManaged, addCarrierAction) {
             var lockName = useQuickBooks && qbManaged;
             var cols = [
                 { dataField: 'id', caption: 'ID', width: 60, allowEditing: false },
@@ -156,6 +156,35 @@
             ];
             if (showKiosk) {
                 cols.push({ dataField: 'useAtKiosk', caption: 'Kiosk', dataType: 'boolean', width: 100 });
+            }
+            if (addCarrierAction) {
+                cols.push({
+                    caption: 'Carrier',
+                    width: 160,
+                    allowEditing: false,
+                    cellTemplate: function (container, options) {
+                        var data = options.data || {};
+                        if (data.isCarrier) {
+                            $('<span class="badge bg-secondary">Carrier</span>').appendTo(container);
+                        } else if (data.id) {
+                            $('<button type="button" class="btn btn-sm btn-outline-primary">Add to Carriers</button>')
+                                .on('click', function () {
+                                    var $btn = $(this).prop('disabled', true).text('Adding…');
+                                    $.ajax({
+                                        url: '/api/masterdata/customers/' + data.id + '/promote-to-carrier',
+                                        method: 'POST'
+                                    }).done(function () {
+                                        $(selector).dxDataGrid('instance').refresh();
+                                        var carriersGrid = $('#carriersGrid').dxDataGrid('instance');
+                                        if (carriersGrid) carriersGrid.refresh();
+                                    }).fail(function () {
+                                        $btn.prop('disabled', false).text('Add to Carriers');
+                                    });
+                                })
+                                .appendTo(container);
+                        }
+                    }
+                });
             }
 
             $(selector).dxDataGrid({
@@ -182,7 +211,7 @@
             });
         }
 
-        initNameActiveGrid('#customersGrid', 'customers', 'customerName', 'Customer Name', true);
+        initNameActiveGrid('#customersGrid', 'customers', 'customerName', 'Customer Name', true, true);
         initNameActiveGrid('#locationsGrid', 'locations', 'locationName', 'Location Name', false);
         initNameActiveGrid('#destinationsGrid', 'destinations', 'destinationName', 'Destination Name', false);
         initNameActiveGrid('#commoditiesGrid', 'commodities', 'commodityName', 'Commodity Name', true);
