@@ -310,12 +310,15 @@
         body.kiosk-hide-buttons #prompt-skip,
         body.kiosk-hide-buttons #prompt-select,
         body.kiosk-hide-buttons #btn-reprint,
-        body.kiosk-hide-buttons #btn-complete-done {
+        body.kiosk-hide-buttons #btn-complete-done,
+        body.kiosk-hide-buttons #state-ready .btn-row {
             display: none !important;
         }
 
-        /* Black instructional label shown on the complete screen when buttons
-            are hidden. Hidden by default; full-width when shown. */
+        /* Black instructional labels shown when on-screen buttons are hidden —
+            one on the ready screen replacing the two big action buttons, one
+            on the complete screen replacing Reprint/Done. */
+        .kiosk-ready-label,
         .kiosk-reprint-label {
             display: none;
             margin-top: 24px;
@@ -330,6 +333,7 @@
             width: 100%;
             box-sizing: border-box;
         }
+        body.kiosk-hide-buttons .kiosk-ready-label,
         body.kiosk-hide-buttons .kiosk-reprint-label {
             display: block;
         }
@@ -696,6 +700,8 @@
                     SCAN BAR CODE OR KEY IN TICKET #
                 </button>
             </div>
+            <!-- Shown only when on-screen buttons are hidden — operator drives via Enter. -->
+            <div class="kiosk-ready-label">PRESS ENTER TO WEIGH</div>
         </div>
 
         <!-- ENTERING TICKET: Numpad -->
