@@ -120,7 +120,25 @@ public class MasterDataController : Controller
     [HttpGet("api/masterdata/carriers")]
     public IActionResult GetCarriers()
     {
-        return Json(_db.Carriers.OrderBy(c => c.CarrierName).ToList());
+        // Group trucks by carrier name once, then project carriers with their
+        // truck count so the MasterData grid can highlight zero-truck carriers.
+        var truckCountsByCarrier = _db.Trucks
+            .GroupBy(t => t.CarrierName)
+            .Select(g => new { Carrier = g.Key, Count = g.Count() })
+            .ToDictionary(x => x.Carrier, x => x.Count, StringComparer.OrdinalIgnoreCase);
+
+        var carriers = _db.Carriers
+            .OrderBy(c => c.CarrierName)
+            .ToList()
+            .Select(c => new
+            {
+                c.Id,
+                c.CarrierName,
+                c.Active,
+                c.UseAtKiosk,
+                TruckCount = truckCountsByCarrier.TryGetValue(c.CarrierName, out var n) ? n : 0
+            });
+        return Json(carriers);
     }
 
     [HttpPost("api/masterdata/carriers")]

@@ -154,6 +154,13 @@
         });
     });
 
+    // Refresh the parent Carriers grid after a truck add / remove so the
+    // "# Trucks" column stays accurate without a manual page reload.
+    function refreshCarriersGrid() {
+        var grid = $('#carriersGrid').dxDataGrid('instance');
+        if (grid) grid.refresh();
+    }
+
     $(function () {
         var showKiosk = @(showKiosk ? "true" : "false");
         var useQuickBooks = @(useQuickBooks ? "true" : "false");
@@ -295,7 +302,24 @@
                     }
                 }
             },
-            { dataField: 'active', caption: 'Active', dataType: 'boolean', width: 100 }
+            { dataField: 'active', caption: 'Active', dataType: 'boolean', width: 100 },
+            {
+                dataField: 'truckCount',
+                caption: '# Trucks',
+                dataType: 'number',
+                width: 100,
+                allowEditing: false,
+                alignment: 'center',
+                cellTemplate: function (container, options) {
+                    var n = options.value || 0;
+                    container.text(n);
+                    if (n === 0) {
+                        // Pink the whole cell so zero-truck carriers stand out
+                        // — those carriers can't pass the kiosk no-trucks check.
+                        container.css({ background: '#ffd1dc', color: '#8a0033', 'font-weight': '600' });
+                    }
+                }
+            }
         ];
         if (showKiosk) {
             carrierCols.push({ dataField: 'useAtKiosk', caption: 'Kiosk', dataType: 'boolean', width: 100 });
@@ -401,7 +425,7 @@
                                     method: 'POST',
                                     contentType: 'application/json',
                                     data: JSON.stringify(values)
-                                });
+                                }).done(refreshCarriersGrid);
                             },
                             update: function (key, values) {
                                 values.id = key;
@@ -417,7 +441,7 @@
                                 return $.ajax({
                                     url: '/api/masterdata/trucks/' + key,
                                     method: 'DELETE'
-                                });
+                                }).done(refreshCarriersGrid);
                             }
                         }),
                         showBorders: true,
