@@ -115,11 +115,11 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                You have unsaved changes on this page. Leave without saving?
+                You have unsaved changes. Continue without saving?
             </div>
             <div class="modal-footer py-1">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Stay</button>
-                <button type="button" class="btn btn-danger btn-sm" id="mdLeaveConfirmBtn">Leave</button>
+                <button type="button" class="btn btn-danger btn-sm" id="mdLeaveConfirmBtn">Continue</button>
             </div>
         </div>
     </div>
@@ -549,22 +549,50 @@
         });
 
         var mdPendingHref = null;
+        var mdPendingTabBtn = null;
+        var mdSuppressTabGuard = false;
+
+        // In-app navigation (regular <a>, e.g. "Back to Setup"). Bootstrap
+        // tab switches are handled separately via show.bs.tab below.
         $('a').on('click', function (e) {
             if (!mdAnyGridDirty() || mdIsLeaving) return;
-            // Skip data-bs-toggle (Bootstrap tab switches) and same-page anchors
-            // — those don't navigate away from this page.
             if ($(this).attr('data-bs-toggle') === 'tab') return;
             var href = $(this).attr('href');
             if (!href || href.indexOf('#') === 0) return;
             e.preventDefault();
             mdPendingHref = href;
+            mdPendingTabBtn = null;
+            new bootstrap.Modal('#mdLeaveConfirmModal').show();
+        });
+
+        // Tab switching inside the page also prompts when there are pending
+        // edits — otherwise the operator could shuttle between tabs and
+        // forget the staged work.
+        $('[data-bs-toggle="tab"]').on('show.bs.tab', function (e) {
+            if (mdSuppressTabGuard) return;
+            if (!mdAnyGridDirty()) return;
+            e.preventDefault();
+            mdPendingTabBtn = e.target;
+            mdPendingHref = null;
             new bootstrap.Modal('#mdLeaveConfirmModal').show();
         });
 
         $('#mdLeaveConfirmBtn').on('click', function () {
-            mdIsLeaving = true; // suppresses beforeunload on the upcoming nav
             bootstrap.Modal.getInstance(document.getElementById('mdLeaveConfirmModal')).hide();
-            if (mdPendingHref) window.location.href = mdPendingHref;
+            if (mdPendingTabBtn) {
+                // Tab switch: tell the show.bs.tab handler to skip its guard
+                // for this one programmatic call so we don't loop.
+                var btn = mdPendingTabBtn;
+                mdPendingTabBtn = null;
+                mdSuppressTabGuard = true;
+                try { new bootstrap.Tab(btn).show(); }
+                finally { mdSuppressTabGuard = false; }
+                return;
+            }
+            if (mdPendingHref) {
+                mdIsLeaving = true; // suppresses beforeunload on the upcoming nav
+                window.location.href = mdPendingHref;
+            }
         });
     });
 </script>
