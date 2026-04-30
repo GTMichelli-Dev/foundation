@@ -161,6 +161,46 @@
         if (grid) grid.refresh();
     }
 
+    /// Boolean column with a header checkbox that toggles every row in the
+    /// table (server-side bulk update). Used for Active / Kiosk columns on
+    /// the top-level MasterData grids. `endpoint` is the table key
+    /// (customers, carriers, locations, destinations, commodities).
+    function boolToggleHeaderCol(dataField, caption, endpoint, width) {
+        return {
+            dataField: dataField,
+            caption: caption,
+            dataType: 'boolean',
+            width: width || 130,
+            headerCellTemplate: function (container, options) {
+                var $wrap = $('<div>').css({
+                    display: 'flex',
+                    'align-items': 'center',
+                    'justify-content': 'center',
+                    gap: '8px',
+                    'white-space': 'nowrap'
+                });
+                $('<span>').text(caption).appendTo($wrap);
+                $('<input type="checkbox" class="form-check-input">')
+                    .attr('title', 'Click to toggle every row on / off')
+                    .css({ cursor: 'pointer', margin: 0 })
+                    .on('click', function (e) {
+                        e.stopPropagation();
+                        var checked = this.checked;
+                        $.ajax({
+                            url: '/api/masterdata/' + endpoint + '/bulk-set',
+                            method: 'POST',
+                            contentType: 'application/json',
+                            data: JSON.stringify({ field: dataField, value: checked })
+                        }).done(function () {
+                            options.component.refresh();
+                        });
+                    })
+                    .appendTo($wrap);
+                $wrap.appendTo(container);
+            }
+        };
+    }
+
     $(function () {
         var showKiosk = @(showKiosk ? "true" : "false");
         var useQuickBooks = @(useQuickBooks ? "true" : "false");
@@ -203,10 +243,10 @@
             var cols = [
                 { dataField: 'id', caption: 'ID', width: 60, allowEditing: false },
                 { dataField: nameField, caption: nameCaption, sortOrder: 'asc', allowEditing: !lockName, validationRules: lockName ? [] : [{ type: 'required' }] },
-                { dataField: 'active', caption: 'Active', dataType: 'boolean', width: 100 }
+                boolToggleHeaderCol('active', 'Active', endpoint, 130)
             ];
             if (showKiosk) {
-                cols.push({ dataField: 'useAtKiosk', caption: 'Kiosk', dataType: 'boolean', width: 100 });
+                cols.push(boolToggleHeaderCol('useAtKiosk', 'Kiosk', endpoint, 130));
             }
             if (addCarrierAction) {
                 cols.push({
@@ -302,7 +342,7 @@
                     }
                 }
             },
-            { dataField: 'active', caption: 'Active', dataType: 'boolean', width: 100 },
+            boolToggleHeaderCol('active', 'Active', 'carriers', 130),
             {
                 dataField: 'truckCount',
                 caption: '# Trucks',
@@ -322,7 +362,7 @@
             }
         ];
         if (showKiosk) {
-            carrierCols.push({ dataField: 'useAtKiosk', caption: 'Kiosk', dataType: 'boolean', width: 100 });
+            carrierCols.push(boolToggleHeaderCol('useAtKiosk', 'Kiosk', 'carriers', 130));
         }
 
         var carrierStore = createIdStore('carriers');

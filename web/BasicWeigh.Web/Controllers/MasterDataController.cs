@@ -359,6 +359,73 @@ public class MasterDataController : Controller
         return Json(new { success = true });
     }
 
+    // ---- Bulk-set Active / UseAtKiosk for an entire table (header toggle) ----
+
+    public class BulkSetRequest
+    {
+        public string Field { get; set; } = "";
+        public bool Value { get; set; }
+    }
+
+    [HttpPost("api/masterdata/{table}/bulk-set")]
+    public IActionResult BulkSet(string table, [FromBody] BulkSetRequest req)
+    {
+        if (req == null) return BadRequest();
+        var field = (req.Field ?? "").ToLowerInvariant();
+        if (field != "active" && field != "useatkiosk")
+            return BadRequest(new { message = $"Unknown field '{req.Field}'" });
+
+        int count = 0;
+        switch ((table ?? "").ToLowerInvariant())
+        {
+            case "customers":
+                foreach (var x in _db.Customers)
+                {
+                    if (field == "active") { x.Active = req.Value; if (!req.Value) x.UseAtKiosk = false; }
+                    else { x.UseAtKiosk = req.Value && x.Active; }
+                    count++;
+                }
+                break;
+            case "carriers":
+                foreach (var x in _db.Carriers)
+                {
+                    if (field == "active") { x.Active = req.Value; if (!req.Value) x.UseAtKiosk = false; }
+                    else { x.UseAtKiosk = req.Value && x.Active; }
+                    count++;
+                }
+                break;
+            case "locations":
+                foreach (var x in _db.Locations)
+                {
+                    if (field == "active") { x.Active = req.Value; if (!req.Value) x.UseAtKiosk = false; }
+                    else { x.UseAtKiosk = req.Value && x.Active; }
+                    count++;
+                }
+                break;
+            case "destinations":
+                foreach (var x in _db.Destinations)
+                {
+                    if (field == "active") { x.Active = req.Value; if (!req.Value) x.UseAtKiosk = false; }
+                    else { x.UseAtKiosk = req.Value && x.Active; }
+                    count++;
+                }
+                break;
+            case "commodities":
+                foreach (var x in _db.Commodities)
+                {
+                    if (field == "active") { x.Active = req.Value; if (!req.Value) x.UseAtKiosk = false; }
+                    else { x.UseAtKiosk = req.Value && x.Active; }
+                    count++;
+                }
+                break;
+            default:
+                return NotFound(new { message = $"Unknown table '{table}'" });
+        }
+
+        _db.SaveChanges();
+        return Ok(new { count });
+    }
+
     // ---- Sync from QuickBooks ----
 
     public class SyncRequest
