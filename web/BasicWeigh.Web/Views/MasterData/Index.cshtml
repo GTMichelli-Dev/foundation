@@ -319,7 +319,10 @@
                 stateStoring: {
                     enabled: true,
                     type: 'localStorage',
-                    storageKey: 'masterData_' + endpoint
+                    // v2 suffix — abandons pre-v1.3.44 saved column widths so
+                    // the new 200px Active/Kiosk defaults take effect. Future
+                    // manual resizes are saved under this key as before.
+                    storageKey: 'masterData_v2_' + endpoint
                 },
                 editing: {
                     mode: 'batch',
@@ -405,7 +408,7 @@
             stateStoring: {
                 enabled: true,
                 type: 'localStorage',
-                storageKey: 'masterData_carriers'
+                storageKey: 'masterData_v2_carriers'
             },
             editing: {
                 mode: 'batch',
