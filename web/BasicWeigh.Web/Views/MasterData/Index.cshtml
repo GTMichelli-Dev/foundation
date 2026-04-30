@@ -371,7 +371,6 @@
                     }
                 }
             },
-            boolToggleHeaderCol('active', 'Active', 'carriers', 200),
             {
                 dataField: 'truckCount',
                 caption: '# Trucks',
@@ -388,7 +387,8 @@
                         container.css({ background: '#ffd1dc', color: '#8a0033', 'font-weight': '600' });
                     }
                 }
-            }
+            },
+            boolToggleHeaderCol('active', 'Active', 'carriers', 200)
         ];
         if (showKiosk) {
             carrierCols.push(boolToggleHeaderCol('useAtKiosk', 'Kiosk', 'carriers', 200));
@@ -408,7 +408,7 @@
             stateStoring: {
                 enabled: true,
                 type: 'localStorage',
-                storageKey: 'masterData_v2_carriers'
+                storageKey: 'masterData_v3_carriers'
             },
             editing: {
                 mode: 'batch',
