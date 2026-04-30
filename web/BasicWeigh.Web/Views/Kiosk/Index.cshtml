@@ -1557,6 +1557,21 @@
         // Show the complete screen FIRST, then trigger print async
         completedType = type; // 'Weigh In' or 'Weigh Out'
         completedTicketIsOpen = (outWeight === null || typeof outWeight === 'undefined');
+
+        // Retained-Tare in-leg has no ticket to print (the closing leg is
+        // what gets printed), so hide the Reprint button and the
+        // "PRESS ENTER FOR REPRINT" label on this completion screen.
+        // Use inline display:none only when suppressing; otherwise clear
+        // the inline style so the existing CSS rules (which gate the
+        // label on body.kiosk-hide-buttons) keep working.
+        if (completedSuppressBrowserPrint) {
+            $('#btn-reprint').hide();
+            $('.kiosk-reprint-label').hide();
+        } else {
+            $('#btn-reprint').css('display', '');
+            $('.kiosk-reprint-label').css('display', '');
+        }
+
         setState('complete');
 
         // Browser print: open ticket in new window for printing
@@ -1586,6 +1601,10 @@
         completedTicket = null;
         completedType = null;
         completedSuppressBrowserPrint = false;
+        // Restore the reprint UI for the next completion screen — clear
+        // any inline display:none we set so CSS rules drive visibility.
+        $('#btn-reprint').css('display', '');
+        $('.kiosk-reprint-label').css('display', '');
         clearOperationTracking();
         $('#demo-ticket-area').empty();
         setState(scaleData.weight >= WEIGHT_THRESHOLD && !scaleData.error ? 'ready' : 'idle');
@@ -1761,7 +1780,9 @@
                 } else if (currentState === 'complete') {
                     // Matches the blue "Press Enter for Reprint" button when
                     // on-screen buttons are hidden — keyboard-only operation.
-                    reprintTicket();
+                    // Skip when there's nothing to reprint (Retained Tare
+                    // in-leg suppressed the print).
+                    if (!completedSuppressBrowserPrint) reprintTicket();
                 }
                 break;
 
