@@ -161,16 +161,21 @@
         if (grid) grid.refresh();
     }
 
-    /// Boolean column with a header checkbox that toggles every row in the
-    /// table (server-side bulk update). Used for Active / Kiosk columns on
-    /// the top-level MasterData grids. `endpoint` is the table key
-    /// (customers, carriers, locations, destinations, commodities).
+    /// Boolean column with a header checkbox that toggles every visible row.
+    /// Stages the changes via grid.cellValue() so they go through the same
+    /// batch-edit pipeline as per-row edits — operator clicks Save in the
+    /// grid toolbar to commit, matching the per-row behavior. minWidth keeps
+    /// the column from shrinking below 200px even when stateStoring restores
+    /// a smaller manual width from a previous session.
+    /// `endpoint` is currently unused (kept for forward compatibility with
+    /// the /api/masterdata/{table}/bulk-set server endpoint).
     function boolToggleHeaderCol(dataField, caption, endpoint, width) {
         return {
             dataField: dataField,
             caption: caption,
             dataType: 'boolean',
             width: width || 200,
+            minWidth: 200,
             headerCellTemplate: function (container, options) {
                 var $wrap = $('<div>').css({
                     display: 'flex',
@@ -181,19 +186,21 @@
                 });
                 $('<span>').text(caption).appendTo($wrap);
                 $('<input type="checkbox" class="form-check-input">')
-                    .attr('title', 'Click to toggle every row on / off')
+                    .attr('title', 'Toggle every row — then click Save to commit')
                     .css({ cursor: 'pointer', margin: 0 })
                     .on('click', function (e) {
                         e.stopPropagation();
                         var checked = this.checked;
-                        $.ajax({
-                            url: '/api/masterdata/' + endpoint + '/bulk-set',
-                            method: 'POST',
-                            contentType: 'application/json',
-                            data: JSON.stringify({ field: dataField, value: checked })
-                        }).done(function () {
-                            options.component.refresh();
+                        var grid = options.component;
+                        var rows = grid.getVisibleRows();
+                        rows.forEach(function (r) {
+                            if (r.rowType === 'data') {
+                                grid.cellValue(r.rowIndex, dataField, checked);
+                            }
                         });
+                        // Intentionally do NOT call grid.saveEditData() —
+                        // operator clicks Save in the edit toolbar to commit,
+                        // for consistency with how row edits work.
                     })
                     .appendTo($wrap);
                 $wrap.appendTo(container);
