@@ -405,9 +405,18 @@ function showTicketImage(ticket, direction, data) {
                         body: body,
                         styles: { fontSize: 5, cellPadding: 0.8 },
                         headStyles: { fillColor: [46, 163, 242], fontSize: 5.5, cellPadding: 1 },
-                        margin: { top: 16, right: 3, bottom: 6, left: 3 },
+                        margin: { top: 16, right: 3, bottom: 10, left: 3 },
                         tableWidth: pageWidth - 6,
-                        theme: 'grid'
+                        theme: 'grid',
+                        didDrawPage: function (data) {
+                            var pageHeight = doc.internal.pageSize.getHeight();
+                            var totals = 'Loads: ' + grandLoads +
+                                         '   |   Net: ' + formatNum(grandNetWeight) + ' lbs' +
+                                         '   |   Net: ' + formatTons(grandNetTons) + ' tons';
+                            doc.setFontSize(8);
+                            doc.setFont(undefined, 'bold');
+                            doc.text(totals, pageWidth / 2, pageHeight - 4, { align: 'center' });
+                        }
                     });
 
                     doc.save(getFileName('pdf'));
@@ -516,7 +525,7 @@ function showTicketImage(ticket, direction, data) {
             columns: (function () {
                 var savePic = @(savePicture ? "true" : "false");
                 var cols = [
-                    { dataField: 'ticket', caption: '#', width: 60, sortOrder: 'desc', sortIndex: 0 },
+                    { dataField: 'ticket', caption: '#', width: 150, sortOrder: 'desc', sortIndex: 0 },
                     { dataField: 'dateOut', caption: 'Date Out', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a', width: 155 },
                     { dataField: 'dateIn', caption: 'Date In', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a', width: 155 },
                     { dataField: 'customer', caption: 'Customer' },
@@ -525,15 +534,15 @@ function showTicketImage(ticket, direction, data) {
                     { dataField: 'commodity', caption: 'Commodity' },
                     { dataField: 'location', caption: 'Location' },
                     { dataField: 'destination', caption: 'Destination' },
-                    { dataField: 'inWeight', caption: 'In (lbs)', dataType: 'number', format: '#,##0', width: 90 },
-                    { dataField: 'outWeight', caption: 'Out (lbs)', dataType: 'number', format: '#,##0', width: 90 },
-                    { dataField: 'netWeight', caption: 'Net (lbs)', dataType: 'number', format: '#,##0', width: 90 },
-                    { dataField: 'netTons', caption: 'Net (tons)', dataType: 'number', format: '#,##0.00', width: 90 },
+                    { dataField: 'inWeight', caption: 'In (lbs)', dataType: 'number', format: '#,##0', width: 150 },
+                    { dataField: 'outWeight', caption: 'Out (lbs)', dataType: 'number', format: '#,##0', width: 150 },
+                    { dataField: 'netWeight', caption: 'Net (lbs)', dataType: 'number', format: '#,##0', width: 150, allowHiding: false, showInColumnChooser: false },
+                    { dataField: 'netTons', caption: 'Net (tons)', dataType: 'number', format: '#,##0.00', width: 150 },
                     { dataField: 'notes', caption: 'Notes', cssClass: 'notes-cell' }
                 ];
                 if (savePic) {
                     cols.push({
-                        caption: 'In Photo', width: 55, allowFiltering: false, allowSorting: false, allowExporting: false,
+                        caption: 'In Photo', width: 55, minWidth: 55, allowFiltering: false, allowSorting: false, allowExporting: false,
                         cellTemplate: function (container, options) {
                             if (options.data.hasInImage) {
                                 $('<img>').addClass('ticket-thumb')
@@ -544,7 +553,7 @@ function showTicketImage(ticket, direction, data) {
                         }
                     });
                     cols.push({
-                        caption: 'Out Photo', width: 55, allowFiltering: false, allowSorting: false, allowExporting: false,
+                        caption: 'Out Photo', width: 55, minWidth: 55, allowFiltering: false, allowSorting: false, allowExporting: false,
                         cellTemplate: function (container, options) {
                             if (options.data.hasOutImage) {
                                 $('<img>').addClass('ticket-thumb')
@@ -579,7 +588,7 @@ function showTicketImage(ticket, direction, data) {
             allowColumnResizing: true,
             columnResizingMode: 'widget',
             columnAutoWidth: true,
-            columnMinWidth: 50,
+            columnMinWidth: 150,
             columnChooser: { enabled: true, mode: 'select' },
             stateStoring: {
                 enabled: true,
