@@ -170,7 +170,7 @@
             dataField: dataField,
             caption: caption,
             dataType: 'boolean',
-            width: width || 130,
+            width: width || 150,
             headerCellTemplate: function (container, options) {
                 var $wrap = $('<div>').css({
                     display: 'flex',
@@ -243,10 +243,10 @@
             var cols = [
                 { dataField: 'id', caption: 'ID', width: 60, allowEditing: false },
                 { dataField: nameField, caption: nameCaption, sortOrder: 'asc', allowEditing: !lockName, validationRules: lockName ? [] : [{ type: 'required' }] },
-                boolToggleHeaderCol('active', 'Active', endpoint, 130)
+                boolToggleHeaderCol('active', 'Active', endpoint, 150)
             ];
             if (showKiosk) {
-                cols.push(boolToggleHeaderCol('useAtKiosk', 'Kiosk', endpoint, 130));
+                cols.push(boolToggleHeaderCol('useAtKiosk', 'Kiosk', endpoint, 150));
             }
             if (addCarrierAction) {
                 cols.push({
@@ -342,7 +342,7 @@
                     }
                 }
             },
-            boolToggleHeaderCol('active', 'Active', 'carriers', 130),
+            boolToggleHeaderCol('active', 'Active', 'carriers', 150),
             {
                 dataField: 'truckCount',
                 caption: '# Trucks',
@@ -362,7 +362,7 @@
             }
         ];
         if (showKiosk) {
-            carrierCols.push(boolToggleHeaderCol('useAtKiosk', 'Kiosk', 'carriers', 130));
+            carrierCols.push(boolToggleHeaderCol('useAtKiosk', 'Kiosk', 'carriers', 150));
         }
 
         var carrierStore = createIdStore('carriers');
