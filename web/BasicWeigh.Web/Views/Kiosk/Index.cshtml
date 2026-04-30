@@ -315,10 +315,7 @@
             display: none !important;
         }
 
-        /* Black instructional labels shown when on-screen buttons are hidden —
-            one on the ready screen replacing the two big action buttons, one
-            on the complete screen replacing Reprint/Done. */
-        .kiosk-ready-label,
+        /* Reprint label on the complete screen — small instruction pill. */
         .kiosk-reprint-label {
             display: none;
             margin-top: 24px;
@@ -333,8 +330,36 @@
             width: 100%;
             box-sizing: border-box;
         }
-        body.kiosk-hide-buttons .kiosk-ready-label,
         body.kiosk-hide-buttons .kiosk-reprint-label {
+            display: block;
+        }
+
+        /* Big "PRESS / ENTER / TO / WEIGH" stack on the ready screen — one
+            word per line, centered, with ENTER in heavy blue so it draws
+            the operator's eye to the action key. */
+        .kiosk-ready-label {
+            display: none;
+            font-size: 8rem;
+            font-weight: 700;
+            letter-spacing: 6px;
+            line-height: 1.0;
+            color: #000;
+            background: #ffffff;
+            padding: 28px 32px;
+            border-radius: 16px;
+            text-align: center;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .kiosk-ready-label > span {
+            display: block;
+        }
+        .kiosk-ready-label .kiosk-ready-label-key {
+            color: #0d6efd;
+            font-weight: 900;
+            letter-spacing: 8px;
+        }
+        body.kiosk-hide-buttons .kiosk-ready-label {
             display: block;
         }
 
@@ -701,7 +726,12 @@
                 </button>
             </div>
             <!-- Shown only when on-screen buttons are hidden — operator drives via Enter. -->
-            <div class="kiosk-ready-label">PRESS ENTER TO WEIGH</div>
+            <div class="kiosk-ready-label">
+                <span>PRESS</span>
+                <span class="kiosk-ready-label-key">ENTER</span>
+                <span>TO</span>
+                <span>WEIGH</span>
+            </div>
         </div>
 
         <!-- ENTERING TICKET: Numpad -->
