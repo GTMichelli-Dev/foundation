@@ -243,8 +243,17 @@ public class KioskController : Controller
                 tareApplied ? setup.OutboundCameraId : setup.InboundCameraId);
         }
 
-        // Print: a tare-completed ticket is effectively a weigh-out, route to the outbound printer.
-        await SendPrintCommand(ticketNumber, tareApplied ? "weighout" : "weighin", request.PrinterId);
+        // Print rules:
+        //   - Tare-applied weigh-in → completed ticket → print on the outbound printer.
+        //   - Plain weigh-in → normally prints to the inbound printer; SUPPRESSED when
+        //     Retained Tare is on, since the in-leg is just data capture for the
+        //     eventual closing ticket. The closing weigh-out (or the next visit's
+        //     auto-completed weigh-in) is what gets printed.
+        bool suppressInboundPrint = setup.UseRetainedTare && !tareApplied;
+        if (!suppressInboundPrint)
+        {
+            await SendPrintCommand(ticketNumber, tareApplied ? "weighout" : "weighin", request.PrinterId);
+        }
 
         return Json(new
         {
@@ -254,7 +263,8 @@ public class KioskController : Controller
             dateOut = transaction.DateOut,
             tareApplied,
             retainedTare = truck?.RetainedTare,
-            retainedTareUpdated = truck?.RetainedTareUpdated
+            retainedTareUpdated = truck?.RetainedTareUpdated,
+            suppressInboundPrint
         });
     }
 

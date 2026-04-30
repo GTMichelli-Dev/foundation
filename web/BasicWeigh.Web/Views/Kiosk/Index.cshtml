@@ -911,6 +911,7 @@
     var completedTicket = null;  // ticket number for reprint
     var completedType = null;    // 'Weigh In' or 'Weigh Out'
     var completedTicketIsOpen = false; // true when only inWeight is set (open ticket); false when both weights set (closed)
+    var completedSuppressBrowserPrint = false; // set when the server says to skip the inbound-leg browser-print (Retained Tare on)
     var WEIGHT_CHANGE_EXIT = 1000; // exit complete screen when weight changes this much
     var operationStartWeight = null; // weight when operation started
     var operationTimer = null; // 60-sec timeout for operations
@@ -1471,6 +1472,12 @@
                 printerId: kioskHasPrinter ? (kioskServiceId + ':' + kioskPrinterId) : null
             }),
             success: function (result) {
+                // Server may suppress the inbound-leg print when Retained Tare
+                // is on (the in-leg is just data capture; the closing ticket
+                // is what gets printed). Honor that here for the auto-popup
+                // browser-print branch in showComplete.
+                completedSuppressBrowserPrint = !!result.suppressInboundPrint;
+
                 // If the truck has a retained tare, the server completes the ticket
                 // in one shot and returns both weights. Skip straight to the
                 // completion screen with the recalled-tare badge visible.
@@ -1553,8 +1560,11 @@
         setState('complete');
 
         // Browser print: open ticket in new window for printing
-        // Only print to browser if service-id=Browser&printer-id=Browser
-        if (kioskIsBrowserPrint) {
+        // Only print to browser if service-id=Browser&printer-id=Browser.
+        // Skip the popup entirely when the server flagged this leg as
+        // suppressed (Retained Tare on, plain weigh-in — no ticket should
+        // print until the truck closes out).
+        if (kioskIsBrowserPrint && !completedSuppressBrowserPrint) {
             // KioskView prints the inbound layout; View prints the outbound
             // (completed) layout. Decide by whether the ticket is closed —
             // both weights set — so a tare-completed weigh-in correctly
@@ -1575,6 +1585,7 @@
         completedWeight = null;
         completedTicket = null;
         completedType = null;
+        completedSuppressBrowserPrint = false;
         clearOperationTracking();
         $('#demo-ticket-area').empty();
         setState(scaleData.weight >= WEIGHT_THRESHOLD && !scaleData.error ? 'ready' : 'idle');
