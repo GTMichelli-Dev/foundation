@@ -227,18 +227,15 @@ function showTicketImage(ticket, direction, data) {
                 setCookie(cookieGroupBy, groupByFields, 365);
                 grid.clearFilter();
                 applyGrouping();
-                // Show all columns and clear saved state
-                var cols = grid.option('columns');
-                for (var i = 0; i < cols.length; i++) {
-                    grid.columnOption(i, 'visible', true);
-                }
-                setCookie('report_grid_state', {}, 365);
-                grid.refresh();
+                // Clear saved grid state (column widths, visibility, filters, sort)
+                // and reload so defaults from the columns config apply.
+                try { localStorage.removeItem('reportGrid_v3'); } catch (e) { }
+                grid.state(null);
+                window.location.reload();
             }
         });
 
         // --- Data Grid ---
-        var stateKey = 'report_grid_state';
         var grid = $('#reportGrid').dxDataGrid({
             hoverStateEnabled: true,
             remoteOperations: false,
@@ -259,20 +256,6 @@ function showTicketImage(ticket, direction, data) {
                     });
                 }
             }),
-            // Persist column visibility, order, widths, sorting, filters in cookie
-            stateStoring: {
-                enabled: true,
-                type: 'custom',
-                savingTimeout: 500,
-                customLoad: function () {
-                    return $.Deferred(function (d) {
-                        d.resolve(getCookie(stateKey) || {});
-                    }).promise();
-                },
-                customSave: function (state) {
-                    setCookie(stateKey, state, 365);
-                }
-            },
             onContentReady: function (e) {
                 if (e.component.__firstLoad !== true) {
                     e.component.__firstLoad = true;
@@ -614,7 +597,7 @@ function showTicketImage(ticket, direction, data) {
             stateStoring: {
                 enabled: true,
                 type: 'localStorage',
-                storageKey: 'reportGrid_v2'
+                storageKey: 'reportGrid_v3'
             },
             wordWrapEnabled: false,
             paging: { pageSize: 50 },
