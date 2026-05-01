@@ -766,13 +766,32 @@ function showTicketImage(ticket, direction, data) {
                 return;
             }
 
+            // QuickBooks requires both Customer and Item — skip rows missing either,
+            // and tell the user upfront so they can fix the underlying data.
+            var skipped = records.filter(function (r) {
+                return !(r.customer && String(r.customer).trim()) ||
+                       !(r.commodity && String(r.commodity).trim());
+            });
+            var sendable = records.filter(function (r) {
+                return (r.customer && String(r.customer).trim()) &&
+                       (r.commodity && String(r.commodity).trim());
+            });
+            if (sendable.length === 0) {
+                showAlert('<i class="fa fa-exclamation-triangle"></i> None of the selected tickets have both a Customer and a Commodity set. QuickBooks cannot create invoices for these.', 'danger', false);
+                return;
+            }
+
+            // Truncate RefNumber to QB Desktop's 11-char limit. Customer/Commodity
+            // length isn't enforced here — QB will reject names that don't exist.
+            function refFor(ticket) { return String(ticket).substring(0, 11); }
+
             var payload;
             var summary;
             if (mode === 'commodity') {
                 var groups = {};
-                records.forEach(function (r) {
-                    var cust = r.customer || '';
-                    var com = r.commodity || '';
+                sendable.forEach(function (r) {
+                    var cust = r.customer;
+                    var com = r.commodity;
                     var key = cust + '||' + com;
                     if (!groups[key]) {
                         groups[key] = { customer: cust, commodity: com, netWeight: 0, tickets: [], latestDate: null };
@@ -784,8 +803,9 @@ function showTicketImage(ticket, direction, data) {
                 });
                 payload = Object.keys(groups).map(function (k) {
                     var g = groups[k];
+                    // QB RefNumber max 11 chars: 'G' + first ticket, truncated.
                     return {
-                        ticket: 'GRP-' + g.tickets.join('-').substring(0, 20),
+                        ticket: refFor('G' + g.tickets[0]),
                         customer: g.customer,
                         commodity: g.commodity,
                         netWeight: g.netWeight,
@@ -794,11 +814,11 @@ function showTicketImage(ticket, direction, data) {
                         underlyingTickets: g.tickets
                     };
                 });
-                summary = payload.length + ' grouped invoice(s) covering ' + records.length + ' ticket(s)';
+                summary = payload.length + ' grouped invoice(s) covering ' + sendable.length + ' ticket(s)';
             } else {
-                payload = records.map(function (r) {
+                payload = sendable.map(function (r) {
                     return {
-                        ticket: String(r.ticket),
+                        ticket: refFor(r.ticket),
                         customer: r.customer,
                         commodity: r.commodity,
                         netWeight: Math.abs(r.netWeight || 0),
@@ -806,12 +826,22 @@ function showTicketImage(ticket, direction, data) {
                         notes: r.notes
                     };
                 });
-                summary = records.length + ' invoice(s)';
+                summary = sendable.length + ' invoice(s)';
+            }
+
+            var skipNotice = '';
+            if (skipped.length > 0) {
+                var skippedTickets = skipped.map(function (r) { return '#' + r.ticket; }).slice(0, 10).join(', ')
+                    + (skipped.length > 10 ? ', …' : '');
+                skipNotice =
+                    '<div class="alert alert-warning mt-3 mb-0 py-2"><i class="fa fa-exclamation-triangle"></i> ' +
+                    '<strong>' + skipped.length + '</strong> ticket(s) will be skipped — they have no Customer or Commodity set: ' +
+                    '<span style="font-family:monospace;">' + skippedTickets + '</span></div>';
             }
 
             var $confirm = $('<div class="modal fade" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">' +
                 '<div class="modal-header"><h5 class="modal-title">Confirm Send</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>' +
-                '<div class="modal-body"><p>Send <strong>' + summary + '</strong> to QuickBooks?</p></div>' +
+                '<div class="modal-body"><p>Send <strong>' + summary + '</strong> to QuickBooks?</p>' + skipNotice + '</div>' +
                 '<div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>' +
                 '<button type="button" class="btn btn-success" id="qbConfirmSend">Send</button></div>' +
                 '</div></div></div>');
