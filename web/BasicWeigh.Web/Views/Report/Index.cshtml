@@ -692,6 +692,7 @@ function showTicketImage(ticket, direction, data) {
                 '<label class="form-check-label" for="qbModeTxn"><strong>By Transaction</strong> &mdash; one invoice per ticket</label></div>' +
                 '<div class="form-check"><input class="form-check-input" type="radio" name="qbMode" id="qbModeCom" value="commodity">' +
                 '<label class="form-check-label" for="qbModeCom"><strong>Group by Commodity</strong> &mdash; one invoice per Customer + Commodity (totaled)</label></div>' +
+                '<div class="alert alert-info mt-3 mb-0 py-2"><i class="fa fa-info-circle"></i> Voided tickets are never included in QuickBooks exports.</div>' +
                 '</div>' +
                 '<div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>' +
                 '<button type="button" class="btn btn-success" id="qbModeContinue">Continue</button></div>' +
@@ -720,7 +721,10 @@ function showTicketImage(ticket, direction, data) {
         }
 
         function buildAndSend(mode) {
-            var rows = flattenItems(grid.getDataSource().items());
+            // Voided tickets are filtered out by the report API, but exclude
+            // them defensively here too so a future API change can't slip a
+            // voided record into a QuickBooks invoice.
+            var rows = flattenItems(grid.getDataSource().items()).filter(function (r) { return !r.void; });
             var unsent = rows.filter(function (r) { return !r.sentToQuickBooks; });
             var alreadySent = rows.filter(function (r) { return r.sentToQuickBooks; });
 
