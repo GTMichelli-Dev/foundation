@@ -685,7 +685,7 @@ function showTicketImage(ticket, direction, data) {
         }
 
         function pickSendMode() {
-            var $modal = $('<div class="modal fade" tabindex="-1"><div class="modal-dialog"><div class="modal-content">' +
+            var $modal = $('<div class="modal fade" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">' +
                 '<div class="modal-header"><h5 class="modal-title">Send to QuickBooks</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>' +
                 '<div class="modal-body"><p>How should the unsent tickets in the current date range be sent?</p>' +
                 '<div class="form-check"><input class="form-check-input" type="radio" name="qbMode" id="qbModeTxn" value="transaction" checked>' +
@@ -740,7 +740,7 @@ function showTicketImage(ticket, direction, data) {
                 } else {
                     msg += '<br><br>All visible tickets have already been sent. Resend them anyway? This will create duplicate invoices in QuickBooks.';
                 }
-                var $w = $('<div class="modal fade" tabindex="-1"><div class="modal-dialog"><div class="modal-content">' +
+                var $w = $('<div class="modal fade" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">' +
                     '<div class="modal-header"><h5 class="modal-title">Already Sent to QuickBooks</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>' +
                     '<div class="modal-body"><p>' + msg + '</p></div>' +
                     '<div class="modal-footer">' +
@@ -809,7 +809,7 @@ function showTicketImage(ticket, direction, data) {
                 summary = records.length + ' invoice(s)';
             }
 
-            var $confirm = $('<div class="modal fade" tabindex="-1"><div class="modal-dialog"><div class="modal-content">' +
+            var $confirm = $('<div class="modal fade" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">' +
                 '<div class="modal-header"><h5 class="modal-title">Confirm Send</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>' +
                 '<div class="modal-body"><p>Send <strong>' + summary + '</strong> to QuickBooks?</p></div>' +
                 '<div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>' +
@@ -839,8 +839,16 @@ function showTicketImage(ticket, direction, data) {
             qbConnection.on('QBSyncComplete', function (message) {
                 qbErrorReceived = false;
                 $('#qb-alert-container > div').not('[data-alert-type="danger"]').remove();
-                var ok = !(message && message.toLowerCase().indexOf('fail') >= 0);
-                showAlert('<i class="fa fa-' + (ok ? 'check-circle' : 'times-circle') + '"></i> ' + message, ok ? 'success' : 'danger');
+                var lower = (message || '').toLowerCase();
+                // The worker phrases summaries explicitly; check for "failed" and "of" together.
+                var isFailure = lower.indexOf('failed to') >= 0 || /\b0 of \d+\b/.test(lower);
+                var isPartial = lower.indexOf('failed:') >= 0 && !isFailure;
+                var type = isFailure ? 'danger' : (isPartial ? 'warning' : 'success');
+                var icon = isFailure ? 'times-circle' : (isPartial ? 'exclamation-triangle' : 'check-circle');
+                // Preserve newlines from the multi-line summary.
+                var html = '<i class="fa fa-' + icon + '"></i> <span style="white-space:pre-line;">' +
+                    $('<div>').text(message).html() + '</span>';
+                showAlert(html, type, isFailure || isPartial ? false : true);
                 grid.refresh();
             });
             qbConnection.on('QBNotRunning', function (message) {
