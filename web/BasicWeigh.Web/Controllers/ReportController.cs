@@ -22,6 +22,7 @@ public class ReportController : Controller
         var setup = _setupCache.Get();
         ViewBag.CompanyName = setup.Header1 ?? "Basic Weigh";
         ViewBag.SavePicture = setup.SavePicture;
+        ViewBag.UseQuickBooks = setup.UseQuickBooks;
         return View();
     }
 
@@ -61,6 +62,7 @@ public class ReportController : Controller
                 t.NetWeight,
                 NetTons = Math.Round(t.NetWeight / 2000.0, 2),
                 t.Notes,
+                t.SentToQuickBooks,
                 HasInImage = System.IO.File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "tickets", $"{t.Ticket}_in.jpg")),
                 HasOutImage = System.IO.File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "tickets", $"{t.Ticket}_out.jpg"))
             })
