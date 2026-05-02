@@ -941,6 +941,9 @@
 
     var configuredScaleId = '@(ViewBag.ScaleId ?? "")';
 
+    var lastScaleUpdate = null;
+    var pageLoadedAt = Date.now();
+
     connection.on('ScaleWeight', function (data) {
         // In demo mode, ignore real scale data — use the simulator instead
         if (kioskSettings.demoMode) return;
@@ -953,9 +956,27 @@
             }
         }
         scaleData = data;
+        lastScaleUpdate = Date.now();
         updateWeightDisplay();
         handleScaleChange();
     });
+
+    // Detect a missing/dead scale: ScaleWeight only fires when the scale-reader is
+    // pushing data, so a silent feed looks like "everything's fine" to the kiosk.
+    // Mirror the dashboard's server-side 5s ComTimeout — if no event arrives in
+    // ~6s, flag a COM error so the UI shows the same SCALE ERROR state.
+    setInterval(function () {
+        if (kioskSettings.demoMode) return;
+        var now = Date.now();
+        var stale = lastScaleUpdate === null
+            ? (now - pageLoadedAt > 6000)        // never received any reading
+            : (now - lastScaleUpdate > 6000);    // feed went silent
+        if (stale && !scaleData.error) {
+            scaleData = { weight: 0, motion: false, error: true, comError: true, ok: false };
+            updateWeightDisplay();
+            handleScaleChange();
+        }
+    }, 1000);
 
     connection.start().catch(function (err) {
         console.error('SignalR error:', err);
@@ -963,6 +984,7 @@
         setInterval(function () {
             $.getJSON('/api/scale/weight', function (data) {
                 scaleData = data;
+                lastScaleUpdate = Date.now();
                 updateWeightDisplay();
                 handleScaleChange();
             });
