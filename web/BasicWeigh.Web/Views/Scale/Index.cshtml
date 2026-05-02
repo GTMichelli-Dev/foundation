@@ -275,9 +275,19 @@
         }
     });
 
-    connection.on('ScaleBrandsReceived', function (brands) {
-        scaleBrands = brands || [];
+    connection.on('ScaleBrandsReceived', function (payload) {
+        // Newer scale-reader-service wraps the list as { brands, source, error };
+        // older versions send the array directly — handle both.
+        var list, source, error;
+        if (Array.isArray(payload)) { list = payload; source = 'unknown'; error = null; }
+        else if (payload && Array.isArray(payload.brands)) {
+            list = payload.brands; source = payload.source; error = payload.error;
+        } else { list = []; source = 'unknown'; error = null; }
+        scaleBrands = list;
         populateScaleBrandDropdown();
+        if (source === 'local' && error) {
+            showToast('warning', 'Using cached scale brands — could not refresh from device-definitions: ' + error);
+        }
     });
 
     connection.start().then(function () {
