@@ -193,11 +193,20 @@ public class KioskController : Controller
         bool tareApplied = truck?.RetainedTare.HasValue == true;
         var now = DateTime.UtcNow;
 
+        // For a retained-tare auto-completion, DateIn represents when the truck
+        // was originally tared (the "inbound" weighing that established the tare).
+        // DateOut is the current visit. Without this, both dates would be the
+        // same timestamp because the whole transaction happens in one call —
+        // accurate but useless on the report.
+        var dateIn = tareApplied
+            ? (truck!.RetainedTareUpdated ?? now)
+            : now;
+
         var transaction = new Transaction
         {
             Ticket = ticketNumber,
             InWeight = request.Weight,
-            DateIn = now,
+            DateIn = dateIn,
             Commodity = request.Commodity,
             Customer = request.Customer,
             Carrier = request.Carrier,
@@ -233,14 +242,25 @@ public class KioskController : Controller
                 new { ticket = ticketNumber, type = "weighin" });
         }
 
-        // Camera capture: a tare-completed ticket is a weigh-out (use outbound camera);
-        // a regular weigh-in uses the inbound camera. Same convention as the admin flow.
+        // Camera capture:
+        //   - Plain weigh-in -> inbound camera.
+        //   - Retained-tare auto-completion -> fire whichever cameras are
+        //     configured (both inbound + outbound if both are set). Previously
+        //     this fired only outbound, which silently captured nothing for
+        //     sites that have only an inbound camera set up.
         if (setup.SavePicture)
         {
-            await SendCameraCapture(
-                ticketNumber,
-                tareApplied ? "out" : "in",
-                tareApplied ? setup.OutboundCameraId : setup.InboundCameraId);
+            if (tareApplied)
+            {
+                if (!string.IsNullOrEmpty(setup.OutboundCameraId))
+                    await SendCameraCapture(ticketNumber, "out", setup.OutboundCameraId);
+                if (!string.IsNullOrEmpty(setup.InboundCameraId))
+                    await SendCameraCapture(ticketNumber, "in", setup.InboundCameraId);
+            }
+            else
+            {
+                await SendCameraCapture(ticketNumber, "in", setup.InboundCameraId);
+            }
         }
 
         // Print rules:
