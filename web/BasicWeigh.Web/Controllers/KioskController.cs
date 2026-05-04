@@ -242,25 +242,14 @@ public class KioskController : Controller
                 new { ticket = ticketNumber, type = "weighin" });
         }
 
-        // Camera capture:
-        //   - Plain weigh-in -> inbound camera.
-        //   - Retained-tare auto-completion -> fire whichever cameras are
-        //     configured (both inbound + outbound if both are set). Previously
-        //     this fired only outbound, which silently captured nothing for
-        //     sites that have only an inbound camera set up.
+        // Camera capture: a tare-completed ticket is a weigh-out (use outbound camera);
+        // a regular weigh-in uses the inbound camera. Same convention as the admin flow.
         if (setup.SavePicture)
         {
-            if (tareApplied)
-            {
-                if (!string.IsNullOrEmpty(setup.OutboundCameraId))
-                    await SendCameraCapture(ticketNumber, "out", setup.OutboundCameraId);
-                if (!string.IsNullOrEmpty(setup.InboundCameraId))
-                    await SendCameraCapture(ticketNumber, "in", setup.InboundCameraId);
-            }
-            else
-            {
-                await SendCameraCapture(ticketNumber, "in", setup.InboundCameraId);
-            }
+            await SendCameraCapture(
+                ticketNumber,
+                tareApplied ? "out" : "in",
+                tareApplied ? setup.OutboundCameraId : setup.InboundCameraId);
         }
 
         // Print rules:

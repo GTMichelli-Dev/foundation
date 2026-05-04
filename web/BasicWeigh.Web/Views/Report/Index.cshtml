@@ -523,7 +523,8 @@ function showTicketImage(ticket, direction, data) {
             columns: (function () {
                 var savePic = @(savePicture ? "true" : "false");
                 var cols = [
-                    { dataField: 'ticket', caption: '#', width: 150, sortOrder: 'desc', sortIndex: 0 },
+                    { dataField: 'ticket', caption: '#', width: 150, sortOrder: 'desc', sortIndex: 0,
+                      calculateSortValue: function (data) { return parseInt(data.ticket, 10) || 0; } },
                     { dataField: 'dateOut', caption: 'Date Out', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a', width: 155 },
                     { dataField: 'dateIn', caption: 'Date In', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a', width: 155 },
                     { dataField: 'customer', caption: 'Customer' },
@@ -614,7 +615,8 @@ function showTicketImage(ticket, direction, data) {
             $('#voidsGrid').dxDataGrid({
                 dataSource: { store: { type: 'array', key: 'ticket', data: [] }, sort: { field: 'dateOut', desc: true } },
                 columns: [
-                    { dataField: 'ticket', caption: '#', width: 60 },
+                    { dataField: 'ticket', caption: '#', width: 60,
+                      calculateSortValue: function (data) { return parseInt(data.ticket, 10) || 0; } },
                     { dataField: 'customer', caption: 'Customer' },
                     { dataField: 'carrier', caption: 'Carrier' },
                     { dataField: 'truckId', caption: 'Truck ID' },

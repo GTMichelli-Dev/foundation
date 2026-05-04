@@ -192,7 +192,8 @@
 
     $(function () {
         var cols = [
-                { dataField: 'ticket', caption: 'Ticket', width: 80 },
+                { dataField: 'ticket', caption: 'Ticket', width: 80,
+                  calculateSortValue: function (data) { return parseInt(data.ticket, 10) || 0; } },
                 { dataField: 'customer', caption: 'Customer' },
                 { dataField: 'carrier', caption: 'Carrier' },
                 { dataField: 'truckId', caption: 'Truck ID' },

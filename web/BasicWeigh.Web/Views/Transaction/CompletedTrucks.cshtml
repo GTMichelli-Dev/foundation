@@ -358,7 +358,8 @@
 
             columns: (function () {
                 var cols = [
-                    { dataField: 'ticket', caption: '#', width: 60, sortOrder: 'desc', sortIndex: 0 },
+                    { dataField: 'ticket', caption: '#', width: 60, sortOrder: 'desc', sortIndex: 0,
+                      calculateSortValue: function (data) { return parseInt(data.ticket, 10) || 0; } },
                     { dataField: 'customer', caption: 'Customer' },
                     { dataField: 'carrier', caption: 'Carrier' },
                     { dataField: 'truckId', caption: 'Truck ID' },
