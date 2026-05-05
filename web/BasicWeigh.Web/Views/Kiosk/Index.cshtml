@@ -859,7 +859,7 @@
     var MOTION_TIMEOUT_MS = 10000;
     var OVERLAY_DURATION_MS = 2000;
     var COMPLETE_DURATION_MS = 4000;
-    var OPERATION_TIMEOUT_MS = 60000;
+    var OPERATION_TIMEOUT_MS = 75000;
     var OPERATION_WEIGHT_CHANGE = 1000;
 
     // ===== KIOSK SETTINGS FROM SERVER =====
@@ -1174,6 +1174,19 @@
         operationStartWeight = null;
     }
 
+    // Re-arm the inactivity timer in response to operator interaction (list
+    // navigation, scrolling). No-op if no operation is currently being tracked.
+    function resetOperationTimerIfActive() {
+        if (operationTimer === null) return;
+        clearTimeout(operationTimer);
+        operationTimer = setTimeout(function () {
+            operationTimer = null;
+            if (isActiveOperation()) {
+                cancelOperation('timeout');
+            }
+        }, OPERATION_TIMEOUT_MS);
+    }
+
     // ===== WEIGH-IN FLOW =====
     function startWeighIn() {
         activeFlow = 'weighin';
@@ -1334,7 +1347,19 @@
         $('#prompt-list .list-item').removeClass('selected');
         $('#prompt-list .list-item[data-index="' + selectedListIndex + '"]').addClass('selected');
         scrollToSelected();
+        resetOperationTimerIfActive();
     }
+
+    // Throttled — visual scrolling on the list (mouse wheel, touch swipe) also
+    // counts as activity so a slow operator browsing a long list doesn't get
+    // timed out mid-scroll.
+    var _scrollTimerThrottle = 0;
+    $(document).on('wheel touchmove scroll', '#prompt-list', function () {
+        var now = Date.now();
+        if (now - _scrollTimerThrottle < 250) return;
+        _scrollTimerThrottle = now;
+        resetOperationTimerIfActive();
+    });
 
     function scrollToSelected() {
         var $selected = $('#prompt-list .list-item.selected');
