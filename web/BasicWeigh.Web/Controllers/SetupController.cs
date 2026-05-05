@@ -100,8 +100,10 @@ public class SetupController : Controller
             existing.PromptKioskLocationOnOutbound = false;
             existing.PromptKioskDestinationOnOutbound = false;
         }
-        existing.InboundCameraId = setup.InboundCameraId;
-        existing.OutboundCameraId = setup.OutboundCameraId;
+        // Camera assignments are managed on the Camera page, not the Setup form,
+        // so the posted AppSetup never carries these fields. Don't overwrite the
+        // saved values with the null that comes back from model binding —
+        // doing so silently reset both cameras every time the user clicked Save.
         existing.ScaleId = setup.ScaleId;
 
         if (removeIcon)
