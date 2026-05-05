@@ -107,8 +107,14 @@ if [[ -d "$APP_DIR/Reports" ]]; then
   echo "  Reports backed up to /tmp/Reports.bak/"
 fi
 
-# Copy new files
-rsync -a --delete basicweigh/ "$APP_DIR/"
+# Copy new files. Exclude wwwroot/images/tickets/ from the --delete sweep
+# so captured ticket photos (runtime uploads, not part of the build) survive
+# every deploy. Without this, --delete wipes the entire directory.
+rsync -a --delete --exclude='wwwroot/images/tickets/' basicweigh/ "$APP_DIR/"
+
+# Make sure the tickets directory exists for fresh installs and that the
+# service user can write to it.
+mkdir -p "$APP_DIR/wwwroot/images/tickets"
 
 # Restore database and reports
 if [[ "$REBUILD_DB" != "1" ]] && [[ -f /tmp/BasicWeigh.db.bak ]]; then
