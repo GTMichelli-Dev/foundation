@@ -125,6 +125,28 @@
     </div>
 </div>
 
+<!-- QB-sync confirmation when there are unsaved batch edits in any grid -->
+<div class="modal fade" id="mdSyncConfirmModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title">Unsaved changes</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                You have unsaved edits in one or more grids. Syncing from QuickBooks
+                will refresh the grids and discard those staged edits. Save them
+                first if you want to keep them.
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger btn-sm" id="mdSyncDiscardBtn">Discard &amp; Sync</button>
+                <button type="button" class="btn btn-primary btn-sm" id="mdSyncSaveBtn">Save &amp; Sync</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Clear-tare confirmation modal (replaces window.confirm) -->
 <div class="modal fade" id="clearTareModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -180,6 +202,34 @@
         if (grid) grid.refresh();
     }
 
+    // Toolbar item that toggles a grid between paged (default 20/page) and
+    // unpaged ("Show All"). When unpaged, the header-checkbox toggle in
+    // boolToggleHeaderCol affects every row in the data source, since
+    // getVisibleRows() then returns the full set.
+    var SHOW_ALL_PAGE_SIZE = 100000;
+    function attachShowAllButton(prepareEvent) {
+        prepareEvent.toolbarOptions.items.unshift({
+            location: 'after',
+            widget: 'dxButton',
+            options: {
+                text: 'Show All',
+                hint: 'Disable pagination so header checkboxes affect every row',
+                onClick: function (btnEvent) {
+                    var grid = prepareEvent.component;
+                    var size = grid.option('paging.pageSize');
+                    var showingAll = !size || size >= SHOW_ALL_PAGE_SIZE;
+                    if (showingAll) {
+                        grid.option('paging.pageSize', 20);
+                        btnEvent.component.option('text', 'Show All');
+                    } else {
+                        grid.option('paging.pageSize', SHOW_ALL_PAGE_SIZE);
+                        btnEvent.component.option('text', 'Paginate');
+                    }
+                }
+            }
+        });
+    }
+
     /// Boolean column with a header checkbox that toggles every visible row.
     /// Stages the changes via grid.cellValue() so they go through the same
     /// batch-edit pipeline as per-row edits — operator clicks Save in the
@@ -189,7 +239,7 @@
     /// `endpoint` is currently unused (kept for forward compatibility with
     /// the /api/masterdata/{table}/bulk-set server endpoint).
     function boolToggleHeaderCol(dataField, caption, endpoint, width) {
-        return {
+        var col = {
             dataField: dataField,
             caption: caption,
             dataType: 'boolean',
@@ -213,9 +263,16 @@
                         var grid = options.component;
                         var rows = grid.getVisibleRows();
                         rows.forEach(function (r) {
-                            if (r.rowType === 'data') {
-                                grid.cellValue(r.rowIndex, dataField, checked);
+                            if (r.rowType !== 'data') return;
+                            // Kiosk-header toggle: only flip rows where Active
+                            // is true when turning ON, so the invariant
+                            // (kiosk implies active) holds. Turning OFF is
+                            // always safe.
+                            if (dataField === 'useAtKiosk' && checked
+                                && r.data && !r.data.active) {
+                                return;
                             }
+                            grid.cellValue(r.rowIndex, dataField, checked);
                         });
                         // Intentionally do NOT call grid.saveEditData() —
                         // operator clicks Save in the edit toolbar to commit,
@@ -225,6 +282,30 @@
                 $wrap.appendTo(container);
             }
         };
+
+        // Invariant: kiosk implies active. When Active is unchecked on a row,
+        // clear UseAtKiosk on the same row so the staged edit matches the
+        // server-side rule applied in UpdateCustomer/UpdateCarrier/etc.
+        if (dataField === 'active') {
+            col.setCellValue = function (newData, value, currentRowData) {
+                newData.active = value;
+                if (!value) newData.useAtKiosk = false;
+            };
+        }
+        return col;
+    }
+
+    // Disable the kiosk cell editor on rows where Active is false. Combined
+    // with the Active column's setCellValue cascade, this enforces the
+    // "kiosk implies active" invariant in the UI before the operator saves.
+    function disableKioskOnInactiveRow(e) {
+        if (e.dataField === 'useAtKiosk' && e.parentType === 'dataRow') {
+            var rowData = e.row && e.row.data;
+            if (rowData && rowData.active === false) {
+                e.editorOptions.disabled = true;
+                e.editorOptions.value = false;
+            }
+        }
     }
 
     $(function () {
@@ -331,6 +412,8 @@
                     allowDeleting: !lockName,
                     useIcons: false
                 },
+                onToolbarPreparing: attachShowAllButton,
+                onEditorPreparing: disableKioskOnInactiveRow,
                 columns: cols
             });
         }
@@ -417,6 +500,8 @@
                 allowDeleting: true,
                 useIcons: false
             },
+            onToolbarPreparing: attachShowAllButton,
+            onEditorPreparing: disableKioskOnInactiveRow,
             columns: carrierCols,
             onInitNewRow: function () {
                 $.getJSON('/api/masterdata/customers-not-carriers').done(function (data) {
@@ -546,6 +631,8 @@
             }
             return false;
         }
+        // Exposed for the QB-sync confirmation flow defined in the IIFE below.
+        window.mdAnyGridDirty = mdAnyGridDirty;
 
         $(window).on('beforeunload', function () {
             if (mdAnyGridDirty() && !mdIsLeaving) return 'You have unsaved changes.';
@@ -660,8 +747,9 @@
             updateQBBanner(false);
         });
 
-        window.triggerQBSync = function () {
-            // Check if QB service is connected first
+        // Actual sync invocation, called either directly (no pending edits)
+        // or after the operator confirms discarding staged edits in the modal.
+        function doQBSync() {
             syncConnection.invoke("CheckQBServiceConnected").then(function (connected) {
                 if (!connected) {
                     var html = '<div class="alert alert-danger alert-dismissible fade show" role="alert">' +
@@ -680,7 +768,63 @@
             }).catch(function (err) {
                 $('#qbSyncStatus').text('Error checking service: ' + err);
             });
+        }
+
+        window.triggerQBSync = function () {
+            // Sync refreshes every grid on completion, which silently drops
+            // any uncommitted batch edits. Warn first so the operator can
+            // save before continuing.
+            if (typeof window.mdAnyGridDirty === 'function' && window.mdAnyGridDirty()) {
+                new bootstrap.Modal('#mdSyncConfirmModal').show();
+                return;
+            }
+            doQBSync();
         };
+
+        var MD_GRID_SELECTORS = ['#customersGrid', '#carriersGrid', '#locationsGrid',
+                                 '#destinationsGrid', '#commoditiesGrid'];
+
+        $(function () {
+            $('#mdSyncDiscardBtn').on('click', function () {
+                bootstrap.Modal.getInstance(document.getElementById('mdSyncConfirmModal')).hide();
+                // Cancel staged edits across every grid so the upcoming refresh
+                // doesn't race against in-flight batch edits.
+                MD_GRID_SELECTORS.forEach(function (sel) {
+                    var inst = $(sel).dxDataGrid('instance');
+                    if (inst && typeof inst.cancelEditData === 'function') inst.cancelEditData();
+                });
+                doQBSync();
+            });
+
+            // Save staged edits across every dirty grid, then proceed to sync.
+            // saveEditData() returns a jQuery Deferred; $.when waits for all
+            // grids in parallel so we only kick off the sync once every batch
+            // round-trips successfully. Any save failure aborts the sync so
+            // the operator can fix the offending row.
+            $('#mdSyncSaveBtn').on('click', function () {
+                var $btn = $(this).prop('disabled', true).text('Saving…');
+                var saves = [];
+                MD_GRID_SELECTORS.forEach(function (sel) {
+                    var inst = $(sel).dxDataGrid('instance');
+                    if (inst && typeof inst.hasEditData === 'function' && inst.hasEditData()) {
+                        saves.push(inst.saveEditData());
+                    }
+                });
+                $.when.apply($, saves).then(function () {
+                    // Some grids may still be dirty if a row failed validation
+                    // — bail out and let the operator address the inline error.
+                    if (window.mdAnyGridDirty && window.mdAnyGridDirty()) {
+                        $btn.prop('disabled', false).text('Save & Sync');
+                        return;
+                    }
+                    bootstrap.Modal.getInstance(document.getElementById('mdSyncConfirmModal')).hide();
+                    $btn.prop('disabled', false).text('Save & Sync');
+                    doQBSync();
+                }, function () {
+                    $btn.prop('disabled', false).text('Save & Sync');
+                });
+            });
+        });
     })();
 </script>
 }

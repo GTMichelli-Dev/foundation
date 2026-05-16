@@ -445,21 +445,15 @@ public class MasterDataController : Controller
 
         int added = 0, reactivated = 0, deactivated = 0, unchanged = 0;
 
-        // Add or reactivate customers from QB
+        // Existing records keep their Active and UseAtKiosk flags — even when
+        // QB lists them. Operators who marked a customer inactive in BasicWeigh
+        // want that choice respected on every sync. New customers default to
+        // Active=true, UseAtKiosk=true.
         foreach (var name in qbNames)
         {
-            if (existingByName.TryGetValue(name, out var customer))
+            if (existingByName.TryGetValue(name, out _))
             {
-                if (!customer.Active)
-                {
-                    customer.Active = true;
-                    customer.UseAtKiosk = true;
-                    reactivated++;
-                }
-                else
-                {
-                    unchanged++;
-                }
+                unchanged++;
             }
             else
             {
@@ -473,7 +467,8 @@ public class MasterDataController : Controller
             }
         }
 
-        // Deactivate customers not in QB
+        // Customers removed from QB are deactivated. Inactive rows must also
+        // have UseAtKiosk=false (invariant: kiosk implies active).
         foreach (var customer in existing)
         {
             if (customer.Active && !qbNames.Contains(customer.CustomerName))
@@ -500,21 +495,13 @@ public class MasterDataController : Controller
 
         int added = 0, reactivated = 0, deactivated = 0, unchanged = 0;
 
-        // Add or reactivate commodities from QB
+        // Existing records keep their Active and UseAtKiosk flags. New
+        // commodities default to Active=true, UseAtKiosk=true.
         foreach (var name in qbNames)
         {
-            if (existingByName.TryGetValue(name, out var commodity))
+            if (existingByName.TryGetValue(name, out _))
             {
-                if (!commodity.Active)
-                {
-                    commodity.Active = true;
-                    commodity.UseAtKiosk = true;
-                    reactivated++;
-                }
-                else
-                {
-                    unchanged++;
-                }
+                unchanged++;
             }
             else
             {
@@ -528,7 +515,8 @@ public class MasterDataController : Controller
             }
         }
 
-        // Deactivate commodities not in QB
+        // Commodities removed from QB are deactivated; force UseAtKiosk=false
+        // since kiosk implies active.
         foreach (var commodity in existing)
         {
             if (commodity.Active && !qbNames.Contains(commodity.CommodityName))
