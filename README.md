@@ -21,6 +21,7 @@ Basic Weigh is a web-based truck scale management application for weighing inbou
   - [Application Settings](#application-settings)
   - [Setup Page](#setup-page)
   - [User Login System](#user-login-system)
+  - [Updating Device Definitions](#updating-device-definitions)
   - [Rebuilding the Database](#rebuilding-the-database)
 - [Troubleshooting](#troubleshooting)
 - [Architecture](#architecture)
@@ -299,6 +300,47 @@ https://your-server/Kiosk?pin=12345
 ```
 
 The default PIN is `12345`. Change it on the Setup page. The PIN is stored as a browser cookie so subsequent requests don't need it.
+
+### Updating Device Definitions
+
+Scale brand / model / protocol metadata (baud rate, parity, weight regex, etc.) does **not** live in this repo. It lives in a separate public repo:
+
+[**GTMichelli-Dev/device-definitions**](https://github.com/GTMichelli-Dev/device-definitions) → file `scales/scale-models.json`
+
+**How the running system picks it up**
+
+The Scale Reader Service fetches the file via HTTPS from `https://raw.githubusercontent.com/GTMichelli-Dev/device-definitions/main/scales/scale-models.json` whenever:
+
+1. The service starts up.
+2. The web app's **Scale Management** page calls `RequestScaleBrands` over SignalR — this happens automatically on page load **and** on every click of the **Refresh Definitions** button at the top of that page.
+3. Anyone hits `GET http://<scale-host>:5220/api/status/brands`.
+
+The result is also written to `scale-models.json` next to the service's `.exe` as a fallback cache.
+
+**Adding or editing a definition**
+
+1. Edit `scales/scale-models.json` in the `device-definitions` repo and push to `main`.
+2. Verify the raw URL serves your change (there's sometimes a 1–2 min CDN delay):
+   ```bash
+   curl https://raw.githubusercontent.com/GTMichelli-Dev/device-definitions/main/scales/scale-models.json
+   ```
+3. Open the **Scale Management** page in the web app. The header pill labelled **Definitions** turns:
+   - **Green — "Definitions: live (N)"** when the service successfully refreshed from GitHub.
+   - **Yellow — "Definitions: cached (N)"** when the service couldn't reach GitHub and is serving its on-disk fallback. Hover for the underlying error.
+4. If the pill is yellow, click **Refresh Definitions** after fixing connectivity, or restart the service:
+   ```powershell
+   Restart-Service ScaleReaderService
+   ```
+
+**Where the URL is configured**
+
+`appsettings.json` (in the Scale Reader Service install folder) seeds the URL on first run, but `BrandsCache.RefreshAsync()` reads the live value from the service's own `Settings` table. To check the URL the service is actually using:
+
+```bash
+curl http://<scale-host>:5220/api/status/settings
+```
+
+If it points at a fork or stale URL, update it via the same endpoint (`PUT /api/status/settings`).
 
 ### Rebuilding the Database
 

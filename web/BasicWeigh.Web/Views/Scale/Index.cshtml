@@ -4,7 +4,24 @@
 
 <div class="d-flex justify-content-between align-items-center mb-2">
     <h3 class="mb-0">Scale Management</h3>
-    <a href="/Setup" class="btn btn-outline-secondary btn-sm"><i class="fa fa-arrow-left"></i> Back to Setup</a>
+    <div class="d-flex align-items-center gap-2">
+        <!-- Live status of the device-definitions cache served by the
+             connected Scale Reader Service. Updated by ScaleBrandsReceived. -->
+        <span id="brandsSourceStatus"
+              class="badge bg-secondary"
+              title="Where the latest scale brand/model list came from"
+              style="cursor:help;">
+            <i class="fa fa-spinner fa-spin me-1"></i>Definitions: loading…
+        </span>
+        <button id="refreshBrandsBtn"
+                type="button"
+                class="btn btn-outline-primary btn-sm"
+                onclick="refreshScaleBrands()"
+                title="Re-fetch scale brand/model definitions from the device-definitions repo">
+            <i class="fa fa-cloud-download-alt"></i> Refresh Definitions
+        </button>
+        <a href="/Setup" class="btn btn-outline-secondary btn-sm"><i class="fa fa-arrow-left"></i> Back to Setup</a>
+    </div>
 </div>
 
 <!-- Scale Assignment -->
@@ -285,10 +302,54 @@
         } else { list = []; source = 'unknown'; error = null; }
         scaleBrands = list;
         populateScaleBrandDropdown();
+        updateBrandsSourceStatus(source, error, list.length);
+        // Re-enable the Refresh button if it was disabled during a manual refresh.
+        var btn = document.getElementById('refreshBrandsBtn');
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-cloud-download-alt"></i> Refresh Definitions'; }
         if (source === 'local' && error) {
             showToast('warning', 'Using cached scale brands — could not refresh from device-definitions: ' + error);
         }
     });
+
+    // Reflect the result of the most recent RequestScaleBrands round-trip
+    // in the header pill so operators can tell at a glance whether the
+    // brand list is live or stale.
+    function updateBrandsSourceStatus(source, error, count) {
+        var el = document.getElementById('brandsSourceStatus');
+        if (!el) return;
+        var when = new Date().toLocaleTimeString();
+        if (source === 'remote') {
+            el.className = 'badge bg-success';
+            el.innerHTML = '<i class="fa fa-cloud me-1"></i>Definitions: live (' + count + ') · ' + when;
+            el.title = 'Latest list fetched from the device-definitions repo at ' + when + '.';
+        } else if (source === 'local') {
+            el.className = 'badge bg-warning text-dark';
+            el.innerHTML = '<i class="fa fa-hdd me-1"></i>Definitions: cached (' + count + ') · ' + when;
+            el.title = 'Scale Reader Service could not reach the device-definitions repo and is serving its on-disk cache.'
+                + (error ? ' Error: ' + error : '');
+        } else {
+            el.className = 'badge bg-secondary';
+            el.innerHTML = '<i class="fa fa-question-circle me-1"></i>Definitions: ' + count + ' · ' + when;
+            el.title = 'Connected Scale Reader Service did not report a source — probably an older build.';
+        }
+    }
+
+    // Manual refresh — re-invokes the same SignalR call that runs on page
+    // load. The Scale Reader Service handles RequestScaleBrands by calling
+    // BrandsCache.RefreshAsync(), which re-fetches the JSON from GitHub.
+    window.refreshScaleBrands = function () {
+        var btn = document.getElementById('refreshBrandsBtn');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Refreshing…'; }
+        var pill = document.getElementById('brandsSourceStatus');
+        if (pill) {
+            pill.className = 'badge bg-secondary';
+            pill.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Definitions: refreshing…';
+        }
+        connection.invoke('RequestScaleBrands').catch(function (err) {
+            showToast('danger', 'Refresh failed: ' + err);
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-cloud-download-alt"></i> Refresh Definitions'; }
+        });
+    };
 
     connection.start().then(function () {
         connection.invoke('RequestScaleList').catch(function () {});
