@@ -286,6 +286,44 @@ ssh admin@truckscale.local 'sudo setcap "cap_net_bind_service=+ep" /opt/basicwei
 
 `BasicWeigh.db` and any files inside `/opt/basicweigh/Reports/` are preserved because `scp -r` only overwrites the files it copies — it does not delete the database or custom ticket templates already on the Pi.
 
+### Updating a Remote Pi via Raspberry Pi Connect
+
+If the Pi isn't on the same network as your workstation (different site, no port forwarding), [**Raspberry Pi Connect**](https://www.raspberrypi.com/software/connect/) tunnels SSH and SCP through the official Raspberry Pi relay so the update commands above can still run. Full setup details live in the [official Connect documentation](https://www.raspberrypi.com/documentation/services/connect.html); the summary below is the short version.
+
+> Commercial deployments need a paid Connect plan — check the pricing on the product page before committing. **Tailscale** is a common DIY alternative that gives you a flat virtual LAN and lets you keep the existing `scp` workflow without a third-party relay.
+
+**One-time setup on the Pi (Pi OS Lite, headless):**
+
+```bash
+sudo apt update
+sudo apt install -y rpi-connect-lite
+loginctl enable-linger $USER
+rpi-connect on
+rpi-connect signin
+```
+
+`rpi-connect signin` prints a one-time URL. Open it on your workstation, sign in with a Raspberry Pi ID, and approve the device. The Pi then appears in the [Connect web console](https://connect.raspberrypi.com). In the device's settings tile, switch on **Remote SSH** — it is off by default.
+
+**One-time setup on the workstation:**
+
+Install the Raspberry Pi Connect client from [raspberrypi.com/software/connect](https://www.raspberrypi.com/software/connect/) (Windows / macOS / Linux installers and the exact CLI commands are listed there). Sign in with the same Raspberry Pi ID. The client adds the SSH config entries that route to your Pi through the relay.
+
+**Updating the Pi from your workstation:**
+
+Use the Pi's Connect device name in place of `truckscale.local` — mDNS `.local` names only work on the same LAN, but the Connect device name is reachable through the tunnel:
+
+```bash
+cd Basic_Weigh
+git pull
+dotnet publish web/BasicWeigh.Web/BasicWeigh.Web.csproj -c Release -r linux-arm64 --self-contained true -o publish-pi-web
+
+ssh admin@truckscale-connect 'sudo systemctl stop basicweigh'
+scp -r publish-pi-web/* admin@truckscale-connect:/opt/basicweigh/
+ssh admin@truckscale-connect 'sudo setcap "cap_net_bind_service=+ep" /opt/basicweigh/BasicWeigh.Web && sudo systemctl start basicweigh'
+```
+
+> The published output is roughly 100 MB self-contained, so the `scp` step will be noticeably slower over the relay than it would be on LAN. SSH command latency is fine.
+
 ### Changing the Hostname Later
 
 If you want to rename the device after install:
