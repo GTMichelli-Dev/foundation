@@ -6,11 +6,16 @@
     <h3 class="mb-0">Scale Management</h3>
     <div class="d-flex align-items-center gap-2">
         <!-- Live status of the device-definitions cache served by the
-             connected Scale Reader Service. Updated by ScaleBrandsReceived. -->
+             connected Scale Reader Service. Updated by ScaleBrandsReceived.
+             Clicking the pill triggers the same refresh as the button. -->
         <span id="brandsSourceStatus"
+              role="button"
+              tabindex="0"
               class="badge bg-secondary"
-              title="Where the latest scale brand/model list came from"
-              style="cursor:help;">
+              title="Where the latest scale brand/model list came from. Click to refresh."
+              style="cursor:pointer;"
+              onclick="refreshScaleBrands()"
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();refreshScaleBrands();}">
             <i class="fa fa-spinner fa-spin me-1"></i>Definitions: loading…
         </span>
         <button id="refreshBrandsBtn"
@@ -292,6 +297,10 @@
         }
     });
 
+    // Tracks the manual-refresh state so the watchdog timer can show a
+    // helpful toast if no scale service responds (e.g. none connected).
+    var pendingManualRefresh = null;
+
     connection.on('ScaleBrandsReceived', function (payload) {
         // Newer scale-reader-service wraps the list as { brands, source, error };
         // older versions send the array directly — handle both.
@@ -306,10 +315,29 @@
         // Re-enable the Refresh button if it was disabled during a manual refresh.
         var btn = document.getElementById('refreshBrandsBtn');
         if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-cloud-download-alt"></i> Refresh Definitions'; }
-        if (source === 'local' && error) {
+        // If the operator clicked Refresh, surface the outcome explicitly —
+        // the green pill alone is too easy to miss.
+        if (pendingManualRefresh) {
+            clearTimeout(pendingManualRefresh);
+            pendingManualRefresh = null;
+            if (source === 'remote') {
+                showToast('success', 'Definitions refreshed — ' + list.length + ' brand(s) loaded from device-definitions.');
+            } else if (source === 'local') {
+                showToast('warning', 'Could not refresh from device-definitions — using cached copy (' + list.length + ' brand(s))'
+                    + (error ? ': ' + error : '.'));
+            } else {
+                showToast('info', list.length + ' brand(s) loaded (older Scale Reader Service did not report a source).');
+            }
+        } else if (source === 'local' && error) {
+            // Auto-refresh on page load: only warn (don't spam a success toast).
             showToast('warning', 'Using cached scale brands — could not refresh from device-definitions: ' + error);
         }
     });
+
+    // Remembered so the watchdog reset path can restore the previous label
+    // (otherwise the pill flips to "unknown" after a timeout even though
+    // the last successful fetch was 'remote' or 'local').
+    var lastBrandsSource = null;
 
     // Reflect the result of the most recent RequestScaleBrands round-trip
     // in the header pill so operators can tell at a glance whether the
@@ -321,22 +349,37 @@
         if (source === 'remote') {
             el.className = 'badge bg-success';
             el.innerHTML = '<i class="fa fa-cloud me-1"></i>Definitions: live (' + count + ') · ' + when;
-            el.title = 'Latest list fetched from the device-definitions repo at ' + when + '.';
+            el.title = 'Latest list fetched from the device-definitions repo at ' + when + '. Click to refresh.';
         } else if (source === 'local') {
             el.className = 'badge bg-warning text-dark';
             el.innerHTML = '<i class="fa fa-hdd me-1"></i>Definitions: cached (' + count + ') · ' + when;
-            el.title = 'Scale Reader Service could not reach the device-definitions repo and is serving its on-disk cache.'
+            el.title = 'Scale Reader Service could not reach the device-definitions repo and is serving its on-disk cache. Click to retry.'
                 + (error ? ' Error: ' + error : '');
         } else {
             el.className = 'badge bg-secondary';
             el.innerHTML = '<i class="fa fa-question-circle me-1"></i>Definitions: ' + count + ' · ' + when;
-            el.title = 'Connected Scale Reader Service did not report a source — probably an older build.';
+            el.title = 'Connected Scale Reader Service did not report a source — probably an older build. Click to refresh.';
         }
+        if (source === 'remote' || source === 'local') lastBrandsSource = source;
+    }
+
+    // Reset the header pill and the refresh button to their idle state.
+    // Used by the watchdog when the request times out and by the SignalR
+    // catch handler when the invoke itself fails.
+    function resetBrandsRefreshUI() {
+        var btn = document.getElementById('refreshBrandsBtn');
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-cloud-download-alt"></i> Refresh Definitions'; }
+        // Best-effort: replay the last known status. If we never had one,
+        // updateBrandsSourceStatus with 'unknown' + 0 leaves a sensible label.
+        updateBrandsSourceStatus(lastBrandsSource || 'unknown', null, scaleBrands.length);
     }
 
     // Manual refresh — re-invokes the same SignalR call that runs on page
     // load. The Scale Reader Service handles RequestScaleBrands by calling
     // BrandsCache.RefreshAsync(), which re-fetches the JSON from GitHub.
+    // Watchdog: if no ScaleBrandsReceived comes back within 10 s (typically
+    // because no Scale Reader Service is connected), warn the operator and
+    // restore the UI so it doesn't spin forever.
     window.refreshScaleBrands = function () {
         var btn = document.getElementById('refreshBrandsBtn');
         if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Refreshing…'; }
@@ -345,9 +388,21 @@
             pill.className = 'badge bg-secondary';
             pill.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Definitions: refreshing…';
         }
+        if (pendingManualRefresh) { clearTimeout(pendingManualRefresh); }
+        pendingManualRefresh = setTimeout(function () {
+            pendingManualRefresh = null;
+            var connected = Object.keys(connectedServices).length;
+            if (connected === 0) {
+                showToast('danger', 'No Scale Reader Service is connected — start a service and point it at this server\'s SignalR hub, then try again.');
+            } else {
+                showToast('warning', 'No response from the Scale Reader Service after 10 s. Check the service log and try again.');
+            }
+            resetBrandsRefreshUI();
+        }, 10000);
         connection.invoke('RequestScaleBrands').catch(function (err) {
+            if (pendingManualRefresh) { clearTimeout(pendingManualRefresh); pendingManualRefresh = null; }
             showToast('danger', 'Refresh failed: ' + err);
-            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-cloud-download-alt"></i> Refresh Definitions'; }
+            resetBrandsRefreshUI();
         });
     };
 
