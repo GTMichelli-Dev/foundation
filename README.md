@@ -7,11 +7,9 @@ Basic Weigh is a web-based truck scale management application for weighing inbou
 ## Table of Contents
 
 - [Features](#features)
-- [Deploying to a Debian Server (Vultr, etc.)](#deploying-to-a-debian-server-vultr-etc)
-- [Deploying to a Raspberry Pi (LAN only, HTTP)](#deploying-to-a-raspberry-pi-lan-only-http)
-  - [Updating the Pi](#updating-the-pi)
-  - [Updating a Remote Pi via Raspberry Pi Connect](#updating-a-remote-pi-via-raspberry-pi-connect)
-  - [Changing the Hostname Later](#changing-the-hostname-later)
+- [Deployment Guides](#deployment-guides)
+  - [Debian Server (Vultr, etc.) — HTTPS](docs/deploy-vultr.md)
+  - [Raspberry Pi (LAN only, HTTP)](docs/deploy-pi.md)
 - [Deploy Script Reference](#deploy-script-reference)
   - [Server (Debian x64)](#server-debian-x64)
   - [Raspberry Pi Print Agent (arm64)](#raspberry-pi-print-agent-arm64)
@@ -47,323 +45,27 @@ Basic Weigh is a web-based truck scale management application for weighing inbou
 
 ---
 
-## Deploying to a Debian Server (Vultr, etc.)
-
-These instructions will take you from a brand-new Debian server to a fully running Basic Weigh site with HTTPS.
-
-### What You Need
-
-| Item | Example |
-|------|---------|
-| Server IP address | `149.28.xxx.xxx` |
-| Root password | (from your Vultr dashboard) |
-| Domain name | `yourDNSName.scaledata.net` |
-| Email address | `admin@yourcompany.com` |
-
-### Step 1: Point Your Domain to the Server
-
-Before starting, create a DNS **A record** pointing your domain to the server IP:
-
-| Type | Name | Value |
-|------|------|-------|
-| A | `yourDNSName.scaledata.net` | `149.28.xxx.xxx` |
-
-> DNS can take a few minutes to propagate. **Verify it resolves before continuing:**
->
-> ```
-> nslookup yourDNSName.scaledata.net
-> ```
->
-> You should see your server's IP address in the response. **Do not proceed to Step 4 until this works** — Let's Encrypt will fail if DNS is not resolving.
-
-### Step 2: Create a Non-Root User on the Server
-
-SSH into your new server as root:
-
-```bash
-ssh root@xxx.xx.xxx.xxx
-```
-
-Create an `admin` user (the app runs under this account):
-
-```bash
-adduser admin
-usermod -aG sudo admin
-```
-
-Set a password when prompted. Then enable passwordless `sudo` (required for the deploy script to install remotely):
-
-```bash
-echo "admin ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/admin
-chmod 440 /etc/sudoers.d/admin
-```
-
-Then log out:
-
-```bash
-exit
-```
-
-> **Note:** The deploy script automatically opens firewall ports 80 and 443 on the server (both `ufw` and `iptables`). No manual firewall configuration is needed.
-
-### Step 3: Build the Deployment Package
-
-On your **local development machine** (Windows/Mac/Linux with .NET 8 SDK installed):
-
-If don't have Git installed (or it's not in your system PATH). Here's how to fix it:
-Install Git for Windows
-
-Go to https://git-scm.com/download/win
-
-Download the 64-bit installer
-
-Run the installer — the defaults are fine for most people, just click Next through the options
-
-When done, close and reopen your Command Prompt (important — the old window won't see Git)
-
-```bash
-git clone https://github.com/GTMichelli-Dev/Basic_Weigh.git
-cd Basic_Weigh
-```
-
-**Windows (Command Prompt):**
-```
-deploy\publish.bat
-```
-
-**Linux / Mac / Git Bash:**
-```bash
-bash deploy/publish.sh
-```
-
-This builds a self-contained Linux binary and creates `deploy/basicweigh-deploy.tar.gz`.
-
-### Step 4: Deploy to the Server
-
-Run the deploy script with your domain and email:
-
-**Windows (Command Prompt):**
-```
-deploy\deploy.bat admin@xxx.xxx.xxx.xxx --domain yourDNSName.scaledata.net --email admin@yourcompany.com
-```
-
-**Linux / Mac / Git Bash:**
-```bash
-bash deploy/deploy.sh admin@xxx.xxx.xxx.xxx --domain yourDNSName.scaledata.net --email admin@yourcompany.com
-```
-
-Enter the `admin` user's password when prompted (twice — once for upload, once for install).
-
-> **What this does automatically:**
-> - Installs Nginx, Certbot, and dependencies
-> - Copies the application to `/opt/basicweigh`
-> - Obtains a free Let's Encrypt SSL certificate for your domain
-> - Configures Nginx as a reverse proxy with HTTPS and WebSocket support
-> - Creates and starts a systemd service
-> - Enables automatic SSL certificate renewal
-
-### Step 5: Verify It's Running
-
-Open your browser and go to:
-
-```
-https://yourDNSName.scaledata.net
-```
-
-You should see the Basic Weigh dashboard.
-
-### That's It!
-
-Your site is live with HTTPS. The application will automatically start on server reboot.
-
----
-
-## Deploying to a Raspberry Pi (LAN only, HTTP)
-
-If the scale only needs to be reached from the local network, the web app can run directly on a Raspberry Pi — no domain, no certificates, no cloud server. Pick a friendly hostname like `truckscale` and operators reach the site at `http://truckscale.local` from any computer on the same network (mDNS / Bonjour, built in to macOS, Windows 10+, and most Linux desktops).
-
-> **HTTP only — LAN only.** This setup has no TLS. Only use it on networks you control (a private weigh-station LAN, not open Wi-Fi). QuickBooks sync requires the Windows `QBSyncService` on a machine that can reach the Pi, so QB integration is optional in this deployment.
-
-### What You Need
-
-| Item | Example |
-|------|---------|
-| Raspberry Pi 4 or 5 (64-bit) | 2 GB RAM minimum |
-| MicroSD card with Raspberry Pi OS Lite (64-bit) | 32 GB recommended |
-| Local network | Wired Ethernet preferred over Wi-Fi |
-| Workstation with .NET 8 SDK | Windows / Mac / Linux |
-
-### Step 1: Flash and Prepare the Pi
-
-Use **Raspberry Pi Imager** to write **Raspberry Pi OS Lite (64-bit)** to the SD card. In Imager's advanced menu (gear icon) set:
-
-- **Hostname:** `truckscale` (this is the name operators will type)
-- **Username:** `admin`
-- **Enable SSH** with password or public key
-- **Configure Wi-Fi** if you're not using Ethernet
-
-Boot the Pi on the network and SSH in from your workstation:
-
-```bash
-ssh admin@truckscale.local
-```
-
-> `truckscale.local` is broadcast by `avahi-daemon`, which ships with Raspberry Pi OS Lite. If your workstation can't resolve `.local` names, install **Bonjour Print Services** on Windows or `avahi-utils` on Linux. Pick a different hostname (`northscale`, `eastlot`, etc.) if `truckscale` would collide with another device on your LAN.
-
-### Step 2: Install Dependencies on the Pi
-
-```bash
-sudo apt update
-sudo apt install -y libicu-dev libsqlite3-0 avahi-daemon libcap2-bin
-```
-
-Avahi is normally already running. Confirm with:
-
-```bash
-systemctl status avahi-daemon
-```
-
-(No .NET runtime is needed — Step 3 publishes a self-contained binary.)
-
-### Step 3: Cross-Publish the Web App from Your Workstation
-
-On your **development machine** (with the .NET 8 SDK and Git installed):
-
-```bash
-git clone https://github.com/GTMichelli-Dev/Basic_Weigh.git
-cd Basic_Weigh
-dotnet publish web/BasicWeigh.Web/BasicWeigh.Web.csproj \
-  -c Release \
-  -r linux-arm64 \
-  --self-contained true \
-  -o publish-pi-web
-```
-
-Copy the build onto the Pi:
-
-```bash
-ssh admin@truckscale.local 'sudo mkdir -p /opt/basicweigh && sudo chown admin:admin /opt/basicweigh'
-scp -r publish-pi-web/* admin@truckscale.local:/opt/basicweigh/
-```
-
-### Step 4: Allow Kestrel to Bind to Port 80
-
-So that operators can use `http://truckscale.local` with no port number, grant the binary the capability to bind to a low port without running as root:
-
-```bash
-ssh admin@truckscale.local
-sudo setcap 'cap_net_bind_service=+ep' /opt/basicweigh/BasicWeigh.Web
-```
-
-(You'll re-run this command on the Pi every time you replace the binary.)
-
-### Step 5: Create the systemd Service
-
-Still on the Pi:
-
-```bash
-sudo tee /etc/systemd/system/basicweigh.service > /dev/null <<'EOF'
-[Unit]
-Description=Basic Weigh (HTTP, LAN)
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=admin
-WorkingDirectory=/opt/basicweigh
-ExecStart=/opt/basicweigh/BasicWeigh.Web
-Restart=always
-RestartSec=5
-Environment=ASPNETCORE_ENVIRONMENT=Production
-Environment=ASPNETCORE_URLS=http://0.0.0.0:80
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable --now basicweigh
-sudo systemctl status basicweigh
-```
-
-### Step 6: Verify
-
-From any computer on the same network, open:
-
-```
-http://truckscale.local
-```
-
-You should see the Basic Weigh dashboard. The Pi will start the app automatically on reboot.
-
-### Updating the Pi
-
-From your workstation:
-
-```bash
-cd Basic_Weigh
-git pull
-dotnet publish web/BasicWeigh.Web/BasicWeigh.Web.csproj -c Release -r linux-arm64 --self-contained true -o publish-pi-web
-
-ssh admin@truckscale.local 'sudo systemctl stop basicweigh'
-scp -r publish-pi-web/* admin@truckscale.local:/opt/basicweigh/
-ssh admin@truckscale.local 'sudo setcap "cap_net_bind_service=+ep" /opt/basicweigh/BasicWeigh.Web && sudo systemctl start basicweigh'
-```
-
-`BasicWeigh.db` and any files inside `/opt/basicweigh/Reports/` are preserved because `scp -r` only overwrites the files it copies — it does not delete the database or custom ticket templates already on the Pi.
-
-### Updating a Remote Pi via Raspberry Pi Connect
-
-If the Pi isn't on the same network as your workstation (different site, no port forwarding), [**Raspberry Pi Connect**](https://www.raspberrypi.com/software/connect/) tunnels SSH and SCP through the official Raspberry Pi relay so the update commands above can still run. Full setup details live in the [official Connect documentation](https://www.raspberrypi.com/documentation/services/connect.html); the summary below is the short version.
-
-> Commercial deployments need a paid Connect plan — check the pricing on the product page before committing. **Tailscale** is a common DIY alternative that gives you a flat virtual LAN and lets you keep the existing `scp` workflow without a third-party relay.
-
-**One-time setup on the Pi (Pi OS Lite, headless):**
-
-```bash
-sudo apt update
-sudo apt install -y rpi-connect-lite
-loginctl enable-linger $USER
-rpi-connect on
-rpi-connect signin
-```
-
-`rpi-connect signin` prints a one-time URL. Open it on your workstation, sign in with a Raspberry Pi ID, and approve the device. The Pi then appears in the [Connect web console](https://connect.raspberrypi.com). In the device's settings tile, switch on **Remote SSH** — it is off by default.
-
-**One-time setup on the workstation:**
-
-Install the Raspberry Pi Connect client from [raspberrypi.com/software/connect](https://www.raspberrypi.com/software/connect/) (Windows / macOS / Linux installers and the exact CLI commands are listed there). Sign in with the same Raspberry Pi ID. The client adds the SSH config entries that route to your Pi through the relay.
-
-**Updating the Pi from your workstation:**
-
-Use the Pi's Connect device name in place of `truckscale.local` — mDNS `.local` names only work on the same LAN, but the Connect device name is reachable through the tunnel:
-
-```bash
-cd Basic_Weigh
-git pull
-dotnet publish web/BasicWeigh.Web/BasicWeigh.Web.csproj -c Release -r linux-arm64 --self-contained true -o publish-pi-web
-
-ssh admin@truckscale-connect 'sudo systemctl stop basicweigh'
-scp -r publish-pi-web/* admin@truckscale-connect:/opt/basicweigh/
-ssh admin@truckscale-connect 'sudo setcap "cap_net_bind_service=+ep" /opt/basicweigh/BasicWeigh.Web && sudo systemctl start basicweigh'
-```
-
-> The published output is roughly 100 MB self-contained, so the `scp` step will be noticeably slower over the relay than it would be on LAN. SSH command latency is fine.
-
-### Changing the Hostname Later
-
-If you want to rename the device after install:
-
-```bash
-ssh admin@truckscale.local
-sudo hostnamectl set-hostname newname
-sudo sed -i "s/truckscale/newname/g" /etc/hosts
-sudo systemctl restart avahi-daemon
-```
-
-Reboot to be sure all services pick up the new name. The site will then be reachable at `http://newname.local`.
-
+## Deployment Guides
+
+Pick the path that matches where the app will run. Each guide is self-contained — follow it end to end.
+
+| Target | When to use it | Guide |
+|--------|----------------|-------|
+| **Debian cloud server** (Vultr, etc.) | Internet-facing site with a real domain and HTTPS. Required if you need access from outside the LAN or want Let's Encrypt SSL. | [docs/deploy-vultr.md](docs/deploy-vultr.md) |
+| **Raspberry Pi on the LAN** (HTTP) | Single weigh station, operators on the same local network, no domain or certificate. Reachable at `http://truckscale.local`. | [docs/deploy-pi.md](docs/deploy-pi.md) |
+
+After the app is running, see [Server Management](#server-management) for updates and routine ops, and [Configuration](#configuration) for app settings.
+
+<!-- Legacy heading anchors. The old inline deploy sections used these
+     ids; readers with saved deep-links land on the table above and follow
+     the link to the new file. -->
+<a id="deploying-to-a-debian-server-vultr-etc"></a>
+<a id="deploying-to-a-raspberry-pi-lan-only-http"></a>
+<a id="updating-the-pi"></a>
+<a id="updating-a-remote-pi-via-raspberry-pi-connect"></a>
+<a id="changing-the-hostname-later"></a>
+
+<!-- Inline deploy guides removed — see docs/deploy-vultr.md and docs/deploy-pi.md. -->
 ---
 
 ## Deploy Script Reference
@@ -428,6 +130,8 @@ Options:
 ```bash
 bash deploy/deploy-pi.sh pi@192.168.1.50 --server https://scale.yourcompany.com --printer Zebra_LP2844 --printer-id 1
 ```
+
+[↑ Back to top](#table-of-contents)
 
 ---
 
@@ -525,6 +229,8 @@ The Pi agent's `appsettings.json` (ServerUrl, PrinterName, PrinterId) is preserv
 | `/etc/nginx/sites-available/default` | Nginx reverse proxy config |
 | `/etc/letsencrypt/` | SSL certificates (auto-renewed) |
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Configuration
@@ -604,6 +310,8 @@ deploy\deploy.bat admin@149.28.xxx.xxx --domain basic.scaledata.net --email admi
 
 > **WARNING:** This deletes the existing database and creates a fresh one. All transactions, master data, and users will be lost. Back up first if needed.
 
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## Troubleshooting
@@ -654,6 +362,8 @@ The deploy script checks DNS before deploying. If it fails, make sure:
 1. You created an **A record** in your DNS provider pointing to the server IP
 2. You waited for propagation (typically 1-5 minutes, up to 1 hour)
 3. Run `nslookup yourDNSName.scaledata.net` and confirm it returns the correct IP
+
+[↑ Back to top](#table-of-contents)
 
 ---
 
