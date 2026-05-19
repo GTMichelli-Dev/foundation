@@ -4,6 +4,33 @@ Basic Weigh is a web-based truck scale management application for weighing inbou
 
 ---
 
+## Table of Contents
+
+- [Features](#features)
+- [Deploying to a Debian Server (Vultr, etc.)](#deploying-to-a-debian-server-vultr-etc)
+- [Deploying to a Raspberry Pi (LAN only, HTTP)](#deploying-to-a-raspberry-pi-lan-only-http)
+  - [Updating the Pi](#updating-the-pi)
+  - [Updating a Remote Pi via Raspberry Pi Connect](#updating-a-remote-pi-via-raspberry-pi-connect)
+  - [Changing the Hostname Later](#changing-the-hostname-later)
+- [Deploy Script Reference](#deploy-script-reference)
+  - [Server (Debian x64)](#server-debian-x64)
+  - [Raspberry Pi Print Agent (arm64)](#raspberry-pi-print-agent-arm64)
+- [Server Management](#server-management)
+  - [Updating to a New Version](#updating-to-a-new-version)
+  - [Updating the Pi Print Agent](#updating-the-pi-print-agent)
+  - [File Locations on the Server](#file-locations-on-the-server)
+- [Configuration](#configuration)
+  - [Application Settings](#application-settings)
+  - [Setup Page](#setup-page)
+  - [User Login System](#user-login-system)
+  - [Rebuilding the Database](#rebuilding-the-database)
+- [Troubleshooting](#troubleshooting)
+- [Architecture](#architecture)
+- [Development](#development)
+- [License](#license)
+
+---
+
 ## Features
 
 - **Real-Time Scale Display** — Live weight readings from connected scales with motion/error status
