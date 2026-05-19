@@ -171,14 +171,14 @@ If the scale only needs to be reached from the local network, the web app can ru
 Use **Raspberry Pi Imager** to write **Raspberry Pi OS Lite (64-bit)** to the SD card. In Imager's advanced menu (gear icon) set:
 
 - **Hostname:** `truckscale` (this is the name operators will type)
-- **Username:** `pi` (or your choice)
+- **Username:** `admin`
 - **Enable SSH** with password or public key
 - **Configure Wi-Fi** if you're not using Ethernet
 
 Boot the Pi on the network and SSH in from your workstation:
 
 ```bash
-ssh pi@truckscale.local
+ssh admin@truckscale.local
 ```
 
 > `truckscale.local` is broadcast by `avahi-daemon`, which ships with Raspberry Pi OS Lite. If your workstation can't resolve `.local` names, install **Bonjour Print Services** on Windows or `avahi-utils` on Linux. Pick a different hostname (`northscale`, `eastlot`, etc.) if `truckscale` would collide with another device on your LAN.
@@ -215,8 +215,8 @@ dotnet publish web/BasicWeigh.Web/BasicWeigh.Web.csproj \
 Copy the build onto the Pi:
 
 ```bash
-ssh pi@truckscale.local 'sudo mkdir -p /opt/basicweigh && sudo chown pi:pi /opt/basicweigh'
-scp -r publish-pi-web/* pi@truckscale.local:/opt/basicweigh/
+ssh admin@truckscale.local 'sudo mkdir -p /opt/basicweigh && sudo chown admin:admin /opt/basicweigh'
+scp -r publish-pi-web/* admin@truckscale.local:/opt/basicweigh/
 ```
 
 ### Step 4: Allow Kestrel to Bind to Port 80
@@ -224,7 +224,7 @@ scp -r publish-pi-web/* pi@truckscale.local:/opt/basicweigh/
 So that operators can use `http://truckscale.local` with no port number, grant the binary the capability to bind to a low port without running as root:
 
 ```bash
-ssh pi@truckscale.local
+ssh admin@truckscale.local
 sudo setcap 'cap_net_bind_service=+ep' /opt/basicweigh/BasicWeigh.Web
 ```
 
@@ -243,7 +243,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=pi
+User=admin
 WorkingDirectory=/opt/basicweigh
 ExecStart=/opt/basicweigh/BasicWeigh.Web
 Restart=always
@@ -279,9 +279,9 @@ cd Basic_Weigh
 git pull
 dotnet publish web/BasicWeigh.Web/BasicWeigh.Web.csproj -c Release -r linux-arm64 --self-contained true -o publish-pi-web
 
-ssh pi@truckscale.local 'sudo systemctl stop basicweigh'
-scp -r publish-pi-web/* pi@truckscale.local:/opt/basicweigh/
-ssh pi@truckscale.local 'sudo setcap "cap_net_bind_service=+ep" /opt/basicweigh/BasicWeigh.Web && sudo systemctl start basicweigh'
+ssh admin@truckscale.local 'sudo systemctl stop basicweigh'
+scp -r publish-pi-web/* admin@truckscale.local:/opt/basicweigh/
+ssh admin@truckscale.local 'sudo setcap "cap_net_bind_service=+ep" /opt/basicweigh/BasicWeigh.Web && sudo systemctl start basicweigh'
 ```
 
 `BasicWeigh.db` and any files inside `/opt/basicweigh/Reports/` are preserved because `scp -r` only overwrites the files it copies — it does not delete the database or custom ticket templates already on the Pi.
@@ -291,7 +291,7 @@ ssh pi@truckscale.local 'sudo setcap "cap_net_bind_service=+ep" /opt/basicweigh/
 If you want to rename the device after install:
 
 ```bash
-ssh pi@truckscale.local
+ssh admin@truckscale.local
 sudo hostnamectl set-hostname newname
 sudo sed -i "s/truckscale/newname/g" /etc/hosts
 sudo systemctl restart avahi-daemon
