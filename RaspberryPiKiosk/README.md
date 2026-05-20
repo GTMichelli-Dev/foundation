@@ -75,7 +75,22 @@ cd ~/basic-weigh/RaspberryPiKiosk
 sudo reboot
 ```
 
-`install.sh` prompts for the Basic Weigh server URL (e.g. `http://truckscale.local`), verifies that `<url>/Kiosk` responds, installs Chromium + curl + unclutter, and writes a desktop autostart entry that launches the watchdog at every login.
+`install.sh` prompts for:
+
+1. **Server URL** — required. e.g. `http://truckscale.local`. Verified before saving.
+2. **Kiosk PIN** — optional. Required only when the Basic Weigh server has *User Login* enabled. Becomes `?pin=<value>` on the kiosk URL; the server stores it as a 24-hour cookie so it's only read once per cookie lifetime.
+3. **Service ID** — optional. Selects which Print/Camera Service instance handles this kiosk's tickets and camera captures. Enter `Browser` (or leave blank) to print via the browser instead of hardware. Otherwise enter the service ID shown on the print agent's Setup page (e.g. `office-1`).
+4. **Printer ID** — optional. Picks which physical printer the service uses (e.g. `Zebra_LP2844`, `BIXOLON_BK3`). Set to `Browser` when Service ID is `Browser`.
+
+The installer assembles these into a single URL like:
+
+```
+http://truckscale.local/Kiosk?service-id=office-1&printer-id=BIXOLON_BK3&pin=12345
+```
+
+…and writes it to the config as `KIOSK_URL`. The watchdog launches Chromium against that full URL on every restart. Re-running `install.sh` re-prompts each value with the previous answer as the default, so changing just one parameter is a couple of Enter-presses.
+
+After the prompts, the script installs Chromium + curl + unclutter and writes a desktop autostart entry that launches the watchdog at every login.
 
 The Pi must auto-login to the desktop (standard Raspberry Pi OS kiosk setup — `sudo raspi-config` → *System Options* → *Boot / Auto Login* → *Desktop Autologin*). Without that, the autostart entry never fires.
 
@@ -128,13 +143,18 @@ After install, the config file is:
 
 ```bash
 SERVER_URL="http://truckscale.local"
-KIOSK_URL="http://truckscale.local/Kiosk"
+KIOSK_PIN="12345"                # blank when UseLogin is off
+SERVICE_ID="office-1"            # blank or 'Browser' for browser-print
+PRINTER_ID="BIXOLON_BK3"         # blank or 'Browser' for browser-print
+KIOSK_URL="http://truckscale.local/Kiosk?service-id=office-1&printer-id=BIXOLON_BK3&pin=12345"
 CHROMIUM_BIN="chromium-browser"
 HEALTH_INTERVAL=5            # seconds between probes
 UNREACHABLE_THRESHOLD=30     # seconds of unreachable before restarting Chromium
 ```
 
-Edit the file and run `kiosk-stop && kiosk-start` to apply changes without rebooting.
+Only `KIOSK_URL` is what the watchdog actually reads; the individual params are saved so re-running `install.sh` can default each prompt. The config file is `chmod 600` because `KIOSK_PIN` is a credential.
+
+Edit the file and run `kiosk-stop && kiosk-start` to apply changes without rebooting. To change just one parameter (e.g. add a printer-id), re-run `./install.sh` instead — it will re-assemble `KIOSK_URL` correctly with proper URL-encoding of any special characters.
 
 ## Files
 
