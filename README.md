@@ -14,6 +14,7 @@ Basic Weigh is a web-based truck scale management application for weighing inbou
 - [Deploy Script Reference](#deploy-script-reference)
   - [Server (Debian x64)](#server-debian-x64)
   - [Raspberry Pi Print Agent (arm64)](#raspberry-pi-print-agent-arm64)
+  - [Raspberry Pi Kiosk Display (arm64)](#raspberry-pi-kiosk-display-arm64)
 - [Server Management](#server-management)
   - [Updating to a New Version](#updating-to-a-new-version)
   - [Updating the Pi Print Agent](#updating-the-pi-print-agent)
@@ -133,6 +134,35 @@ Options:
 ```bash
 bash deploy/deploy-pi.sh pi@192.168.1.50 --server https://scale.yourcompany.com --printer Zebra_LP2844 --printer-id 1
 ```
+
+### Raspberry Pi Kiosk Display (arm64)
+
+Unlike the print agent, the kiosk has no separate publish/deploy scripts — the operator clones the repo on the kiosk Pi itself (via Raspberry Pi Connect) and runs `install.sh` interactively. See [`RaspberryPiKiosk/README.md`](RaspberryPiKiosk/README.md) for the full bootstrap walkthrough.
+
+| Script | Description |
+|--------|-------------|
+| [`RaspberryPiKiosk/install.sh`](RaspberryPiKiosk/install.sh) | One-time setup. Prompts for Server URL, Kiosk PIN, Service ID, Printer ID; verifies connectivity; installs Chromium + curl + unclutter; registers the watchdog autostart entry; suppresses gnome-keyring popups |
+| [`RaspberryPiKiosk/kiosk-loop.sh`](RaspberryPiKiosk/kiosk-loop.sh) | The watchdog. Launches Chromium in `--kiosk` mode at the assembled URL and restarts it after `UNREACHABLE_THRESHOLD` seconds of server outage |
+| [`RaspberryPiKiosk/kiosk-stop`](RaspberryPiKiosk/kiosk-stop) | Pause the kiosk (writes STOP flag, kills Chromium, loop stays alive) |
+| [`RaspberryPiKiosk/kiosk-start`](RaspberryPiKiosk/kiosk-start) | Resume after a pause |
+| [`RaspberryPiKiosk/uninstall.sh`](RaspberryPiKiosk/uninstall.sh) | Remove the autostart entry |
+
+**Run on the kiosk Pi:**
+
+```bash
+cd ~/basic-weigh/RaspberryPiKiosk
+./install.sh
+sudo reboot
+```
+
+`install.sh` prompts for four values (all but the first are optional):
+
+| Prompt | Becomes URL parameter | Default on re-run |
+|--------|----------------------|-------------------|
+| Server URL | base URL | last value used |
+| Kiosk PIN | `?pin=…` (required when User Login is on) | last value used |
+| Service ID | `?service-id=…` (`Browser` or blank for browser-print) | last value used |
+| Printer ID | `?printer-id=…` (e.g. `Zebra_LP2844`) | last value used |
 
 [↑ Back to top](#table-of-contents)
 
