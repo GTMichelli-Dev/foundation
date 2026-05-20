@@ -337,10 +337,18 @@ The result is also written to `scale-models.json` next to the service's `.exe` a
 `appsettings.json` (in the Scale Reader Service install folder) seeds the URL on first run, but `BrandsCache.RefreshAsync()` reads the live value from the service's own `Settings` table. To check the URL the service is actually using:
 
 ```bash
-curl http://<scale-host>:5220/api/status/settings
+curl http://<scale-host>:5220/api/settings
 ```
 
-If it points at a fork or stale URL, update it via the same endpoint (`PUT /api/status/settings`).
+If it points at a fork or stale URL, update it via the same endpoint (`PUT /api/settings`), e.g.:
+
+```bash
+curl -X PUT http://<scale-host>:5220/api/settings \
+  -H "Content-Type: application/json" \
+  -d '{"brandsUrl":"https://raw.githubusercontent.com/GTMichelli-Dev/device-definitions/main/scales/scale-models.json"}'
+```
+
+> The PUT triggers an internal service restart so the new value takes effect. On some installs that restart is a hard process exit — if `systemctl status scale-reader-service` shows it stopped afterwards, run `sudo systemctl start scale-reader-service` to bring it back.
 
 ### Rebuilding the Database
 
