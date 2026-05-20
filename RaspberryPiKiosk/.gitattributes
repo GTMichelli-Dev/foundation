@@ -1,0 +1,4 @@
+* text=auto eol=lf
+*.sh    text eol=lf
+kiosk-stop  text eol=lf
+kiosk-start text eol=lf

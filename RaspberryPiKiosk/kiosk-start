@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# kiosk-start — resume the kiosk loop after a kiosk-stop.
+#
+# Removes the STOP flag. If kiosk-loop.sh is already running (the usual
+# case — autostart launched it at desktop login), it will notice within
+# a few seconds and relaunch Chromium. If it's not running for some
+# reason, this script launches it.
+
+set -u
+
+CONFIG_DIR="$HOME/.config/basicweigh-kiosk"
+STOP_FLAG="$CONFIG_DIR/STOP"
+PID_FILE="$CONFIG_DIR/kiosk.pid"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [[ -f "$STOP_FLAG" ]]; then
+    rm -f "$STOP_FLAG"
+    echo "Stop flag cleared."
+else
+    echo "No stop flag was set."
+fi
+
+# Is the loop still running?
+running=0
+if [[ -f "$PID_FILE" ]]; then
+    pid="$(cat "$PID_FILE" 2>/dev/null || true)"
+    if [[ -n "${pid:-}" ]] && kill -0 "$pid" 2>/dev/null; then
+        running=1
+        echo "kiosk-loop.sh is running (pid $pid) — it will resume shortly."
+    fi
+fi
+
+if (( running == 0 )); then
+    echo "kiosk-loop.sh is not running — starting it now."
+    # Run detached so closing the SSH session doesn't kill it.
+    nohup "$SCRIPT_DIR/kiosk-loop.sh" >/dev/null 2>&1 &
+    disown
+    echo "Started (pid $!)."
+fi

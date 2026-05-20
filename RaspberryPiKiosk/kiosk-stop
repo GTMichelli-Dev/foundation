@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# kiosk-stop — pause the kiosk loop. Run over SSH when you need to fix something.
+#
+# Creates a STOP flag that kiosk-loop.sh notices on its next probe (within
+# HEALTH_INTERVAL seconds), then kills the currently-running Chromium so the
+# screen is freed up. The autostart loop stays alive and will resume the
+# moment the flag is removed (see kiosk-start).
+
+set -u
+
+CONFIG_DIR="$HOME/.config/basicweigh-kiosk"
+STOP_FLAG="$CONFIG_DIR/STOP"
+PROFILE_DIR="$HOME/.cache/basicweigh-kiosk-profile"
+
+mkdir -p "$CONFIG_DIR"
+date -Iseconds > "$STOP_FLAG"
+echo "Stop flag set: $STOP_FLAG"
+
+# Kill any running Chromium tied to our kiosk profile so the operator sees
+# something has happened immediately, instead of waiting on the watchdog.
+if pgrep -f "user-data-dir=$PROFILE_DIR" >/dev/null; then
+    echo "Killing Chromium…"
+    pkill -f "user-data-dir=$PROFILE_DIR" || true
+    sleep 1
+    pkill -9 -f "user-data-dir=$PROFILE_DIR" 2>/dev/null || true
+fi
+
+echo "Kiosk paused. Run kiosk-start (or remove $STOP_FLAG) to resume."
