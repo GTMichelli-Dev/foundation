@@ -10,6 +10,7 @@ Basic Weigh is a web-based truck scale management application for weighing inbou
 - [Deployment Guides](#deployment-guides)
   - [Debian Server (Vultr, etc.) — HTTPS](docs/deploy-vultr.md)
   - [Raspberry Pi (LAN only, HTTP)](docs/deploy-pi.md)
+  - [Raspberry Pi Kiosk Display](RaspberryPiKiosk/README.md)
 - [Deploy Script Reference](#deploy-script-reference)
   - [Server (Debian x64)](#server-debian-x64)
   - [Raspberry Pi Print Agent (arm64)](#raspberry-pi-print-agent-arm64)
@@ -54,6 +55,7 @@ Pick the path that matches where the app will run. Each guide is self-contained 
 |--------|----------------|-------|
 | **Debian cloud server** (Vultr, etc.) | Internet-facing site with a real domain and HTTPS. Required if you need access from outside the LAN or want Let's Encrypt SSL. | [docs/deploy-vultr.md](docs/deploy-vultr.md) |
 | **Raspberry Pi on the LAN** (HTTP) | Single weigh station, operators on the same local network, no domain or certificate. Reachable at `http://truckscale.local`. | [docs/deploy-pi.md](docs/deploy-pi.md) |
+| **Raspberry Pi kiosk display** | A second Pi (per kiosk display) wired to the scale-house TV. Boots straight into Chromium pointed at `<server>/Kiosk` with a watchdog that restarts the browser on outage. Bootstrap is a one-shot paste into [Raspberry Pi Connect](https://connect.raspberrypi.com); install.sh prompts for the kiosk PIN, service-id, and printer-id and assembles the full URL. | [RaspberryPiKiosk/README.md](RaspberryPiKiosk/README.md) |
 
 After the app is running, see [Server Management](#server-management) for updates and routine ops, and [Configuration](#configuration) for app settings.
 
@@ -300,6 +302,17 @@ https://your-server/Kiosk?pin=12345
 ```
 
 The default PIN is `12345`. Change it on the Setup page. The PIN is stored as a browser cookie so subsequent requests don't need it.
+
+Two other optional query parameters select which print/camera service handles tickets from this kiosk:
+
+```
+https://your-server/Kiosk?service-id=office-1&printer-id=BIXOLON_BK3&pin=12345
+```
+
+- **`service-id`** — name of the Print/Camera Service instance (matches what's shown in the Setup page). `Browser` or blank means browser-print.
+- **`printer-id`** — physical printer the service drives (e.g. `Zebra_LP2844`). `Browser` for browser-print.
+
+If you're deploying a Pi-driven kiosk display, [`RaspberryPiKiosk/install.sh`](RaspberryPiKiosk/README.md) prompts for all three values and assembles the full URL — no need to hand-edit it into the boot config.
 
 ### Updating Device Definitions
 
