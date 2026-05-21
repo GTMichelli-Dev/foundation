@@ -67,7 +67,7 @@ On your **development machine** (with the .NET 8 SDK and Git installed):
 ```bash
 git clone https://github.com/GTMichelli-Dev/Basic_Weigh.git
 cd Basic_Weigh
-dotnet publish web/BasicWeigh.Web/BasicWeigh.Web.csproj \
+dotnet publish web/BasicWeigh.Web/BasicWeigh.Web.csproj 
   -c Release \
   -r linux-arm64 \
   --self-contained true \
