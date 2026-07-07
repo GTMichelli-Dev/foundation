@@ -18,7 +18,15 @@
       "Bash(taskkill /PID 50760 /F)",
       "Bash(taskkill //PID 50760 //F)",
       "Bash(mkdir -p \"C:\\\\Users\\\\SeanSolleder\\\\Documents\\\\GitHub\\\\pi-print-service\")",
-      "Read(//c/Users/SeanSolleder/Documents/GitHub/**)"
+      "Read(//c/Users/SeanSolleder/Documents/GitHub/**)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh api *)",
+      "Bash(git pull *)",
+      "Bash(grep -E \"\\\\.\\(razor|cshtml|cs\\)$\")",
+      "Bash(xargs grep -l \"pageSize\\\\|pagination\")",
+      "Bash(git rev-list *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
