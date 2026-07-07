@@ -259,7 +259,17 @@ public class TransactionController : Controller
 
         ViewBag.CurrentWeight = _scaleService.GetCurrentWeight();
         PopulateDropdowns();
+        SetSignatureViewBags(id);
         return View(transaction);
+    }
+
+    private void SetSignatureViewBags(string ticket)
+    {
+        var setup = _setupCache.Get();
+        ViewBag.SignatureMode = setup.SignatureMode ?? "None";
+        ViewBag.SignatureRequired = setup.SignatureRequired;
+        ViewBag.SignaturePadId = string.IsNullOrWhiteSpace(setup.SignaturePadId) ? "default" : setup.SignaturePadId;
+        ViewBag.HasSignature = System.IO.File.Exists(Path.Combine(TicketsImageDir, $"{ticket}_Signature.png"));
     }
 
     // POST: Transaction/WeighOut/5
@@ -285,6 +295,19 @@ public class TransactionController : Controller
         existing.Notes = transaction.Notes;
 
         var setup = _setupCache.Get();
+
+        // Server-side backstop for the required-signature rule. The Weigh Out page
+        // blocks Save client-side; this catches direct posts and stale pages.
+        if (setup.SignatureMode != "None" && setup.SignatureRequired
+            && !System.IO.File.Exists(Path.Combine(TicketsImageDir, $"{id}_Signature.png")))
+        {
+            ModelState.AddModelError("", "A driver signature is required before this ticket can be saved.");
+            ViewBag.CurrentWeight = _scaleService.GetCurrentWeight();
+            PopulateDropdowns();
+            SetSignatureViewBags(id);
+            return View(existing);
+        }
+
         var weighOutMsg = $"WeighOut (admin) ticket {existing.Ticket}: UseRetainedTare={setup.UseRetainedTare} TruckId='{existing.TruckId}' Carrier='{existing.Carrier}'";
         _log.LogInformation(weighOutMsg);
         Console.WriteLine($"[RetainedTare] {weighOutMsg}");
@@ -674,5 +697,59 @@ public class TransactionController : Controller
             return NotFound();
 
         return PhysicalFile(filePath, "image/jpeg");
+    }
+
+    public class SignatureUpload
+    {
+        public string? ImageData { get; set; } // "data:image/png;base64,..." from a capture canvas
+    }
+
+    // API: POST api/signature/{id} — save the driver signature for a ticket.
+    // Called by the Weigh Out overlay (Operator mode) and the /SignaturePad
+    // page (RemotePad mode). Overwrites any previous signature (re-sign).
+    [HttpPost("api/signature/{id}")]
+    public async Task<IActionResult> UploadSignature(string id, [FromBody] SignatureUpload payload)
+    {
+        // Ticket lookup doubles as path-traversal protection: the id is only
+        // used in a filename once it's proven to be a real ticket key.
+        var transaction = _db.Transactions.Find(id);
+        if (transaction == null) return NotFound();
+
+        var data = payload?.ImageData;
+        if (string.IsNullOrEmpty(data))
+            return BadRequest(new { error = "No image data provided." });
+
+        const string prefix = "data:image/png;base64,";
+        if (!data.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { error = "Image data must be a PNG data URL." });
+
+        byte[] bytes;
+        try { bytes = Convert.FromBase64String(data[prefix.Length..]); }
+        catch (FormatException) { return BadRequest(new { error = "Invalid base64 image data." }); }
+
+        if (bytes.Length == 0 || bytes.Length > 1024 * 1024)
+            return BadRequest(new { error = "Signature image must be between 1 byte and 1 MB." });
+
+        Directory.CreateDirectory(TicketsImageDir);
+        await System.IO.File.WriteAllBytesAsync(Path.Combine(TicketsImageDir, $"{id}_Signature.png"), bytes);
+
+        // Tell the operator's Weigh Out page (and anyone else) the signature landed
+        await _hub.Clients.All.SendAsync("SignatureCaptured", new { ticket = id });
+
+        return Ok(new { success = true });
+    }
+
+    // API: GET api/signature/{id} — serve the driver signature PNG
+    [HttpGet("api/signature/{id}")]
+    public IActionResult GetSignature(string id)
+    {
+        var transaction = _db.Transactions.Find(id);
+        if (transaction == null) return NotFound();
+
+        var filePath = Path.Combine(TicketsImageDir, $"{id}_Signature.png");
+        if (!System.IO.File.Exists(filePath))
+            return NotFound();
+
+        return PhysicalFile(filePath, "image/png");
     }
 }

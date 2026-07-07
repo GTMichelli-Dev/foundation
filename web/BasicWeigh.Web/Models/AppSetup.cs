@@ -186,4 +186,31 @@ public class AppSetup
     [Display(Name = "Kiosk Printer")]
     public string? KioskPrinterId { get; set; }
 
+    // Driver signature capture on weigh-out.
+    // None            — feature off.
+    // Operator        — the operator's own device shows a full-screen capture
+    //                   overlay on the Weigh Out page (tablet handed to driver).
+    // RemotePad       — a dedicated tablet runs /SignaturePad in standby mode and
+    //                   is woken over SignalR when the operator requests a signature.
+    [StringLength(20)]
+    [Display(Name = "Signature Capture")]
+    public string SignatureMode { get; set; } = "None";
+
+    /// <summary>
+    /// Which remote pad receives signature requests (RemotePad mode). Matches the
+    /// pad-id the tablet passed when it opened /SignaturePad?pad-id=...
+    /// </summary>
+    [StringLength(100)]
+    [Display(Name = "Signature Pad ID")]
+    public string? SignaturePadId { get; set; }
+
+    /// <summary>
+    /// When true, Save on Weigh Out is blocked until a signature is captured.
+    /// When false the operator gets a confirm prompt but can save without one.
+    /// </summary>
+    [Display(Name = "Signature Required")]
+    public bool SignatureRequired { get; set; }
+
+    [Display(Name = "Print Signature on Ticket")]
+    public bool PrintSignatureOnTicket { get; set; } = true;
 }

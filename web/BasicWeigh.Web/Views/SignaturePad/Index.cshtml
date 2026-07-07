@@ -1,0 +1,208 @@
+@{
+    Layout = null;
+    var padId = ViewBag.PadId as string ?? "default";
+    var header1 = ViewBag.Header1 as string ?? "Basic Weigh";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>@header1 - Signature Pad</title>
+    <link rel="icon" type="image/x-icon" href="/api/setup/icon" />
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+        body {
+            background: #111;
+            color: #fff;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow: hidden;
+        }
+        .view { display: none; height: 100vh; flex-direction: column; }
+        .view.active { display: flex; }
+
+        /* ----- Standby ----- */
+        #standbyView { align-items: center; justify-content: center; text-align: center; gap: 20px; }
+        #standbyView img { height: 110px; width: 110px; }
+        #standbyView h1 { font-size: 2.2rem; font-weight: 600; }
+        #standbyView p { font-size: 1.2rem; color: #9aa; }
+        #connState { position: fixed; bottom: 12px; left: 0; right: 0; text-align: center; font-size: .85rem; color: #566; }
+        #connState.bad { color: #e66; }
+
+        /* ----- Capture ----- */
+        #captureView { background: #fff; color: #000; padding: 14px; gap: 10px; }
+        .cap-header { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; }
+        .cap-header .title { font-size: 1.5rem; font-weight: 700; }
+        .cap-header .details { font-size: 1.1rem; color: #444; }
+        .canvas-wrap { flex: 1; position: relative; border: 2px dashed #999; border-radius: 10px; background: #fff; }
+        #sigCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .sign-hint { position: absolute; left: 0; right: 0; top: 45%; text-align: center; color: #ccc; font-size: 1.6rem; pointer-events: none; }
+        .btn-row { display: flex; justify-content: space-between; gap: 10px; }
+        .btn { border: none; border-radius: 10px; padding: 16px 34px; font-size: 1.3rem; font-weight: 600; cursor: pointer; }
+        .btn-clear { background: #e9ecef; color: #333; }
+        .btn-cancel { background: #6c757d; color: #fff; }
+        .btn-accept { background: #198754; color: #fff; }
+        .btn:disabled { opacity: .5; }
+
+        /* ----- Thank you ----- */
+        #doneView { align-items: center; justify-content: center; background: #14331f; }
+        #doneView h1 { font-size: 2.6rem; color: #6fdc8c; }
+    </style>
+</head>
+<body>
+    <!-- Standby: shown until the operator requests a signature -->
+    <div id="standbyView" class="view active">
+        <img src="/api/setup/icon" alt="" onerror="this.style.display='none'" />
+        <h1>@header1</h1>
+        <p>Please wait&hellip;</p>
+    </div>
+
+    <!-- Capture: driver signs here -->
+    <div id="captureView" class="view">
+        <div class="cap-header">
+            <span class="title">Ticket <span id="capTicket"></span></span>
+            <span class="details" id="capDetails"></span>
+        </div>
+        <div class="canvas-wrap">
+            <canvas id="sigCanvas"></canvas>
+            <div class="sign-hint" id="signHint">Sign here</div>
+        </div>
+        <div class="btn-row">
+            <button type="button" class="btn btn-clear" id="btnClear">Clear</button>
+            <div style="display:flex; gap:10px;">
+                <button type="button" class="btn btn-cancel" id="btnCancel">Cancel</button>
+                <button type="button" class="btn btn-accept" id="btnAccept">Accept</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Brief confirmation before returning to standby -->
+    <div id="doneView" class="view">
+        <h1>Thank you!</h1>
+    </div>
+
+    <div id="connState">connecting&hellip;</div>
+
+    <script src="/js/signalr/signalr.min.js"></script>
+    <script src="/js/signature-pad.js"></script>
+    <script>
+        (function () {
+            var PAD_ID = '@padId';
+            var IDLE_TIMEOUT_MS = 2 * 60 * 1000; // auto-return to standby if the driver walks off
+
+            var pad = null;
+            var currentTicket = null;
+            var idleTimer = null;
+            var doneTimer = null;
+
+            function show(viewId) {
+                document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
+                document.getElementById(viewId).classList.add('active');
+            }
+
+            function toStandby() {
+                clearTimeout(idleTimer);
+                clearTimeout(doneTimer);
+                currentTicket = null;
+                show('standbyView');
+            }
+
+            function resetIdleTimer() {
+                clearTimeout(idleTimer);
+                idleTimer = setTimeout(function () {
+                    if (currentTicket) {
+                        conn.invoke('SignatureDeclined', currentTicket).catch(function () { });
+                    }
+                    toStandby();
+                }, IDLE_TIMEOUT_MS);
+            }
+
+            // Any touch during capture counts as activity
+            document.getElementById('captureView').addEventListener('pointerdown', function () {
+                if (currentTicket) resetIdleTimer();
+                document.getElementById('signHint').style.display = 'none';
+            });
+
+            var conn = new signalR.HubConnectionBuilder()
+                .withUrl('/scaleHub')
+                .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+                .build();
+
+            function setConnState(text, bad) {
+                var el = document.getElementById('connState');
+                el.textContent = text;
+                el.className = bad ? 'bad' : '';
+            }
+
+            function join() {
+                return conn.invoke('JoinSignaturePadGroup', PAD_ID)
+                    .then(function () { setConnState('pad "' + PAD_ID + '" • connected'); });
+            }
+
+            conn.on('RequestSignature', function (req) {
+                currentTicket = req.ticket;
+                document.getElementById('capTicket').textContent = req.ticket;
+                var details = [req.carrier, req.truckId].filter(Boolean).join(' — ');
+                if (req.netWeight && req.netWeight !== '0') details += (details ? ' • ' : '') + 'Net ' + req.netWeight + ' lb';
+                document.getElementById('capDetails').textContent = details;
+                document.getElementById('signHint').style.display = 'block';
+                show('captureView');
+                if (!pad) pad = new BwSignaturePad(document.getElementById('sigCanvas'));
+                else pad.resize();
+                pad.clear();
+                resetIdleTimer();
+            });
+
+            conn.on('CancelSignature', function (ticket) {
+                if (!currentTicket || ticket === currentTicket) toStandby();
+            });
+
+            conn.onreconnecting(function () { setConnState('reconnecting…', true); });
+            conn.onreconnected(function () { join(); });
+            conn.onclose(function () { setConnState('disconnected — restart the page', true); });
+
+            function start() {
+                conn.start().then(join).catch(function () {
+                    setConnState('connection failed — retrying…', true);
+                    setTimeout(start, 5000);
+                });
+            }
+            start();
+
+            document.getElementById('btnClear').addEventListener('click', function () {
+                pad.clear();
+                document.getElementById('signHint').style.display = 'block';
+                resetIdleTimer();
+            });
+
+            document.getElementById('btnCancel').addEventListener('click', function () {
+                if (currentTicket) conn.invoke('SignatureDeclined', currentTicket).catch(function () { });
+                toStandby();
+            });
+
+            document.getElementById('btnAccept').addEventListener('click', function () {
+                if (!pad || pad.isEmpty() || !currentTicket) return;
+                var btn = this;
+                btn.disabled = true;
+                fetch('/api/signature/' + encodeURIComponent(currentTicket), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imageData: pad.toDataURL() })
+                }).then(function (r) {
+                    if (!r.ok) throw new Error('upload failed');
+                    clearTimeout(idleTimer);
+                    show('doneView');
+                    doneTimer = setTimeout(toStandby, 2500);
+                }).catch(function () {
+                    alert('Could not save the signature. Please try again.');
+                }).finally(function () {
+                    btn.disabled = false;
+                });
+            });
+        })();
+    </script>
+</body>
+</html>

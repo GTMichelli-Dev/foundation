@@ -3,6 +3,10 @@
 @{
     ViewData["Title"] = "Weigh Out - Ticket " + Model.Ticket;
     var isDemoMode = Db.AppSetup.FirstOrDefault()?.DemoMode == true;
+    var sigMode = ViewBag.SignatureMode as string ?? "None";
+    var sigRequired = (bool?)ViewBag.SignatureRequired == true;
+    var sigPadId = ViewBag.SignaturePadId as string ?? "default";
+    var hasSignature = (bool?)ViewBag.HasSignature == true;
 }
 
 <style>
@@ -41,6 +45,13 @@
 </style>
 
 <h3>Weigh Out - Ticket @Model.Ticket</h3>
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @Html.ValidationSummary(false)
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
 <div id="validationAlert" class="alert alert-danger alert-dismissible fade" role="alert" style="display:none;">
     <span id="validationMsg"></span>
     <button type="button" class="btn-close" onclick="$('#validationAlert').removeClass('show').hide();"></button>
@@ -188,6 +199,36 @@
                         </div>
                     </div>
 
+                    @if (sigMode != "None")
+                    {
+                        <div class="mb-3" id="signatureSection">
+                            <label class="form-label">
+                                Driver Signature
+                                @if (sigRequired)
+                                {
+                                    <span class="badge bg-danger">Required</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Optional</span>
+                                }
+                            </label>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <button type="button" class="btn btn-outline-primary" id="captureSignatureBtn">
+                                    @(hasSignature ? "Re-sign" : "Capture Signature")
+                                </button>
+                                <span id="sigWaiting" style="display:none;">
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                    Waiting for driver&hellip;
+                                    <button type="button" class="btn btn-outline-danger btn-sm ms-1" id="cancelSignatureBtn">Cancel</button>
+                                </span>
+                                <img id="sigThumb" style="display:none; height:48px; max-width:200px; border:1px solid #ccc; background:#fff; border-radius:4px;" alt="Driver signature" />
+                                <span id="sigStatusBadge" class="badge bg-success" style="display:none;">Signed</span>
+                            </div>
+                            <div id="sigError" class="small text-danger mt-1" style="display:none;"></div>
+                        </div>
+                    }
+
                     <div class="mt-4">
                         <button type="submit" class="btn btn-success btn-lg me-2">Save</button>
                         <a asp-action="InboundTrucks" class="btn btn-secondary btn-lg">Cancel</a>
@@ -282,6 +323,32 @@
     </div>
 </div>
 
+@if (sigMode == "Operator")
+{
+    <!-- Full-screen driver signature overlay (Operator mode: tablet is handed to the driver) -->
+    <div id="signatureOverlay" style="display:none; position:fixed; inset:0; z-index:10500; background:rgba(0,0,0,.85);">
+        <div style="position:absolute; inset:16px; background:#fff; border-radius:12px; display:flex; flex-direction:column; padding:16px; color:#000;">
+            <div class="d-flex justify-content-between align-items-center flex-wrap mb-2">
+                <div>
+                    <strong style="font-size:1.3rem;">Driver Signature &mdash; Ticket @Model.Ticket</strong>
+                    <div class="text-muted" id="sigOverlayInfo"></div>
+                </div>
+                <div class="text-muted">Please sign in the box below</div>
+            </div>
+            <div style="flex:1; min-height:200px; border:2px dashed #999; border-radius:8px; position:relative; background:#fff;">
+                <canvas id="operatorSigCanvas" style="position:absolute; inset:0; width:100%; height:100%;"></canvas>
+            </div>
+            <div class="d-flex justify-content-between mt-3">
+                <button type="button" class="btn btn-outline-secondary btn-lg" id="sigClearBtn">Clear</button>
+                <div>
+                    <button type="button" class="btn btn-secondary btn-lg me-2" id="sigCancelOverlayBtn">Cancel</button>
+                    <button type="button" class="btn btn-success btn-lg" id="sigAcceptBtn">Accept</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <!-- Unsaved changes alert (hidden by default) -->
 <div class="alert alert-warning alert-dismissible fade py-1 mb-2 position-fixed top-0 start-50 translate-middle-x mt-3"
      role="alert" id="unsavedAlert" style="display:none; z-index:9999;">
@@ -309,6 +376,14 @@
 </div>
 
 @section Scripts {
+@if (sigMode == "Operator")
+{
+<script src="~/js/signature-pad.js"></script>
+}
+@if (sigMode == "RemotePad")
+{
+<script src="~/js/signalr/signalr.min.js"></script>
+}
 <script>
     $(function () {
         var isDirty = false;
@@ -524,10 +599,129 @@
             var outW = parseInt(outWeightInput.val()) || 0;
             if (outW <= 0) {
                 e.preventDefault();
+                isSaving = false;
                 showValidation('Please click "Get Weight" to capture the outbound scale weight before saving.');
                 return false;
             }
+            if (signatureMode !== 'None' && !hasSignature) {
+                if (signatureRequired) {
+                    e.preventDefault();
+                    isSaving = false;
+                    showValidation('A driver signature is required before saving. Press "Capture Signature".');
+                    return false;
+                }
+                if (!confirm('No driver signature has been captured. Save anyway?')) {
+                    e.preventDefault();
+                    isSaving = false;
+                    return false;
+                }
+            }
         });
+
+        // --- Driver signature capture ---
+        var signatureMode = '@sigMode';
+        var signatureRequired = @(sigRequired ? "true" : "false");
+        var signaturePadId = '@sigPadId';
+        var hasSignature = @(hasSignature ? "true" : "false");
+        var ticketId = '@Model.Ticket';
+
+        function markSigned() {
+            hasSignature = true;
+            $('#sigThumb').attr('src', '/api/signature/' + encodeURIComponent(ticketId) + '?t=' + Date.now()).show();
+            $('#sigStatusBadge').show();
+            $('#sigWaiting').hide();
+            $('#sigError').hide();
+            $('#captureSignatureBtn').text('Re-sign').prop('disabled', false);
+        }
+        function showSigError(msg) {
+            $('#sigError').text(msg).show();
+            $('#sigWaiting').hide();
+            $('#captureSignatureBtn').prop('disabled', false);
+        }
+        if (hasSignature) markSigned();
+
+        if (signatureMode === 'Operator') {
+            var sigPad = null;
+
+            $('#captureSignatureBtn').on('click', function () {
+                var info = [$('select[name="Carrier"]').val(), $('#truckSelect').val()]
+                    .filter(function (v) { return v; }).join(' — ');
+                $('#sigOverlayInfo').text(info);
+                $('#signatureOverlay').show();
+                if (!sigPad) sigPad = new BwSignaturePad(document.getElementById('operatorSigCanvas'));
+                else sigPad.resize();
+                sigPad.clear();
+            });
+
+            $('#sigClearBtn').on('click', function () { sigPad.clear(); });
+            $('#sigCancelOverlayBtn').on('click', function () { $('#signatureOverlay').hide(); });
+
+            $('#sigAcceptBtn').on('click', function () {
+                if (sigPad.isEmpty()) return;
+                var btn = $(this).prop('disabled', true);
+                $.ajax({
+                    url: '/api/signature/' + encodeURIComponent(ticketId),
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ imageData: sigPad.toDataURL() }),
+                    success: function () {
+                        $('#signatureOverlay').hide();
+                        markSigned();
+                    },
+                    error: function () { showSigError('Failed to save the signature. Try again.'); },
+                    complete: function () { btn.prop('disabled', false); }
+                });
+            });
+        }
+
+        if (signatureMode === 'RemotePad') {
+            var sigConn = new signalR.HubConnectionBuilder()
+                .withUrl('/scaleHub')
+                .withAutomaticReconnect()
+                .build();
+
+            sigConn.on('SignatureCaptured', function (d) {
+                if (d.ticket === ticketId) markSigned();
+            });
+            sigConn.on('SignatureDeclined', function (d) {
+                if (d.ticket === ticketId) showSigError('The driver cancelled or the pad timed out.');
+            });
+
+            var sigConnStart = sigConn.start().catch(function (err) {
+                console.error('Signature SignalR error:', err);
+            });
+
+            $('#captureSignatureBtn').on('click', function () {
+                var btn = $(this).prop('disabled', true);
+                $('#sigError').hide();
+                sigConnStart.then(function () {
+                    return sigConn.invoke('GetConnectedSignaturePads');
+                }).then(function (pads) {
+                    if (!pads || pads.indexOf(signaturePadId) === -1) {
+                        showSigError('Signature pad "' + signaturePadId + '" is not connected.');
+                        return;
+                    }
+                    return sigConn.invoke('RequestSignature', signaturePadId, {
+                        ticket: ticketId,
+                        carrier: $('select[name="Carrier"]').val() || '',
+                        truckId: $('#truckSelect').val() || '',
+                        customer: $('select[name="Customer"]').val() || '',
+                        netWeight: $('#netWeight').text()
+                    }).then(function () {
+                        $('#sigWaiting').show();
+                    });
+                }).catch(function () {
+                    showSigError('Could not reach the signature pad. Check the connection.');
+                    btn.prop('disabled', false);
+                });
+            });
+
+            $('#cancelSignatureBtn').on('click', function () {
+                sigConn.invoke('CancelSignature', signaturePadId, ticketId).catch(function () { });
+                $('#sigWaiting').hide();
+                $('#captureSignatureBtn').prop('disabled', false);
+            });
+        }
 
         // --- Customer/Carrier/Truck logic ---
         customerSelect.on('change', function () {

@@ -224,6 +224,56 @@ public class ScaleHub : Hub
         await Clients.All.SendAsync("TestCaptureResult", result);
     }
 
+    // ===== SIGNATURE PAD =====
+
+    // Track connected signature pads: connectionId -> padId
+    private static readonly Dictionary<string, string> _signaturePadConnections = new();
+    private static readonly object _signaturePadLock = new();
+
+    /// <summary>
+    /// Called by the /SignaturePad standby page to register itself as a pad.
+    /// </summary>
+    public async Task JoinSignaturePadGroup(string padId = "default")
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, "SignaturePadClients");
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"SignaturePad_{padId}");
+        lock (_signaturePadLock) { _signaturePadConnections[Context.ConnectionId] = padId; }
+        await Clients.All.SendAsync("SignaturePadStatusChanged", GetConnectedSignaturePadIds());
+    }
+
+    public Task<List<string>> GetConnectedSignaturePads()
+    {
+        return Task.FromResult(GetConnectedSignaturePadIds());
+    }
+
+    /// <summary>
+    /// Called by the Weigh Out page to wake the pad and show the capture view.
+    /// requestData carries the ticket context shown to the driver (ticket, truck,
+    /// carrier, net weight).
+    /// </summary>
+    public async Task RequestSignature(string padId, object requestData)
+    {
+        await Clients.Group($"SignaturePad_{padId}").SendAsync("RequestSignature", requestData);
+    }
+
+    /// <summary>
+    /// Called by the Weigh Out page to send the pad back to standby (operator
+    /// cancelled, or navigated away while a request was outstanding).
+    /// </summary>
+    public async Task CancelSignature(string padId, string ticket)
+    {
+        await Clients.Group($"SignaturePad_{padId}").SendAsync("CancelSignature", ticket);
+    }
+
+    /// <summary>
+    /// Called by the pad when the driver cancels or the request idles out, so the
+    /// operator's Weigh Out page can drop its "waiting for driver" state.
+    /// </summary>
+    public async Task SignatureDeclined(string ticket)
+    {
+        await Clients.All.SendAsync("SignatureDeclined", new { ticket });
+    }
+
     // ===== DISCONNECT HANDLING =====
 
     public override async Task OnDisconnectedAsync(Exception? exception)
@@ -273,6 +323,17 @@ public class ScaleHub : Hub
         if (wasPrint)
         {
             await Clients.All.SendAsync("PrintServiceStatusChanged", GetConnectedPrintServiceIds());
+        }
+
+        // Check Signature Pad
+        bool wasSignaturePad;
+        lock (_signaturePadLock)
+        {
+            wasSignaturePad = _signaturePadConnections.Remove(Context.ConnectionId, out _);
+        }
+        if (wasSignaturePad)
+        {
+            await Clients.All.SendAsync("SignaturePadStatusChanged", GetConnectedSignaturePadIds());
         }
 
         await base.OnDisconnectedAsync(exception);
@@ -393,5 +454,10 @@ public class ScaleHub : Hub
     private static List<string> GetConnectedPrintServiceIds()
     {
         lock (_printLock) { return _printConnections.Values.Distinct().ToList(); }
+    }
+
+    private static List<string> GetConnectedSignaturePadIds()
+    {
+        lock (_signaturePadLock) { return _signaturePadConnections.Values.Distinct().ToList(); }
     }
 }

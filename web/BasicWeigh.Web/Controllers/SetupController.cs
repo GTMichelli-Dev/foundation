@@ -81,6 +81,10 @@ public class SetupController : Controller
         existing.SavePicture = setup.SavePicture;
         existing.UseRetainedTare = setup.UseRetainedTare;
         existing.AutoClearStaleRetainedTare = setup.AutoClearStaleRetainedTare;
+        existing.SignatureMode = setup.SignatureMode ?? "None";
+        existing.SignaturePadId = setup.SignaturePadId;
+        existing.SignatureRequired = setup.SignatureRequired;
+        existing.PrintSignatureOnTicket = setup.PrintSignatureOnTicket;
 
         // Retained Tare needs both carrier and truck to identify the truck.
         // Force the prompts on AND disable Allow Skip so the kiosk flow always

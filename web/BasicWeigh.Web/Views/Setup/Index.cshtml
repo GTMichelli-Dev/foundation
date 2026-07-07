@@ -329,6 +329,48 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Driver Signature -->
+                    <div class="card mb-3">
+                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Driver Signature</strong>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label asp-for="SignatureMode" class="form-label mb-0 small"></label>
+                                    <select asp-for="SignatureMode" class="form-select form-select-sm" id="SignatureMode">
+                                        <option value="None">Off</option>
+                                        <option value="Operator">Operator Device (overlay)</option>
+                                        <option value="RemotePad">Remote Signature Pad</option>
+                                    </select>
+                                </div>
+                                <div class="col-3 signature-option" style="display: @(Model.SignatureMode != "None" ? "block" : "none");">
+                                    <label asp-for="SignatureRequired" class="form-label mb-0 small"></label>
+                                    <select asp-for="SignatureRequired" class="form-select form-select-sm">
+                                        <option value="false">Optional</option>
+                                        <option value="true">Required</option>
+                                    </select>
+                                </div>
+                                <div class="col-3 signature-option" style="display: @(Model.SignatureMode != "None" ? "block" : "none");">
+                                    <label asp-for="PrintSignatureOnTicket" class="form-label mb-0 small"></label>
+                                    <select asp-for="PrintSignatureOnTicket" class="form-select form-select-sm">
+                                        <option value="true">Yes</option>
+                                        <option value="false">No</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row g-2 mb-1" id="signaturePadIdSection" style="display: @(Model.SignatureMode == "RemotePad" ? "flex" : "none");">
+                                <div class="col-6">
+                                    <label asp-for="SignaturePadId" class="form-label mb-0 small"></label>
+                                    <input asp-for="SignaturePadId" class="form-control form-control-sm" placeholder="default" />
+                                </div>
+                                <div class="col-6 d-flex align-items-end">
+                                    <span class="small text-muted">Open on the tablet:<br /><code id="signaturePadUrl"></code></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -827,6 +869,21 @@
         var el = document.getElementById('cameraManageSection');
         el.style.display = this.value === 'true' ? 'flex' : 'none';
     });
+
+    // --- Driver Signature options ---
+    function syncSignatureSections() {
+        var mode = document.getElementById('SignatureMode').value;
+        document.querySelectorAll('.signature-option').forEach(function (el) {
+            el.style.display = mode !== 'None' ? 'block' : 'none';
+        });
+        document.getElementById('signaturePadIdSection').style.display = mode === 'RemotePad' ? 'flex' : 'none';
+        var padId = document.getElementById('SignaturePadId').value || 'default';
+        document.getElementById('signaturePadUrl').textContent =
+            window.location.origin + '/SignaturePad?pad-id=' + encodeURIComponent(padId);
+    }
+    document.getElementById('SignatureMode').addEventListener('change', syncSignatureSections);
+    document.getElementById('SignaturePadId').addEventListener('input', syncSignatureSections);
+    syncSignatureSections();
 
     // Single source of truth for whether each "Allow Skip" checkbox is enabled.
     // A prompt set to Neither will never fire, so its skip flag is meaningless;

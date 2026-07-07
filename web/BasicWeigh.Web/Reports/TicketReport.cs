@@ -107,6 +107,29 @@ public class TicketReport : XtraReport
         // Notes
         y = AddLabelRow(reportHeader, "Notes:", "Notes", y);
 
+        // Driver signature — image injected by TicketController when a signature
+        // PNG exists for the ticket; both controls are hidden otherwise.
+        y += 5;
+        var sigCaption = new XRLabel
+        {
+            Name = "capSignature",
+            Text = "Driver Signature:",
+            LocationF = new PointF(0, y),
+            SizeF = new SizeF(280, 16),
+            Font = new DXFont("Courier New", 9f)
+        };
+        reportHeader.Controls.Add(sigCaption);
+        y += 16;
+        var sigPic = new XRPictureBox
+        {
+            Name = "picSignature",
+            LocationF = new PointF(0, y),
+            SizeF = new SizeF(280, 70),
+            Sizing = DevExpress.XtraPrinting.ImageSizeMode.ZoomImage
+        };
+        reportHeader.Controls.Add(sigPic);
+        y += 70;
+
         // Void stamp
         y += 10;
         var voidLabel = new XRLabel

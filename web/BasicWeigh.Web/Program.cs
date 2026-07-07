@@ -214,8 +214,11 @@ app.Use(async (context, next) =>
         return;
     }
 
-    // Kiosk access: check PIN if UseLogin is on
-    if (path.StartsWith("/Kiosk") || path.StartsWith("/api/kiosk/"))
+    // Kiosk / signature pad access: check PIN if UseLogin is on. The signature
+    // pad is an unattended tablet like the kiosk, so it shares the kiosk PIN
+    // (and cookie). /api/signature/ is included so the pad can upload.
+    if (path.StartsWith("/Kiosk") || path.StartsWith("/api/kiosk/") ||
+        path.StartsWith("/SignaturePad") || path.StartsWith("/api/signature/"))
     {
         var db = context.RequestServices.GetRequiredService<ScaleDbContext>();
         var setup = db.AppSetup.First();

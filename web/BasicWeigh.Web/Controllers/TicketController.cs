@@ -113,6 +113,7 @@ public class TicketController : Controller
 
         // Set logo image on the picture box
         SetLogoImage(report, setup);
+        SetSignatureImage(report, setup, id);
 
         // Set parameters
         SetParam(report, "Ticket", transaction.Ticket);
@@ -215,6 +216,7 @@ public class TicketController : Controller
                 : new TicketReport();
 
             SetLogoImage(report, setup);
+            SetSignatureImage(report, setup, id);
             SetParam(report, "Ticket", transaction.Ticket);
             SetParam(report, "DateIn", transaction.DateIn.ToServerLocal().ToString("MM/dd/yyyy hh:mm tt"));
             SetParam(report, "DateOut", transaction.DateOut.ToServerLocal()?.ToString("MM/dd/yyyy hh:mm tt") ?? "");
@@ -278,6 +280,38 @@ public class TicketController : Controller
         }
 
         return Json(new { success = true, mode = setup.RemotePrintMode });
+    }
+
+    /// <summary>
+    /// Show and fill the driver-signature block when a signature PNG exists for
+    /// the ticket and printing is enabled; hide it otherwise. Older customized
+    /// .repx templates without the picSignature control are left untouched.
+    /// </summary>
+    private void SetSignatureImage(XtraReport report, AppSetup setup, string ticketId)
+    {
+        var picBox = report.FindControl("picSignature", true) as XRPictureBox;
+        var caption = report.FindControl("capSignature", true);
+        if (picBox == null && caption == null) return;
+
+        var path = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "tickets", $"{ticketId}_Signature.png");
+        bool show = setup.PrintSignatureOnTicket && System.IO.File.Exists(path);
+
+        if (show && picBox != null)
+        {
+            try
+            {
+                using var ms = new MemoryStream(System.IO.File.ReadAllBytes(path));
+                var dxImage = DXImage.FromStream(ms);
+                picBox.ImageSource = new DevExpress.XtraPrinting.Drawing.ImageSource(dxImage);
+            }
+            catch
+            {
+                show = false; // unreadable image - hide the block
+            }
+        }
+
+        if (picBox != null) picBox.Visible = show;
+        if (caption != null) caption.Visible = show;
     }
 
     private void SetLogoImage(XtraReport report, AppSetup setup)
