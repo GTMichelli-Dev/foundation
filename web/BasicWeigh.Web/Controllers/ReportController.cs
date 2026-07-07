@@ -42,10 +42,20 @@ public class ReportController : Controller
             .Count(t => t.DateOut != null && t.Void && t.DateOut >= start && t.DateOut < end);
 
         // Only completed (has DateOut), non-voided trucks, filtered by DateOut
-        var results = _db.Transactions
+        var rows = _db.Transactions
             .Where(t => t.DateOut != null && !t.Void && t.DateOut >= start && t.DateOut < end)
             .OrderByDescending(t => t.DateOut)
-            .ToList()
+            .ToList();
+
+        var ticketIds = rows.Select(t => t.Ticket).ToList();
+        var customValues = _db.TransactionCustomValues
+            .Where(v => ticketIds.Contains(v.Ticket))
+            .AsEnumerable()
+            .GroupBy(v => v.Ticket)
+            .ToDictionary(g => g.Key,
+                g => g.ToDictionary(v => v.CustomFieldId.ToString(), v => v.Value));
+
+        var results = rows
             .Select(t => new
             {
                 t.Ticket,
@@ -64,7 +74,8 @@ public class ReportController : Controller
                 t.Notes,
                 t.SentToQuickBooks,
                 HasInImage = System.IO.File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "tickets", $"{t.Ticket}_in.jpg")),
-                HasOutImage = System.IO.File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "tickets", $"{t.Ticket}_out.jpg"))
+                HasOutImage = System.IO.File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "tickets", $"{t.Ticket}_out.jpg")),
+                CustomFields = customValues.GetValueOrDefault(t.Ticket)
             })
             .ToList();
 

@@ -1,9 +1,18 @@
 @model BasicWeigh.Web.Models.Transaction
+@inject BasicWeigh.Web.Services.AppSetupCache SetupCache
 @{
     ViewData["Title"] = "Edit Ticket " + Model.Ticket;
+    var cachedSetup = SetupCache.Get();
 }
 
 <h3>Edit Ticket @Model.Ticket</h3>
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
 
 <form asp-action="Edit" asp-route-id="@Model.Ticket" method="post">
     @Html.AntiForgeryToken()
@@ -38,27 +47,33 @@
                         <input asp-for="DateOut" class="form-control" type="datetime-local" />
                     </div>
 
-                    <div class="mb-3">
-                        <label asp-for="Customer" class="form-label"></label>
-                        <select asp-for="Customer" class="form-select">
-                            <option value="">-- Select --</option>
-                            @foreach (var c in (List<BasicWeigh.Web.Models.Customer>)ViewBag.Customers)
-                            {
-                                <option value="@c.CustomerName">@c.CustomerName</option>
-                            }
-                        </select>
-                    </div>
+                    @if (!cachedSetup.HideCustomer)
+                    {
+                        <div class="mb-3">
+                            <label asp-for="Customer" class="form-label"></label>
+                            <select asp-for="Customer" class="form-select">
+                                <option value="">-- Select --</option>
+                                @foreach (var c in (List<BasicWeigh.Web.Models.Customer>)ViewBag.Customers)
+                                {
+                                    <option value="@c.CustomerName">@c.CustomerName</option>
+                                }
+                            </select>
+                        </div>
+                    }
 
-                    <div class="mb-3">
-                        <label asp-for="Carrier" class="form-label"></label>
-                        <select asp-for="Carrier" class="form-select">
-                            <option value="">-- Select --</option>
-                            @foreach (var name in (List<string>)ViewBag.CarrierOptions)
-                            {
-                                <option value="@name">@name</option>
-                            }
-                        </select>
-                    </div>
+                    @if (!cachedSetup.HideCarrier)
+                    {
+                        <div class="mb-3">
+                            <label asp-for="Carrier" class="form-label"></label>
+                            <select asp-for="Carrier" class="form-select">
+                                <option value="">-- Select --</option>
+                                @foreach (var name in (List<string>)ViewBag.CarrierOptions)
+                                {
+                                    <option value="@name">@name</option>
+                                }
+                            </select>
+                        </div>
+                    }
                 </div>
             </div>
         </div>
@@ -66,53 +81,70 @@
         <div class="col-md-6">
             <div class="card mb-3">
                 <div class="card-body">
-                    <div class="mb-3">
-                        <label asp-for="TruckId" class="form-label"></label>
-                        <div class="input-group">
-                            <select asp-for="TruckId" id="truckSelect" class="form-select">
-                                <option value="">-- Select Carrier First --</option>
-                            </select>
-                            <button type="button" class="btn btn-outline-primary" id="addTruckBtn" disabled title="Add New Truck">+</button>
+                    @if (!cachedSetup.HideTruckId)
+                    {
+                        <div class="mb-3">
+                            <label asp-for="TruckId" class="form-label"></label>
+                            <div class="input-group">
+                                <select asp-for="TruckId" id="truckSelect" class="form-select">
+                                    <option value="">-- Select Carrier First --</option>
+                                </select>
+                                <button type="button" class="btn btn-outline-primary" id="addTruckBtn" disabled title="Add New Truck">+</button>
+                            </div>
                         </div>
-                    </div>
+                    }
 
-                    <div class="mb-3">
-                        <label asp-for="Commodity" class="form-label"></label>
-                        <select asp-for="Commodity" class="form-select">
-                            <option value="">-- Select --</option>
-                            @foreach (var c in (List<BasicWeigh.Web.Models.Commodity>)ViewBag.Commodities)
-                            {
-                                <option value="@c.CommodityName">@c.CommodityName</option>
-                            }
-                        </select>
-                    </div>
+                    @if (!cachedSetup.HideCommodity)
+                    {
+                        <div class="mb-3">
+                            <label asp-for="Commodity" class="form-label"></label>
+                            <select asp-for="Commodity" class="form-select">
+                                <option value="">-- Select --</option>
+                                @foreach (var c in (List<BasicWeigh.Web.Models.Commodity>)ViewBag.Commodities)
+                                {
+                                    <option value="@c.CommodityName">@c.CommodityName</option>
+                                }
+                            </select>
+                        </div>
+                    }
 
-                    <div class="mb-3">
-                        <label asp-for="Location" class="form-label"></label>
-                        <select asp-for="Location" class="form-select">
-                            <option value="">-- Select --</option>
-                            @foreach (var l in (List<BasicWeigh.Web.Models.Location>)ViewBag.Locations)
-                            {
-                                <option value="@l.LocationName">@l.LocationName</option>
-                            }
-                        </select>
-                    </div>
+                    @if (!cachedSetup.HideLocation)
+                    {
+                        <div class="mb-3">
+                            <label asp-for="Location" class="form-label"></label>
+                            <select asp-for="Location" class="form-select">
+                                <option value="">-- Select --</option>
+                                @foreach (var l in (List<BasicWeigh.Web.Models.Location>)ViewBag.Locations)
+                                {
+                                    <option value="@l.LocationName">@l.LocationName</option>
+                                }
+                            </select>
+                        </div>
+                    }
 
-                    <div class="mb-3">
-                        <label asp-for="Destination" class="form-label"></label>
-                        <select asp-for="Destination" class="form-select">
-                            <option value="">-- Select --</option>
-                            @foreach (var d in (List<BasicWeigh.Web.Models.Destination>)ViewBag.Destinations)
-                            {
-                                <option value="@d.DestinationName">@d.DestinationName</option>
-                            }
-                        </select>
-                    </div>
+                    @if (!cachedSetup.HideDestination)
+                    {
+                        <div class="mb-3">
+                            <label asp-for="Destination" class="form-label"></label>
+                            <select asp-for="Destination" class="form-select">
+                                <option value="">-- Select --</option>
+                                @foreach (var d in (List<BasicWeigh.Web.Models.Destination>)ViewBag.Destinations)
+                                {
+                                    <option value="@d.DestinationName">@d.DestinationName</option>
+                                }
+                            </select>
+                        </div>
+                    }
 
-                    <div class="mb-3">
-                        <label asp-for="Notes" class="form-label"></label>
-                        <textarea asp-for="Notes" class="form-control" rows="3"></textarea>
-                    </div>
+                    @if (!cachedSetup.HideNotes)
+                    {
+                        <div class="mb-3">
+                            <label asp-for="Notes" class="form-label"></label>
+                            <textarea asp-for="Notes" class="form-control" rows="3"></textarea>
+                        </div>
+                    }
+
+                    <partial name="_CustomFields" />
 
                     @if ((bool)(ViewBag.SavePicture ?? false))
                     {

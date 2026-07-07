@@ -113,7 +113,9 @@ public class TicketController : Controller
 
         // Set logo image on the picture box
         SetLogoImage(report, setup);
+        ApplyFieldVisibility(report, setup);
         SetSignatureImage(report, setup, id);
+        InjectCustomFields(report, id, "capSignature", "lblVoid");
 
         // Set parameters
         SetParam(report, "Ticket", transaction.Ticket);
@@ -160,6 +162,8 @@ public class TicketController : Controller
             report = new KioskTicketReport();
         }
 
+        ApplyFieldVisibility(report, setup);
+        InjectCustomFields(report, id, "capInWeight");
         SetParam(report, "Ticket", transaction.Ticket);
         SetParam(report, "DateIn", transaction.DateIn.ToServerLocal().ToString("MM/dd/yyyy hh:mm tt"));
         SetParam(report, "Customer", transaction.Customer ?? "");
@@ -196,6 +200,8 @@ public class TicketController : Controller
                 ? XtraReport.FromFile(kioskPath)
                 : new KioskTicketReport();
 
+            ApplyFieldVisibility(report, setup);
+            InjectCustomFields(report, id, "capInWeight");
             SetParam(report, "Ticket", transaction.Ticket);
             SetParam(report, "DateIn", transaction.DateIn.ToServerLocal().ToString("MM/dd/yyyy hh:mm tt"));
             SetParam(report, "Customer", transaction.Customer ?? "");
@@ -216,7 +222,9 @@ public class TicketController : Controller
                 : new TicketReport();
 
             SetLogoImage(report, setup);
+            ApplyFieldVisibility(report, setup);
             SetSignatureImage(report, setup, id);
+            InjectCustomFields(report, id, "capSignature", "lblVoid");
             SetParam(report, "Ticket", transaction.Ticket);
             SetParam(report, "DateIn", transaction.DateIn.ToServerLocal().ToString("MM/dd/yyyy hh:mm tt"));
             SetParam(report, "DateOut", transaction.DateOut.ToServerLocal()?.ToString("MM/dd/yyyy hh:mm tt") ?? "");
@@ -310,8 +318,43 @@ public class TicketController : Controller
             }
         }
 
-        if (picBox != null) picBox.Visible = show;
-        if (caption != null) caption.Visible = show;
+        if (!show)
+        {
+            // Remove the block entirely so unsigned tickets print without a gap
+            ReportFieldLayout.Collapse(report, "capSignature", "picSignature");
+            return;
+        }
+        if (picBox != null) picBox.Visible = true;
+        if (caption != null) caption.Visible = true;
+    }
+
+    /// <summary>Collapse the printed rows of fields hidden on Setup → Fields.</summary>
+    private static void ApplyFieldVisibility(XtraReport report, AppSetup setup)
+    {
+        if (setup.HideCustomer) ReportFieldLayout.CollapseRow(report, "Customer");
+        if (setup.HideCarrier) ReportFieldLayout.CollapseRow(report, "Carrier");
+        if (setup.HideTruckId) ReportFieldLayout.CollapseRow(report, "TruckId");
+        if (setup.HideCommodity) ReportFieldLayout.CollapseRow(report, "Commodity");
+        if (setup.HideLocation) ReportFieldLayout.CollapseRow(report, "Location");
+        if (setup.HideDestination) ReportFieldLayout.CollapseRow(report, "Destination");
+        if (setup.HideNotes) ReportFieldLayout.CollapseRow(report, "Notes");
+    }
+
+    /// <summary>Insert printed rows for this ticket's custom-field values
+    /// (fields marked Show on Ticket only), above the given anchor control.</summary>
+    private void InjectCustomFields(XtraReport report, string ticketId, params string[] anchorNames)
+    {
+        var rows = (from v in _db.TransactionCustomValues
+                    join f in _db.CustomFields on v.CustomFieldId equals f.Id
+                    where v.Ticket == ticketId && f.ShowOnTicket
+                          && v.Value != null && v.Value != ""
+                    orderby f.SortOrder, f.Name
+                    select new { f.Name, v.Value }).ToList();
+        if (rows.Count == 0) return;
+
+        ReportFieldLayout.InsertRows(report,
+            rows.Select(r => (r.Name + ":", r.Value!)).ToList(),
+            anchorNames);
     }
 
     private void SetLogoImage(XtraReport report, AppSetup setup)

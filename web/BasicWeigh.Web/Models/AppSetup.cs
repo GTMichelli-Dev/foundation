@@ -213,4 +213,30 @@ public class AppSetup
 
     [Display(Name = "Print Signature on Ticket")]
     public bool PrintSignatureOnTicket { get; set; } = true;
+
+    // Standard-field visibility (Setup → Fields). A hidden field disappears from
+    // the weigh forms, grids, the reports page, printed tickets, and its kiosk
+    // prompts are forced off. Values already stored stay in the database.
+    // Rules enforced on save: hiding Carrier hides Truck ID (trucks belong to
+    // carriers); Retained Tare keeps Carrier + Truck ID visible.
+    [Display(Name = "Hide Customer")]
+    public bool HideCustomer { get; set; }
+
+    [Display(Name = "Hide Carrier")]
+    public bool HideCarrier { get; set; }
+
+    [Display(Name = "Hide Truck ID")]
+    public bool HideTruckId { get; set; }
+
+    [Display(Name = "Hide Commodity")]
+    public bool HideCommodity { get; set; }
+
+    [Display(Name = "Hide Location")]
+    public bool HideLocation { get; set; }
+
+    [Display(Name = "Hide Destination")]
+    public bool HideDestination { get; set; }
+
+    [Display(Name = "Hide Notes")]
+    public bool HideNotes { get; set; }
 }

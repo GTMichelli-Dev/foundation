@@ -31,6 +31,9 @@
         <li class="nav-item">
             <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabSystem" type="button">System</button>
         </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabFields" type="button">Fields</button>
+        </li>
         <li class="nav-item" id="tabKioskPromptsNav" style="display: @(Model.KioskCount > 0 ? "block" : "none");">
             <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabKioskPrompts" type="button">Kiosk Prompts</button>
         </li>
@@ -369,6 +372,88 @@
                                     <span class="small text-muted">Open on the tablet:<br /><code id="signaturePadUrl"></code></span>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: Fields -->
+        <div class="tab-pane fade" id="tabFields">
+            <div class="row g-3">
+                <div class="col-lg-5 col-xl-4">
+                    <div class="card">
+                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Standard Fields</strong>
+                        </div>
+                        <div class="card-body py-2">
+                            <p class="small mb-2" style="color: var(--bw-text-muted);">
+                                Hidden fields disappear from the weigh forms, grids, reports,
+                                printed tickets, and kiosk prompts. Stored values are kept
+                                but not shown. Weights, dates, and the ticket number are
+                                always visible.
+                            </p>
+                            <table class="table table-sm align-middle mb-2">
+                                <thead>
+                                    <tr class="small text-muted"><th>Field</th><th style="width:45%;">Visibility</th></tr>
+                                </thead>
+                                <tbody>
+                                    @{
+                                        var visibilityRows = new (string Label, string Prop, bool Hidden)[]
+                                        {
+                                            ("Customer", "HideCustomer", Model.HideCustomer),
+                                            ("Carrier", "HideCarrier", Model.HideCarrier),
+                                            ("Truck ID", "HideTruckId", Model.HideTruckId),
+                                            ("Commodity", "HideCommodity", Model.HideCommodity),
+                                            ("Location", "HideLocation", Model.HideLocation),
+                                            ("Destination", "HideDestination", Model.HideDestination),
+                                            ("Notes", "HideNotes", Model.HideNotes),
+                                        };
+                                    }
+                                    @foreach (var (label, prop, hidden) in visibilityRows)
+                                    {
+                                        <tr>
+                                            <td class="fw-bold">@label</td>
+                                            <td>
+                                                <select name="@prop" id="@prop" class="form-select form-select-sm field-visibility">
+                                                    <option value="false" selected="@(!hidden ? "selected" : null)">Visible</option>
+                                                    <option value="true" selected="@(hidden ? "selected" : null)">Hidden</option>
+                                                </select>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            <div class="form-text small">
+                                Hiding <strong>Carrier</strong> also hides <strong>Truck ID</strong>
+                                (trucks belong to carriers). While <strong>Retained Tare</strong>
+                                is enabled, Carrier and Truck ID stay visible.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-7 col-xl-6">
+                    <div class="card">
+                        <div class="card-header py-1 d-flex justify-content-between align-items-center" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Custom Fields</strong>
+                            <button type="button" class="btn btn-outline-primary btn-sm py-0" id="addCustomFieldBtn">+ Add Field</button>
+                        </div>
+                        <div class="card-body py-2">
+                            <p class="small mb-2" style="color: var(--bw-text-muted);">
+                                Custom fields appear on the Weigh In / Weigh Out / Edit / Basic
+                                Ticket forms, as grid columns, and on printed tickets. Changes
+                                here save immediately (no Save Settings needed).
+                            </p>
+                            <table class="table table-sm align-middle mb-0" id="customFieldsTable">
+                                <thead>
+                                    <tr class="small text-muted">
+                                        <th>Name</th><th>Type</th><th>Entry</th><th>On Ticket</th><th>Order</th><th>Active</th><th></th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                            <div id="customFieldsEmpty" class="small text-muted" style="display:none;">No custom fields defined.</div>
                         </div>
                     </div>
                 </div>
@@ -744,6 +829,60 @@
     </div>
 </div>
 
+<!-- Custom Field editor modal (add + edit) -->
+<div class="modal fade" id="customFieldModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title" id="cfModalTitle">Add Custom Field</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body py-2">
+                <div class="mb-2">
+                    <label class="form-label mb-0 small">Field Name</label>
+                    <input type="text" id="cfName" class="form-control form-control-sm" maxlength="50" />
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-4">
+                        <label class="form-label mb-0 small">Type</label>
+                        <select id="cfType" class="form-select form-select-sm">
+                            <option value="Text">Text</option>
+                            <option value="Integer">Integer</option>
+                            <option value="Real">Decimal</option>
+                        </select>
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label mb-0 small">Entry</label>
+                        <select id="cfRequired" class="form-select form-select-sm">
+                            <option value="false">Optional</option>
+                            <option value="true">Required</option>
+                        </select>
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label mb-0 small">Sort Order</label>
+                        <input type="number" id="cfSortOrder" class="form-control form-control-sm" value="0" step="1" />
+                    </div>
+                </div>
+                <div class="d-flex gap-4">
+                    <div class="form-check">
+                        <input type="checkbox" id="cfShowOnTicket" class="form-check-input" checked />
+                        <label class="form-check-label small" for="cfShowOnTicket">Show on printed ticket</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" id="cfActive" class="form-check-input" checked />
+                        <label class="form-check-label small" for="cfActive">Active</label>
+                    </div>
+                </div>
+                <div id="cfModalError" class="small text-danger mt-2" style="display:none;"></div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" id="cfSaveBtn">Save Field</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
 <script src="~/js/signalr/signalr.min.js"></script>
 <script>
@@ -884,6 +1023,114 @@
     document.getElementById('SignatureMode').addEventListener('change', syncSignatureSections);
     document.getElementById('SignaturePadId').addEventListener('input', syncSignatureSections);
     syncSignatureSections();
+
+    // --- Standard field visibility rules (mirror the server-side forcing) ---
+    (function () {
+        var carrier = document.getElementById('HideCarrier');
+        var truck = document.getElementById('HideTruckId');
+        var retained = document.getElementById('UseRetainedTare');
+
+        function syncVisibilityRules() {
+            var rtOn = retained && retained.value === 'true';
+            if (rtOn) {
+                carrier.value = 'false';
+                truck.value = 'false';
+            }
+            carrier.disabled = rtOn;
+            if (carrier.value === 'true') truck.value = 'true';
+            truck.disabled = rtOn || carrier.value === 'true';
+        }
+        carrier.addEventListener('change', syncVisibilityRules);
+        truck.addEventListener('change', syncVisibilityRules);
+        if (retained) retained.addEventListener('change', syncVisibilityRules);
+        syncVisibilityRules();
+    })();
+
+    // --- Custom Fields CRUD (saves immediately via /api/customfields) ---
+    (function () {
+        var editingId = null;
+
+        function esc(s) {
+            return String(s ?? '').replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+
+        function typeLabel(t) { return t === 'Real' ? 'Decimal' : t; }
+
+        function loadCustomFields() {
+            fetch('/api/customfields').then(function (r) { return r.json(); }).then(function (fields) {
+                var tbody = document.querySelector('#customFieldsTable tbody');
+                tbody.innerHTML = '';
+                document.getElementById('customFieldsEmpty').style.display = fields.length ? 'none' : 'block';
+                fields.forEach(function (f) {
+                    var tr = document.createElement('tr');
+                    if (!f.active) tr.style.opacity = '0.5';
+                    tr.innerHTML =
+                        '<td class="fw-bold">' + esc(f.name) + '</td>' +
+                        '<td>' + typeLabel(f.fieldType) + '</td>' +
+                        '<td>' + (f.required ? '<span class="badge bg-danger">Required</span>' : 'Optional') + '</td>' +
+                        '<td>' + (f.showOnTicket ? 'Yes' : 'No') + '</td>' +
+                        '<td>' + f.sortOrder + '</td>' +
+                        '<td>' + (f.active ? 'Yes' : 'No') + '</td>' +
+                        '<td class="text-end text-nowrap">' +
+                        '<button type="button" class="btn btn-outline-secondary btn-sm py-0 me-1 cf-edit">Edit</button>' +
+                        '<button type="button" class="btn btn-outline-danger btn-sm py-0 cf-delete">Delete</button></td>';
+                    tr.querySelector('.cf-edit').addEventListener('click', function () { openModal(f); });
+                    tr.querySelector('.cf-delete').addEventListener('click', function () { deleteField(f); });
+                    tbody.appendChild(tr);
+                });
+            });
+        }
+
+        function openModal(field) {
+            editingId = field ? field.id : null;
+            document.getElementById('cfModalTitle').textContent = field ? 'Edit Custom Field' : 'Add Custom Field';
+            document.getElementById('cfName').value = field ? field.name : '';
+            document.getElementById('cfType').value = field ? field.fieldType : 'Text';
+            document.getElementById('cfRequired').value = field && field.required ? 'true' : 'false';
+            document.getElementById('cfSortOrder').value = field ? field.sortOrder : 0;
+            document.getElementById('cfShowOnTicket').checked = field ? field.showOnTicket : true;
+            document.getElementById('cfActive').checked = field ? field.active : true;
+            document.getElementById('cfModalError').style.display = 'none';
+            new bootstrap.Modal('#customFieldModal').show();
+        }
+
+        function deleteField(f) {
+            if (!confirm('Delete "' + f.name + '"? Values already saved on tickets will be removed. ' +
+                         'To keep history, set the field to inactive instead.')) return;
+            fetch('/api/customfields/' + f.id, { method: 'DELETE' }).then(loadCustomFields);
+        }
+
+        document.getElementById('addCustomFieldBtn').addEventListener('click', function () { openModal(null); });
+
+        document.getElementById('cfSaveBtn').addEventListener('click', function () {
+            var body = {
+                id: editingId || 0,
+                name: document.getElementById('cfName').value.trim(),
+                fieldType: document.getElementById('cfType').value,
+                required: document.getElementById('cfRequired').value === 'true',
+                sortOrder: parseInt(document.getElementById('cfSortOrder').value) || 0,
+                showOnTicket: document.getElementById('cfShowOnTicket').checked,
+                active: document.getElementById('cfActive').checked
+            };
+            fetch(editingId ? '/api/customfields/' + editingId : '/api/customfields', {
+                method: editingId ? 'PUT' : 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            }).then(function (r) {
+                if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'Save failed.'); });
+                bootstrap.Modal.getInstance(document.getElementById('customFieldModal')).hide();
+                loadCustomFields();
+            }).catch(function (err) {
+                var el = document.getElementById('cfModalError');
+                el.textContent = err.message;
+                el.style.display = 'block';
+            });
+        });
+
+        loadCustomFields();
+    })();
 
     // Single source of truth for whether each "Allow Skip" checkbox is enabled.
     // A prompt set to Neither will never fire, so its skip flag is meaningless;

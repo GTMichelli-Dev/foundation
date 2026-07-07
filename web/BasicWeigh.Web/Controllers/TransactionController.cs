@@ -55,6 +55,7 @@ public class TransactionController : Controller
     {
         PopulateDropdowns();
         ViewBag.CurrentWeight = _scaleService.GetCurrentWeight();
+        SetCustomFieldViewBags(id);
 
         var setup = _setupCache.Get();
         ViewBag.SavePicture = setup.SavePicture;
@@ -100,6 +101,17 @@ public class TransactionController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> WeighIn(Transaction transaction, bool isEdit, bool goToWeighOut, bool manualWeight, bool completeWithRetainedTare = false)
     {
+        var customFields = GetActiveCustomFields();
+        var cfErrors = ValidateCustomFieldValues(customFields);
+        if (cfErrors.Count > 0)
+        {
+            // Backstop only — the form's HTML validation normally catches this.
+            TempData["Error"] = string.Join(" ", cfErrors);
+            return RedirectToAction("WeighIn", new { id = isEdit ? transaction.Ticket : null });
+        }
+
+        var visibility = _setupCache.Get();
+
         if (isEdit)
         {
             var existing = _db.Transactions.Find(transaction.Ticket);
@@ -108,13 +120,8 @@ public class TransactionController : Controller
             existing.InWeight = transaction.InWeight;
             existing.ManualInbound = manualWeight;
             existing.DateIn = transaction.DateIn;
-            existing.Customer = transaction.Customer;
-            existing.Carrier = transaction.Carrier;
-            existing.TruckId = transaction.TruckId;
-            existing.Commodity = transaction.Commodity;
-            existing.Location = transaction.Location;
-            existing.Destination = transaction.Destination;
-            existing.Notes = transaction.Notes;
+            ApplyVisibleFields(existing, transaction, visibility);
+            SaveCustomFieldValues(transaction.Ticket, customFields);
 
             _db.SaveChanges();
 
@@ -174,6 +181,7 @@ public class TransactionController : Controller
             _db.AppSetup.Update(setup);
 
             _db.Transactions.Add(transaction);
+            SaveCustomFieldValues(transaction.Ticket, customFields);
             _db.SaveChanges();
             _setupCache.Invalidate();
 
@@ -260,7 +268,102 @@ public class TransactionController : Controller
         ViewBag.CurrentWeight = _scaleService.GetCurrentWeight();
         PopulateDropdowns();
         SetSignatureViewBags(id);
+        SetCustomFieldViewBags(id);
         return View(transaction);
+    }
+
+    // ===== CUSTOM FIELDS (Setup → Fields) =====
+
+    private List<CustomField> GetActiveCustomFields() =>
+        _db.CustomFields.Where(f => f.Active)
+            .OrderBy(f => f.SortOrder).ThenBy(f => f.Name)
+            .ToList();
+
+    /// <summary>ViewBags consumed by Views/Shared/_CustomFields.cshtml.</summary>
+    private void SetCustomFieldViewBags(string? ticket)
+    {
+        ViewBag.CustomFields = GetActiveCustomFields();
+        ViewBag.CustomValues = string.IsNullOrEmpty(ticket)
+            ? new Dictionary<int, string>()
+            : _db.TransactionCustomValues
+                .Where(v => v.Ticket == ticket && v.Value != null)
+                .ToDictionary(v => v.CustomFieldId, v => v.Value!);
+    }
+
+    /// <summary>
+    /// Server-side backstop for the cf_{id} inputs (the forms also enforce
+    /// required/type via HTML validation). Returns error messages, empty if OK.
+    /// </summary>
+    private List<string> ValidateCustomFieldValues(List<CustomField> fields)
+    {
+        var errors = new List<string>();
+        foreach (var f in fields)
+        {
+            var raw = Request.Form[$"cf_{f.Id}"].FirstOrDefault()?.Trim();
+            if (string.IsNullOrEmpty(raw))
+            {
+                if (f.Required) errors.Add($"{f.Name} is required.");
+                continue;
+            }
+            if (f.FieldType == "Integer" && !long.TryParse(raw, out _))
+                errors.Add($"{f.Name} must be a whole number.");
+            else if (f.FieldType == "Real" && !double.TryParse(raw, out _))
+                errors.Add($"{f.Name} must be a number.");
+        }
+        return errors;
+    }
+
+    /// <summary>Upserts posted cf_{id} values for a ticket. Caller SaveChanges().</summary>
+    private void SaveCustomFieldValues(string ticket, List<CustomField> fields)
+    {
+        foreach (var f in fields)
+        {
+            var raw = Request.Form[$"cf_{f.Id}"].FirstOrDefault()?.Trim();
+            var existing = _db.TransactionCustomValues
+                .FirstOrDefault(v => v.Ticket == ticket && v.CustomFieldId == f.Id);
+            if (string.IsNullOrEmpty(raw))
+            {
+                if (existing != null) _db.TransactionCustomValues.Remove(existing);
+                continue;
+            }
+            if (raw.Length > 200) raw = raw[..200];
+            if (existing == null)
+                _db.TransactionCustomValues.Add(new TransactionCustomValue
+                {
+                    Ticket = ticket,
+                    CustomFieldId = f.Id,
+                    Value = raw
+                });
+            else
+                existing.Value = raw;
+        }
+    }
+
+    /// <summary>fieldId(string) -> value maps for a set of tickets, for grid APIs.</summary>
+    private Dictionary<string, Dictionary<string, string?>> GetCustomValueMap(List<string> tickets)
+    {
+        return _db.TransactionCustomValues
+            .Where(v => tickets.Contains(v.Ticket))
+            .AsEnumerable()
+            .GroupBy(v => v.Ticket)
+            .ToDictionary(g => g.Key,
+                g => g.ToDictionary(v => v.CustomFieldId.ToString(), v => v.Value));
+    }
+
+    /// <summary>
+    /// Copy posted standard-field values onto a tracked transaction, skipping
+    /// hidden fields — a hidden field isn't on the form, so the posted value is
+    /// null and assigning it would silently erase stored data.
+    /// </summary>
+    private static void ApplyVisibleFields(Transaction target, Transaction posted, AppSetup setup)
+    {
+        if (!setup.HideCustomer) target.Customer = posted.Customer;
+        if (!setup.HideCarrier) target.Carrier = posted.Carrier;
+        if (!setup.HideTruckId) target.TruckId = posted.TruckId;
+        if (!setup.HideCommodity) target.Commodity = posted.Commodity;
+        if (!setup.HideLocation) target.Location = posted.Location;
+        if (!setup.HideDestination) target.Destination = posted.Destination;
+        if (!setup.HideNotes) target.Notes = posted.Notes;
     }
 
     private void SetSignatureViewBags(string ticket)
@@ -280,33 +383,36 @@ public class TransactionController : Controller
         var existing = _db.Transactions.Find(id);
         if (existing == null) return NotFound();
 
+        var setup = _setupCache.Get();
+        var customFields = GetActiveCustomFields();
+
         existing.InWeight = transaction.InWeight;
         existing.ManualInbound = manualInWeight;
         existing.OutWeight = transaction.OutWeight;
         existing.ManualOutbound = manualOutWeight;
         existing.DateOut = transaction.DateOut ?? DateTime.UtcNow;
         existing.DateIn = transaction.DateIn;
-        existing.Customer = transaction.Customer;
-        existing.Carrier = transaction.Carrier;
-        existing.TruckId = transaction.TruckId;
-        existing.Commodity = transaction.Commodity;
-        existing.Location = transaction.Location;
-        existing.Destination = transaction.Destination;
-        existing.Notes = transaction.Notes;
+        ApplyVisibleFields(existing, transaction, setup);
 
-        var setup = _setupCache.Get();
-
-        // Server-side backstop for the required-signature rule. The Weigh Out page
-        // blocks Save client-side; this catches direct posts and stale pages.
+        // Server-side backstops. The Weigh Out page enforces both client-side;
+        // this catches direct posts and stale pages.
+        foreach (var err in ValidateCustomFieldValues(customFields))
+            ModelState.AddModelError("", err);
         if (setup.SignatureMode != "None" && setup.SignatureRequired
             && !System.IO.File.Exists(Path.Combine(TicketsImageDir, $"{id}_Signature.png")))
         {
             ModelState.AddModelError("", "A driver signature is required before this ticket can be saved.");
+        }
+        if (!ModelState.IsValid)
+        {
             ViewBag.CurrentWeight = _scaleService.GetCurrentWeight();
             PopulateDropdowns();
             SetSignatureViewBags(id);
+            SetCustomFieldViewBags(id);
             return View(existing);
         }
+
+        SaveCustomFieldValues(id, customFields);
 
         var weighOutMsg = $"WeighOut (admin) ticket {existing.Ticket}: UseRetainedTare={setup.UseRetainedTare} TruckId='{existing.TruckId}' Carrier='{existing.Carrier}'";
         _log.LogInformation(weighOutMsg);
@@ -381,6 +487,7 @@ public class TransactionController : Controller
         ViewBag.NextTicket = setup.TicketNumber.ToString();
         ViewBag.CurrentWeight = _scaleService.GetCurrentWeight();
         PopulateDropdowns();
+        SetCustomFieldViewBags(null);
         return View();
     }
 
@@ -389,6 +496,14 @@ public class TransactionController : Controller
     [ValidateAntiForgeryToken]
     public IActionResult BasicTicket(Transaction transaction)
     {
+        var customFields = GetActiveCustomFields();
+        var cfErrors = ValidateCustomFieldValues(customFields);
+        if (cfErrors.Count > 0)
+        {
+            TempData["Error"] = string.Join(" ", cfErrors);
+            return RedirectToAction("BasicTicket");
+        }
+
         var setup = _db.AppSetup.First();
         while (_db.Transactions.Any(t => t.Ticket == setup.TicketNumber.ToString()))
         {
@@ -404,6 +519,7 @@ public class TransactionController : Controller
         _db.AppSetup.Update(setup);
 
         _db.Transactions.Add(transaction);
+        SaveCustomFieldValues(transaction.Ticket, customFields);
         _db.SaveChanges();
         _setupCache.Invalidate();
 
@@ -449,6 +565,7 @@ public class TransactionController : Controller
         ViewBag.HasOutImage = System.IO.File.Exists(Path.Combine(ticketsDir, $"{id}_out.jpg"));
 
         PopulateDropdowns();
+        SetCustomFieldViewBags(id);
         return View(transaction);
     }
 
@@ -462,20 +579,23 @@ public class TransactionController : Controller
         var existing = _db.Transactions.Find(id);
         if (existing == null) return NotFound();
 
+        var customFields = GetActiveCustomFields();
+        var cfErrors = ValidateCustomFieldValues(customFields);
+        if (cfErrors.Count > 0)
+        {
+            TempData["Error"] = string.Join(" ", cfErrors);
+            return RedirectToAction("Edit", new { id });
+        }
+
         existing.InWeight = transaction.InWeight;
         existing.OutWeight = transaction.OutWeight;
         existing.DateIn = transaction.DateIn;
         existing.DateOut = transaction.DateOut;
-        existing.Customer = transaction.Customer;
-        existing.Carrier = transaction.Carrier;
-        existing.TruckId = transaction.TruckId;
-        existing.Commodity = transaction.Commodity;
-        existing.Location = transaction.Location;
-        existing.Destination = transaction.Destination;
-        existing.Notes = transaction.Notes;
+        ApplyVisibleFields(existing, transaction, _setupCache.Get());
         existing.Void = transaction.Void;
         existing.SentToQuickBooks = false; // Reset QB flag on edit
 
+        SaveCustomFieldValues(id, customFields);
         _db.SaveChanges();
 
         return RedirectToAction("CompletedTrucks");
@@ -547,10 +667,13 @@ public class TransactionController : Controller
     [HttpGet("api/transactions/inbound")]
     public IActionResult GetInbound()
     {
-        var transactions = _db.Transactions
+        var rows = _db.Transactions
             .Where(t => t.DateOut == null && !t.Void)
             .OrderByDescending(t => t.DateIn)
-            .ToList()
+            .ToList();
+        var customValues = GetCustomValueMap(rows.Select(t => t.Ticket).ToList());
+
+        var transactions = rows
             .Select(t => new
             {
                 t.Ticket,
@@ -564,7 +687,8 @@ public class TransactionController : Controller
                 t.Destination,
                 t.Notes,
                 t.ManualInbound,
-                HasInImage = HasImage(t.Ticket, "in")
+                HasInImage = HasImage(t.Ticket, "in"),
+                CustomFields = customValues.GetValueOrDefault(t.Ticket)
             })
             .ToList();
 
@@ -586,10 +710,13 @@ public class TransactionController : Controller
         var start = AppTimeZone.ToUtc(localStart);
         var endInclusive = AppTimeZone.ToUtc(localEnd);
 
-        var transactions = _db.Transactions
+        var rows = _db.Transactions
             .Where(t => t.DateOut != null && t.DateIn >= start && t.DateIn < endInclusive)
             .OrderByDescending(t => t.DateIn)
-            .ToList()
+            .ToList();
+        var customValues = GetCustomValueMap(rows.Select(t => t.Ticket).ToList());
+
+        var transactions = rows
             .Select(t => new
             {
                 t.Ticket,
@@ -610,7 +737,8 @@ public class TransactionController : Controller
                 t.Void,
                 t.SentToQuickBooks,
                 HasInImage = HasImage(t.Ticket, "in"),
-                HasOutImage = HasImage(t.Ticket, "out")
+                HasOutImage = HasImage(t.Ticket, "out"),
+                CustomFields = customValues.GetValueOrDefault(t.Ticket)
             })
             .ToList();
 
@@ -628,13 +756,9 @@ public class TransactionController : Controller
         existing.OutWeight = transaction.OutWeight;
         existing.DateIn = transaction.DateIn;
         existing.DateOut = transaction.DateOut;
-        existing.Customer = transaction.Customer;
-        existing.Carrier = transaction.Carrier;
-        existing.TruckId = transaction.TruckId;
-        existing.Commodity = transaction.Commodity;
-        existing.Location = transaction.Location;
-        existing.Destination = transaction.Destination;
-        existing.Notes = transaction.Notes;
+        // Skip hidden fields — the grid doesn't send them, and writing the
+        // resulting nulls would erase stored values.
+        ApplyVisibleFields(existing, transaction, _setupCache.Get());
         existing.Void = transaction.Void;
         existing.SentToQuickBooks = false; // Reset QB flag on edit
 

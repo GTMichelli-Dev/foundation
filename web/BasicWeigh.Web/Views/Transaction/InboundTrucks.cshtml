@@ -98,6 +98,7 @@
 
 @section Scripts {
 <script src="~/js/ticket-image-download.js"></script>
+<partial name="_FieldConfigJs" />
 <script>
     var availablePrinters = {}; // serviceId -> [{ printerId, status, enabled }]
 
@@ -215,6 +216,7 @@
                 { dataField: 'dateIn', caption: 'Date In', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a' },
                 { dataField: 'notes', caption: 'Notes' }
             ];
+            cols = bwApplyFieldConfig(cols);
             if (savePicture) {
                 cols.push({
                     caption: 'Photo', width: 55, allowFiltering: false, allowSorting: false,

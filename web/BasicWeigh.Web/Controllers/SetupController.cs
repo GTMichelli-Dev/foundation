@@ -86,6 +86,26 @@ public class SetupController : Controller
         existing.SignatureRequired = setup.SignatureRequired;
         existing.PrintSignatureOnTicket = setup.PrintSignatureOnTicket;
 
+        existing.HideCustomer = setup.HideCustomer;
+        existing.HideCarrier = setup.HideCarrier;
+        existing.HideTruckId = setup.HideTruckId;
+        existing.HideCommodity = setup.HideCommodity;
+        existing.HideLocation = setup.HideLocation;
+        existing.HideDestination = setup.HideDestination;
+        existing.HideNotes = setup.HideNotes;
+
+        // Field-visibility rules:
+        // - Trucks are selected per carrier, so a visible Truck ID without a
+        //   Carrier is unusable — hiding Carrier hides Truck ID too.
+        // - Retained Tare identifies trucks by Carrier + Truck ID, so those two
+        //   stay visible while it's enabled (mirrors the kiosk-prompt forcing).
+        if (existing.HideCarrier) existing.HideTruckId = true;
+        if (existing.UseRetainedTare)
+        {
+            existing.HideCarrier = false;
+            existing.HideTruckId = false;
+        }
+
         // Retained Tare needs both carrier and truck to identify the truck.
         // Force the prompts on AND disable Allow Skip so the kiosk flow always
         // captures the identifying fields with real values. Also force every
@@ -102,6 +122,33 @@ public class SetupController : Controller
             existing.PromptKioskCommodityOnOutbound = false;
             existing.PromptKioskCustomerOnOutbound = false;
             existing.PromptKioskLocationOnOutbound = false;
+            existing.PromptKioskDestinationOnOutbound = false;
+        }
+
+        // A hidden field must never be prompted for at the kiosk — force its
+        // prompt flags off so the two settings can't contradict each other.
+        // (Runs after the Retained Tare block; RT already forces Carrier and
+        // Truck ID visible above, so there's no conflict.)
+        if (existing.HideCustomer)
+        {
+            existing.PromptKioskCustomerOnInbound = false;
+            existing.PromptKioskCustomerOnOutbound = false;
+        }
+        if (existing.HideCarrier) existing.PromptKioskCarrier = false;
+        if (existing.HideTruckId) existing.PromptKioskTruckId = false;
+        if (existing.HideCommodity)
+        {
+            existing.PromptKioskCommodityOnInbound = false;
+            existing.PromptKioskCommodityOnOutbound = false;
+        }
+        if (existing.HideLocation)
+        {
+            existing.PromptKioskLocationOnInbound = false;
+            existing.PromptKioskLocationOnOutbound = false;
+        }
+        if (existing.HideDestination)
+        {
+            existing.PromptKioskDestinationOnInbound = false;
             existing.PromptKioskDestinationOnOutbound = false;
         }
         // Camera assignments are managed on the Camera page, not the Setup form,

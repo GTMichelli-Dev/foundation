@@ -17,6 +17,8 @@ public class ScaleDbContext : DbContext
     public DbSet<AppSetup> AppSetup => Set<AppSetup>();
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<CameraConfig> CameraConfigs => Set<CameraConfig>();
+    public DbSet<CustomField> CustomFields => Set<CustomField>();
+    public DbSet<TransactionCustomValue> TransactionCustomValues => Set<TransactionCustomValue>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -91,6 +93,27 @@ public class ScaleDbContext : DbContext
         {
             e.ToTable("CameraConfigs");
             e.HasIndex(c => c.CameraId).IsUnique();
+        });
+
+        modelBuilder.Entity<CustomField>(e =>
+        {
+            e.ToTable("CustomFields");
+            e.HasIndex(f => f.Name).IsUnique();
+        });
+
+        modelBuilder.Entity<TransactionCustomValue>(e =>
+        {
+            e.ToTable("TransactionCustomValues");
+            e.HasIndex(v => v.Ticket);
+            e.HasIndex(v => new { v.Ticket, v.CustomFieldId }).IsUnique();
+            e.HasOne<Transaction>()
+                .WithMany()
+                .HasForeignKey(v => v.Ticket)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<CustomField>()
+                .WithMany()
+                .HasForeignKey(v => v.CustomFieldId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<AppSetup>().HasData(new AppSetup

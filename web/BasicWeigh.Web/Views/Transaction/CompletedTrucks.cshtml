@@ -103,6 +103,7 @@
 @section Scripts {
 <script src="~/js/signalr/signalr.min.js"></script>
 <script src="~/js/ticket-image-download.js"></script>
+<partial name="_FieldConfigJs" />
 <script>
     function printTicketPdf(ticketId) {
         $.getJSON('/api/ticket/' + ticketId, function (t) {
@@ -379,6 +380,7 @@
                         }
                     }
                 ];
+                cols = bwApplyFieldConfig(cols);
                 if (useQuickBooks) {
                     cols.push({
                         dataField: 'sentToQuickBooks', caption: 'Sent to QB', dataType: 'boolean', width: 90,

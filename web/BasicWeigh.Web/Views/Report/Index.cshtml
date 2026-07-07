@@ -129,6 +129,7 @@ function showTicketImage(ticket, direction, data) {
 @section Scripts {
 <script src="~/js/ticket-image-download.js"></script>
 <script src="~/js/signalr/signalr.min.js"></script>
+<partial name="_FieldConfigJs" />
 <script>
     $(function () {
         var useQuickBooks = @(useQuickBooks ? "true" : "false");
@@ -169,7 +170,8 @@ function showTicketImage(ticket, direction, data) {
             }));
         }
 
-        // Groupable column options
+        // Groupable column options — hidden standard fields drop out, custom
+        // fields (referenced by column name cf_{id}) are groupable too.
         var groupOptions = [
             { value: 'customer', text: 'Customer' },
             { value: 'carrier', text: 'Carrier' },
@@ -177,9 +179,15 @@ function showTicketImage(ticket, direction, data) {
             { value: 'commodity', text: 'Commodity' },
             { value: 'location', text: 'Location' },
             { value: 'destination', text: 'Destination' }
-        ];
+        ].filter(function (o) { return window.bwFieldConfig.hidden.indexOf(o.value) === -1; });
+        window.bwFieldConfig.customFields.forEach(function (f) {
+            groupOptions.push({ value: 'cf_' + f.id, text: f.name });
+        });
 
-        var groupByFields = getCookie(cookieGroupBy) || [];
+        // Drop remembered group-by fields that no longer exist (hidden or deleted)
+        var groupByFields = (getCookie(cookieGroupBy) || []).filter(function (g) {
+            return groupOptions.some(function (o) { return o.value === g; });
+        });
 
         function applyGrouping() {
             groupOptions.forEach(function (opt) {
@@ -296,9 +304,11 @@ function showTicketImage(ticket, direction, data) {
                     doc.setFont(undefined, 'normal');
                     doc.text('Weigh Report: ' + sDate + ' to ' + eDate, pageWidth / 2, 13, { align: 'center' });
 
-                    // Get visible columns and data
+                    // Get visible columns and data. Custom-field columns have no
+                    // dataField (they use calculateCellValue), so match those by
+                    // their cf_ name.
                     var visibleCols = grid.getVisibleColumns().filter(function (c) {
-                        return c.dataField && c.groupIndex === undefined;
+                        return bwIsExportableCol(c) && c.groupIndex === undefined;
                     });
                     var headers = visibleCols.map(function (c) { return c.caption || c.dataField; });
 
@@ -312,7 +322,7 @@ function showTicketImage(ticket, direction, data) {
                     // Helper: build a formatted data row with right-aligned numbers
                     function makeDataRow(row) {
                         return visibleCols.map(function (col) {
-                            var val = row[col.dataField];
+                            var val = bwColValue(col, row);
                             if (val == null) return '';
                             if (col.dataType === 'datetime' || col.dataType === 'date') return formatDate(val);
                             if (col.dataField === 'netTons') return { content: formatTons(val), styles: { halign: 'right' } };
@@ -449,7 +459,7 @@ function showTicketImage(ticket, direction, data) {
                         options: {
                             icon: 'doc', text: 'CSV',
                             onClick: function () {
-                                var cols = grid.getVisibleColumns().filter(function (c) { return c.dataField; });
+                                var cols = grid.getVisibleColumns().filter(bwIsExportableCol);
                                 var csvHeaders = cols.map(function (c) { return '"' + (c.caption || c.dataField) + '"'; }).join(',');
                                 var rows = [];
                                 var allData = grid.getDataSource().items();
@@ -459,7 +469,7 @@ function showTicketImage(ticket, direction, data) {
                                             extractRows(item.items || item.collapsedItems);
                                         } else {
                                             var row = cols.map(function (col) {
-                                                var val = item[col.dataField];
+                                                var val = bwColValue(col, item);
                                                 if (val == null) return '""';
                                                 if (col.dataType === 'datetime' || col.dataType === 'date') return '"' + formatDate(val) + '"';
                                                 if (col.dataType === 'number') return val;
@@ -482,7 +492,7 @@ function showTicketImage(ticket, direction, data) {
                         options: {
                             icon: 'variable', text: 'JSON',
                             onClick: function () {
-                                var cols = grid.getVisibleColumns().filter(function (c) { return c.dataField; });
+                                var cols = grid.getVisibleColumns().filter(bwIsExportableCol);
                                 var jsonData = [];
                                 var allData = grid.getDataSource().items();
                                 function extractRows(items) {
@@ -492,7 +502,9 @@ function showTicketImage(ticket, direction, data) {
                                         } else {
                                             var obj = {};
                                             cols.forEach(function (col) {
-                                                obj[col.dataField] = item[col.dataField] != null ? item[col.dataField] : null;
+                                                var key = col.dataField || col.caption || col.name;
+                                                var val = bwColValue(col, item);
+                                                obj[key] = val != null ? val : null;
                                             });
                                             jsonData.push(obj);
                                         }
@@ -539,6 +551,7 @@ function showTicketImage(ticket, direction, data) {
                     { dataField: 'netTons', caption: 'Net (tons)', dataType: 'number', format: '#,##0.00', width: 150 },
                     { dataField: 'notes', caption: 'Notes', cssClass: 'notes-cell' }
                 ];
+                cols = bwApplyFieldConfig(cols);
                 if (savePic) {
                     cols.push({
                         caption: 'In Photo', width: 55, minWidth: 55, allowFiltering: false, allowSorting: false, allowExporting: false,
@@ -626,7 +639,7 @@ function showTicketImage(ticket, direction, data) {
                     { dataField: 'netWeight', caption: 'Net (lbs)', dataType: 'number', format: '#,##0', width: 90 },
                     { dataField: 'dateOut', caption: 'Date Out', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a', width: 155 },
                     { dataField: 'notes', caption: 'Notes' }
-                ],
+                ].filter(function (c) { return !c.dataField || window.bwFieldConfig.hidden.indexOf(c.dataField) === -1; }),
                 showBorders: true,
                 columnAutoWidth: true,
                 paging: { pageSize: 20 }

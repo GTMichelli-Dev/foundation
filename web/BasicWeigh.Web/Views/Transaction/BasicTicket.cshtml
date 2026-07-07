@@ -1,8 +1,17 @@
+@inject BasicWeigh.Web.Services.AppSetupCache SetupCache
 @{
     ViewData["Title"] = "Basic Ticket";
+    var cachedSetup = SetupCache.Get();
 }
 
 <h3>Basic Ticket</h3>
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
 
 <form asp-action="BasicTicket" method="post">
     @Html.AntiForgeryToken()
@@ -26,48 +35,62 @@
                         <input type="datetime-local" name="DateIn" class="form-control" value="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" />
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Customer</label>
-                        <select name="Customer" class="form-select">
-                            <option value="">-- Select --</option>
-                            @foreach (var c in (List<BasicWeigh.Web.Models.Customer>)ViewBag.Customers)
-                            {
-                                <option value="@c.CustomerName">@c.CustomerName</option>
-                            }
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Carrier</label>
-                        <select name="Carrier" class="form-select">
-                            <option value="">-- Select --</option>
-                            @foreach (var name in (List<string>)ViewBag.CarrierOptions)
-                            {
-                                <option value="@name">@name</option>
-                            }
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Truck ID</label>
-                        <div class="input-group">
-                            <select name="TruckId" id="truckSelect" class="form-select" disabled>
-                                <option value="">-- Select Carrier First --</option>
+                    @if (!cachedSetup.HideCustomer)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Customer</label>
+                            <select name="Customer" class="form-select">
+                                <option value="">-- Select --</option>
+                                @foreach (var c in (List<BasicWeigh.Web.Models.Customer>)ViewBag.Customers)
+                                {
+                                    <option value="@c.CustomerName">@c.CustomerName</option>
+                                }
                             </select>
-                            <button type="button" class="btn btn-outline-primary" id="addTruckBtn" disabled title="Add New Truck">+</button>
                         </div>
-                    </div>
+                    }
 
-                    <div class="mb-3">
-                        <label class="form-label">Commodity</label>
-                        <select name="Commodity" class="form-select">
-                            <option value="">-- Select --</option>
-                            @foreach (var c in (List<BasicWeigh.Web.Models.Commodity>)ViewBag.Commodities)
-                            {
-                                <option value="@c.CommodityName">@c.CommodityName</option>
-                            }
-                        </select>
-                    </div>
+                    @if (!cachedSetup.HideCarrier)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Carrier</label>
+                            <select name="Carrier" class="form-select">
+                                <option value="">-- Select --</option>
+                                @foreach (var name in (List<string>)ViewBag.CarrierOptions)
+                                {
+                                    <option value="@name">@name</option>
+                                }
+                            </select>
+                        </div>
+                    }
+
+                    @if (!cachedSetup.HideTruckId)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Truck ID</label>
+                            <div class="input-group">
+                                <select name="TruckId" id="truckSelect" class="form-select" disabled>
+                                    <option value="">-- Select Carrier First --</option>
+                                </select>
+                                <button type="button" class="btn btn-outline-primary" id="addTruckBtn" disabled title="Add New Truck">+</button>
+                            </div>
+                        </div>
+                    }
+
+                    @if (!cachedSetup.HideCommodity)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Commodity</label>
+                            <select name="Commodity" class="form-select">
+                                <option value="">-- Select --</option>
+                                @foreach (var c in (List<BasicWeigh.Web.Models.Commodity>)ViewBag.Commodities)
+                                {
+                                    <option value="@c.CommodityName">@c.CommodityName</option>
+                                }
+                            </select>
+                        </div>
+                    }
+
+                    <partial name="_CustomFields" />
 
                     <div class="mt-4">
                         <button type="submit" class="btn btn-warning btn-lg me-2">Save Basic Ticket</button>
