@@ -60,6 +60,8 @@ Pick the path that matches where the app will run. Each guide is self-contained 
 
 After the app is running, see [Server Management](#server-management) for updates and routine ops, and [Configuration](#configuration) for app settings.
 
+> **Field commissioning tip:** to configure a headless Pi's network from a phone (tech access point + browser-based Wi-Fi/ethernet setup and connectivity test), install [pi-network-setup](https://github.com/GTMichelli-Dev/pi-network-setup) on the Pi alongside the app.
+
 <!-- Legacy heading anchors. The old inline deploy sections used these
      ids; readers with saved deep-links land on the table above and follow
      the link to the new file. -->
@@ -108,6 +110,37 @@ bash deploy/deploy.sh admin@149.28.xxx.xxx --domain scale.yourcompany.com --emai
 # Self-signed cert (LAN only, no domain needed)
 bash deploy/deploy.sh admin@192.168.1.100
 ```
+
+### Raspberry Pi Web App (arm64, Kestrel on port 80)
+
+For internal-network Pi installs of the full web app — Kestrel serves plain HTTP
+directly on port 80, no nginx and no SSL:
+
+| Script | Description |
+|--------|-------------|
+| [`deploy/publish-pi-web.sh`](deploy/publish-pi-web.sh) | Builds the web app for Raspberry Pi (arm64) and creates a tarball |
+| [`deploy/install-pi-web.sh`](deploy/install-pi-web.sh) | Installs on the Pi (systemd service, no nginx) |
+| [`deploy/deploy-pi-web.sh`](deploy/deploy-pi-web.sh) | One-step deploy: builds, uploads, and installs remotely |
+
+**deploy-pi-web.sh options:**
+
+```
+./deploy/deploy-pi-web.sh <user@host> [options]
+
+Options:
+  --port <port>        App listen port (default 80)
+  --key <ssh-key>      SSH key file
+  --rebuild-db         Delete and recreate the database (WARNING: deletes all data)
+```
+
+**Example:**
+
+```bash
+bash deploy/deploy-pi-web.sh admin@192.168.1.60
+```
+
+To commission the Pi's network connection in the field without a monitor,
+see [pi-network-setup](https://github.com/GTMichelli-Dev/pi-network-setup).
 
 ### Raspberry Pi Print Agent (arm64)
 
