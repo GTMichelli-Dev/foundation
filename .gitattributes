@@ -1,0 +1,6 @@
+# Files that run on Linux (Pi / Debian servers) must keep LF endings even
+# when checked out on Windows — they are scp'd/tarred verbatim to the target.
+*.sh text eol=lf
+*.service text eol=lf
+kiosk-start text eol=lf
+kiosk-stop text eol=lf
