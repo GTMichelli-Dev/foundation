@@ -41,6 +41,31 @@ if ! id "$SERVICE_USER" &>/dev/null; then
   echo "  Created user: $SERVICE_USER"
 fi
 
+# Open firewall ports (Pi OS ships with no firewall, but a site-hardened
+# image may have ufw or iptables rules that would block the app)
+echo "==> Configuring firewall..."
+if command -v ufw &>/dev/null && ufw status | grep -q "active"; then
+  ufw allow 22/tcp > /dev/null
+  ufw allow "$APP_PORT"/tcp > /dev/null
+  echo "  Firewall: ufw — ports 22 and $APP_PORT opened."
+fi
+
+if command -v iptables &>/dev/null; then
+  # Only add if not already present
+  iptables -C INPUT -p tcp --dport "$APP_PORT" -j ACCEPT 2>/dev/null || \
+    iptables -I INPUT -p tcp --dport "$APP_PORT" -j ACCEPT
+  echo "  Firewall: iptables — port $APP_PORT opened."
+
+  # Persist iptables rules across reboots
+  if command -v netfilter-persistent &>/dev/null; then
+    netfilter-persistent save 2>/dev/null || true
+  elif command -v iptables-save &>/dev/null; then
+    mkdir -p /etc/iptables
+    iptables-save > /etc/iptables/rules.v4 2>/dev/null || true
+  fi
+  echo "  Firewall: rules saved for reboot persistence."
+fi
+
 #--------------------------------------------------
 # 2. Stop existing service
 #--------------------------------------------------
