@@ -4,11 +4,11 @@
 
 set -u
 
-CONFIG_DIR="$HOME/.config/basicweigh-kiosk"
+CONFIG_DIR="$HOME/.config/foundation-kiosk"
 STOP_FLAG="$CONFIG_DIR/STOP"
 PID_FILE="$CONFIG_DIR/kiosk.pid"
-AUTOSTART_FILE="$HOME/.config/autostart/basicweigh-kiosk.desktop"
-PROFILE_DIR="$HOME/.cache/basicweigh-kiosk-profile"
+AUTOSTART_FILE="$HOME/.config/autostart/foundation-kiosk.desktop"
+PROFILE_DIR="$HOME/.cache/foundation-kiosk-profile"
 
 echo "Stopping any running kiosk loop…"
 touch "$STOP_FLAG"

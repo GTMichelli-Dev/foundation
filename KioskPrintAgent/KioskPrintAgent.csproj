@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <Product>Kiosk Print Agent</Product>
-    <Description>Remote print agent for BasicWeigh kiosk. Receives SignalR print requests and prints tickets via CUPS on Linux.</Description>
+    <Description>Remote print agent for Foundation kiosk. Receives SignalR print requests and prints tickets via CUPS on Linux.</Description>
   </PropertyGroup>
 
   <ItemGroup>

@@ -65,9 +65,9 @@ systemctl status avahi-daemon
 On your **development machine** (with the .NET 8 SDK and Git installed):
 
 ```bash
-git clone https://github.com/GTMichelli-Dev/Basic_Weigh.git
-cd Basic_Weigh
-dotnet publish web/BasicWeigh.Web/BasicWeigh.Web.csproj 
+git clone https://github.com/GTMichelli-Dev/foundation.git
+cd foundation
+dotnet publish web/Foundation.Web/Foundation.Web.csproj 
   -c Release \
   -r linux-arm64 \
   --self-contained true \
@@ -77,8 +77,8 @@ dotnet publish web/BasicWeigh.Web/BasicWeigh.Web.csproj
 Copy the build onto the Pi:
 
 ```bash
-ssh admin@truckscale.local 'sudo mkdir -p /opt/basicweigh && sudo chown admin:admin /opt/basicweigh'
-scp -r publish-pi-web/* admin@truckscale.local:/opt/basicweigh/
+ssh admin@truckscale.local 'sudo mkdir -p /opt/foundation && sudo chown admin:admin /opt/foundation'
+scp -r publish-pi-web/* admin@truckscale.local:/opt/foundation/
 ```
 
 ## Step 4: Allow Kestrel to Bind to Port 80
@@ -87,7 +87,7 @@ So that operators can use `http://truckscale.local` with no port number, grant t
 
 ```bash
 ssh admin@truckscale.local
-sudo setcap 'cap_net_bind_service=+ep' /opt/basicweigh/BasicWeigh.Web
+sudo setcap 'cap_net_bind_service=+ep' /opt/foundation/Foundation.Web
 ```
 
 (You'll re-run this command on the Pi every time you replace the binary.)
@@ -97,17 +97,17 @@ sudo setcap 'cap_net_bind_service=+ep' /opt/basicweigh/BasicWeigh.Web
 Still on the Pi:
 
 ```bash
-sudo tee /etc/systemd/system/basicweigh.service > /dev/null <<'EOF'
+sudo tee /etc/systemd/system/foundation.service > /dev/null <<'EOF'
 [Unit]
-Description=Basic Weigh (HTTP, LAN)
+Description=Foundation (HTTP, LAN)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=admin
-WorkingDirectory=/opt/basicweigh
-ExecStart=/opt/basicweigh/BasicWeigh.Web
+WorkingDirectory=/opt/foundation
+ExecStart=/opt/foundation/Foundation.Web
 Restart=always
 RestartSec=5
 Environment=ASPNETCORE_ENVIRONMENT=Production
@@ -118,8 +118,8 @@ WantedBy=multi-user.target
 EOF
 
 sudo systemctl daemon-reload
-sudo systemctl enable --now basicweigh
-sudo systemctl status basicweigh
+sudo systemctl enable --now foundation
+sudo systemctl status foundation
 ```
 
 ## Step 6: Verify
@@ -130,23 +130,23 @@ From any computer on the same network, open:
 http://truckscale.local
 ```
 
-You should see the Basic Weigh dashboard. The Pi will start the app automatically on reboot.
+You should see the Foundation dashboard. The Pi will start the app automatically on reboot.
 
 ## Updating the Pi
 
 From your workstation:
 
 ```bash
-cd Basic_Weigh
+cd foundation
 git pull
-dotnet publish web/BasicWeigh.Web/BasicWeigh.Web.csproj -c Release -r linux-arm64 --self-contained true -o publish-pi-web
+dotnet publish web/Foundation.Web/Foundation.Web.csproj -c Release -r linux-arm64 --self-contained true -o publish-pi-web
 
-ssh admin@truckscale.local 'sudo systemctl stop basicweigh'
-scp -r publish-pi-web/* admin@truckscale.local:/opt/basicweigh/
-ssh admin@truckscale.local 'sudo setcap "cap_net_bind_service=+ep" /opt/basicweigh/BasicWeigh.Web && sudo systemctl start basicweigh'
+ssh admin@truckscale.local 'sudo systemctl stop foundation'
+scp -r publish-pi-web/* admin@truckscale.local:/opt/foundation/
+ssh admin@truckscale.local 'sudo setcap "cap_net_bind_service=+ep" /opt/foundation/Foundation.Web && sudo systemctl start foundation'
 ```
 
-`BasicWeigh.db` and any files inside `/opt/basicweigh/Reports/` are preserved because `scp -r` only overwrites the files it copies — it does not delete the database or custom ticket templates already on the Pi.
+`Foundation.db` and any files inside `/opt/foundation/Reports/` are preserved because `scp -r` only overwrites the files it copies — it does not delete the database or custom ticket templates already on the Pi.
 
 ## Updating a Remote Pi via Raspberry Pi Connect
 
@@ -175,13 +175,13 @@ Install the Raspberry Pi Connect client from [raspberrypi.com/software/connect](
 Use the Pi's Connect device name in place of `truckscale.local` — mDNS `.local` names only work on the same LAN, but the Connect device name is reachable through the tunnel:
 
 ```bash
-cd Basic_Weigh
+cd foundation
 git pull
-dotnet publish web/BasicWeigh.Web/BasicWeigh.Web.csproj -c Release -r linux-arm64 --self-contained true -o publish-pi-web
+dotnet publish web/Foundation.Web/Foundation.Web.csproj -c Release -r linux-arm64 --self-contained true -o publish-pi-web
 
-ssh admin@truckscale-connect 'sudo systemctl stop basicweigh'
-scp -r publish-pi-web/* admin@truckscale-connect:/opt/basicweigh/
-ssh admin@truckscale-connect 'sudo setcap "cap_net_bind_service=+ep" /opt/basicweigh/BasicWeigh.Web && sudo systemctl start basicweigh'
+ssh admin@truckscale-connect 'sudo systemctl stop foundation'
+scp -r publish-pi-web/* admin@truckscale-connect:/opt/foundation/
+ssh admin@truckscale-connect 'sudo setcap "cap_net_bind_service=+ep" /opt/foundation/Foundation.Web && sudo systemctl start foundation'
 ```
 
 > The published output is roughly 100 MB self-contained, so the `scp` step will be noticeably slower over the relay than it would be on LAN. SSH command latency is fine.

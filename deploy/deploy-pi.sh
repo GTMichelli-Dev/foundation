@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage: ./deploy-pi.sh <user@host> [options]
 #
 # Options:
-#   --server <url>       BasicWeigh server URL (e.g. https://scale.example.com)
+#   --server <url>       Foundation server URL (e.g. https://scale.example.com)
 #   --printer <name>     CUPS printer name (run 'lpstat -p' on Pi to list)
 #   --printer-id <1|2>   1 = Inbound, 2 = Outbound (default 1)
 #   --key <ssh-key>      SSH key file
@@ -39,7 +39,7 @@ if [[ -z "$REMOTE" ]]; then
   echo "Usage: ./deploy-pi.sh <user@host> [options]"
   echo ""
   echo "Options:"
-  echo "  --server <url>       BasicWeigh server URL"
+  echo "  --server <url>       Foundation server URL"
   echo "  --printer <name>     CUPS printer name"
   echo "  --printer-id <1|2>   1=Inbound, 2=Outbound (default 1)"
   echo "  --key <ssh-key>      SSH key file"

@@ -1,0 +1,20 @@
+[Unit]
+Description=Foundation Scale Application
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/foundation
+ExecStart=/opt/foundation/Foundation.Web --urls "http://127.0.0.1:5110"
+Restart=always
+RestartSec=10
+KillSignal=SIGINT
+SyslogIdentifier=foundation
+User=admin
+Group=admin
+Environment=ASPNETCORE_ENVIRONMENT=Development
+Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

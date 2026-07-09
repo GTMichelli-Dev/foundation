@@ -423,11 +423,11 @@ deploy/out-pi/
 deploy/*.tar.gz
 
 # Ticket camera images
-web/BasicWeigh.Web/wwwroot/images/tickets/*.jpg
+web/Foundation.Web/wwwroot/images/tickets/*.jpg
 
 # SQLite WAL temp files
 *.db-shm
 *.db-wal
 
 # Runtime ticket images (camera photos, driver signatures)
-web/BasicWeigh.Web/wwwroot/images/tickets/
+web/Foundation.Web/wwwroot/images/tickets/

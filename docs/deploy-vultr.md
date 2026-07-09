@@ -2,7 +2,7 @@
 
 [← Back to README](../README.md)
 
-These instructions take you from a brand-new Debian server to a fully running Basic Weigh site with HTTPS.
+These instructions take you from a brand-new Debian server to a fully running Foundation site with HTTPS.
 
 ## Contents
 
@@ -85,8 +85,8 @@ Run the installer — the defaults are fine for most people, just click Next thr
 When done, close and reopen your Command Prompt (important — the old window won't see Git)
 
 ```bash
-git clone https://github.com/GTMichelli-Dev/Basic_Weigh.git
-cd Basic_Weigh
+git clone https://github.com/GTMichelli-Dev/foundation.git
+cd foundation
 ```
 
 **Windows (Command Prompt):**
@@ -99,7 +99,7 @@ deploy\publish.bat
 bash deploy/publish.sh
 ```
 
-This builds a self-contained Linux binary and creates `deploy/basicweigh-deploy.tar.gz`.
+This builds a self-contained Linux binary and creates `deploy/foundation-deploy.tar.gz`.
 
 ## Step 4: Deploy to the Server
 
@@ -119,7 +119,7 @@ Enter the `admin` user's password when prompted (twice — once for upload, once
 
 > **What this does automatically:**
 > - Installs Nginx, Certbot, and dependencies
-> - Copies the application to `/opt/basicweigh`
+> - Copies the application to `/opt/foundation`
 > - Obtains a free Let's Encrypt SSL certificate for your domain
 > - Configures Nginx as a reverse proxy with HTTPS and WebSocket support
 > - Creates and starts a systemd service
@@ -133,7 +133,7 @@ Open your browser and go to:
 https://yourDNSName.scaledata.net
 ```
 
-You should see the Basic Weigh dashboard.
+You should see the Foundation dashboard.
 
 ## That's It!
 

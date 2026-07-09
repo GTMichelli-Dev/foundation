@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# install.sh — one-time setup for a Raspberry Pi kiosk pointed at Basic Weigh.
+# install.sh — one-time setup for a Raspberry Pi kiosk pointed at Foundation.
 #
 # Run on the Pi (the same Pi that will display the kiosk):
 #   chmod +x install.sh && ./install.sh
 #
-# Prompts for the Basic Weigh server URL (e.g. http://truckscale.local),
+# Prompts for the Foundation server URL (e.g. http://truckscale.local),
 # verifies that <url>/Kiosk is reachable, then installs an autostart entry
 # that launches Chromium in kiosk mode on every desktop login. A watchdog
 # restarts Chromium if the page is unreachable for 30 seconds.
@@ -12,10 +12,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_DIR="$HOME/.config/basicweigh-kiosk"
+CONFIG_DIR="$HOME/.config/foundation-kiosk"
 CONFIG_FILE="$CONFIG_DIR/config"
 AUTOSTART_DIR="$HOME/.config/autostart"
-AUTOSTART_FILE="$AUTOSTART_DIR/basicweigh-kiosk.desktop"
+AUTOSTART_FILE="$AUTOSTART_DIR/foundation-kiosk.desktop"
 
 say()  { printf '\n\033[1;36m%s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33m%s\033[0m\n' "$*" >&2; }
@@ -67,10 +67,10 @@ fi
 # ---------- prompt for server URL ----------
 while :; do
     if [[ -n "$default_url" ]]; then
-        read -r -p "Basic Weigh server URL [$default_url]: " SERVER_URL
+        read -r -p "Foundation server URL [$default_url]: " SERVER_URL
         SERVER_URL="${SERVER_URL:-$default_url}"
     else
-        read -r -p "Basic Weigh server URL (e.g. http://truckscale.local): " SERVER_URL
+        read -r -p "Foundation server URL (e.g. http://truckscale.local): " SERVER_URL
     fi
 
     # Strip trailing slash
@@ -105,7 +105,7 @@ done
 say "Optional kiosk URL parameters (press Enter to skip any of them):"
 
 # PIN — required only when the server has UseLogin enabled. Becomes ?pin=
-echo "  PIN   — only required if the Basic Weigh server has User Login enabled."
+echo "  PIN   — only required if the Foundation server has User Login enabled."
 echo "          The server stores this as a 24-hour cookie after the first hit,"
 echo "          so the URL doesn't need it again until the cookie expires."
 if [[ -n "$default_pin" ]]; then
@@ -174,7 +174,7 @@ say "Kiosk will load: $KIOSK_URL"
 # from what was used last time. The watchdog only reads KIOSK_URL.
 mkdir -p "$CONFIG_DIR"
 cat > "$CONFIG_FILE" <<EOF
-# Basic Weigh kiosk config — generated $(date -Iseconds)
+# Foundation kiosk config — generated $(date -Iseconds)
 SERVER_URL="$SERVER_URL"
 KIOSK_PIN="$KIOSK_PIN"
 SERVICE_ID="$SERVICE_ID"
@@ -198,8 +198,8 @@ mkdir -p "$AUTOSTART_DIR"
 cat > "$AUTOSTART_FILE" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Basic Weigh Kiosk
-Comment=Launches Chromium in kiosk mode pointed at Basic Weigh
+Name=Foundation Kiosk
+Comment=Launches Chromium in kiosk mode pointed at Foundation
 Exec=$SCRIPT_DIR/kiosk-loop.sh
 X-GNOME-Autostart-enabled=true
 NoDisplay=false
@@ -226,7 +226,7 @@ for keyring_entry in gnome-keyring-pkcs11 gnome-keyring-secrets gnome-keyring-ss
     cat > "$AUTOSTART_DIR/${keyring_entry}.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=${keyring_entry} (disabled by Basic Weigh kiosk)
+Name=${keyring_entry} (disabled by Foundation kiosk)
 Hidden=true
 NoDisplay=true
 X-GNOME-Autostart-enabled=false

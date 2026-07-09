@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# Deploy Basic Weigh to a remote Debian server
+# Deploy Foundation to a remote Debian server
 # Usage: ./deploy.sh <user@host> [options]
 #
 # Options:
@@ -16,7 +16,7 @@ set -euo pipefail
 #   ./deploy.sh admin@10.0.0.5 --port 8080 --key ~/.ssh/id_rsa
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TARBALL="$SCRIPT_DIR/basicweigh-deploy.tar.gz"
+TARBALL="$SCRIPT_DIR/foundation-deploy.tar.gz"
 
 # Parse arguments
 REMOTE=""
@@ -85,16 +85,16 @@ if [[ ! -f "$TARBALL" ]]; then
 fi
 
 echo "==> Uploading to $REMOTE..."
-scp $SCP_OPTS "$TARBALL" "$REMOTE:/tmp/basicweigh-deploy.tar.gz"
+scp $SCP_OPTS "$TARBALL" "$REMOTE:/tmp/foundation-deploy.tar.gz"
 
 # Build install command with parameters
 INSTALL_CMD="cd /tmp"
-INSTALL_CMD="$INSTALL_CMD && mkdir -p /tmp/basicweigh-install"
-INSTALL_CMD="$INSTALL_CMD && tar -xzf /tmp/basicweigh-deploy.tar.gz -C /tmp/basicweigh-install"
-INSTALL_CMD="$INSTALL_CMD && cd /tmp/basicweigh-install"
+INSTALL_CMD="$INSTALL_CMD && mkdir -p /tmp/foundation-install"
+INSTALL_CMD="$INSTALL_CMD && tar -xzf /tmp/foundation-deploy.tar.gz -C /tmp/foundation-install"
+INSTALL_CMD="$INSTALL_CMD && cd /tmp/foundation-install"
 INSTALL_CMD="$INSTALL_CMD && sed -i 's/\r$//' install.sh"
 INSTALL_CMD="$INSTALL_CMD && sudo DOMAIN='$DOMAIN' EMAIL='$EMAIL' PORT='$APP_PORT' bash install.sh"
-INSTALL_CMD="$INSTALL_CMD && rm -rf /tmp/basicweigh-install /tmp/basicweigh-deploy.tar.gz"
+INSTALL_CMD="$INSTALL_CMD && rm -rf /tmp/foundation-install /tmp/foundation-deploy.tar.gz"
 
 echo "==> Installing on remote server..."
 ssh $SSH_OPTS "$REMOTE" "$INSTALL_CMD"
@@ -109,5 +109,5 @@ echo "  URL:    https://$DOMAIN"
 else
 echo "  URL:    https://${REMOTE#*@}"
 fi
-echo "  Check:  ssh $REMOTE 'systemctl status basicweigh'"
+echo "  Check:  ssh $REMOTE 'systemctl status foundation'"
 echo "=========================================="

@@ -8,7 +8,7 @@
 
 set -u
 
-CONFIG_DIR="$HOME/.config/basicweigh-kiosk"
+CONFIG_DIR="$HOME/.config/foundation-kiosk"
 STOP_FLAG="$CONFIG_DIR/STOP"
 PID_FILE="$CONFIG_DIR/kiosk.pid"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

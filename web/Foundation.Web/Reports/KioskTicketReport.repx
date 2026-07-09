@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<XtraReportsLayoutSerializer SerializerVersion="25.2.5.0" Ref="0" ControlType="Foundation.Web.Reports.KioskTicketReport, Foundation.Web, Version=1.3.33.0, Culture=neutral, PublicKeyToken=null" RollPaper="true" Margins="10, 10, 10, 10" PaperKind="Custom" PageWidthF="300" PageHeightF="500" Version="25.2" Font="Courier New, 9pt">
+  <Parameters>
+    <Item1 Ref="2" Visible="false" Name="Ticket" />
+    <Item2 Ref="3" Visible="false" Name="DateIn" />
+    <Item3 Ref="4" Visible="false" Name="Customer" />
+    <Item4 Ref="5" Visible="false" Name="Carrier" />
+    <Item5 Ref="6" Visible="false" Name="TruckId" />
+    <Item6 Ref="7" Visible="false" Name="Commodity" />
+    <Item7 Ref="8" Visible="false" Name="Location" />
+    <Item8 Ref="9" Visible="false" Name="InWeight" />
+    <Item9 Ref="10" Visible="false" Name="Header1" />
+    <Item10 Ref="11" Visible="false" Name="Header2" />
+    <Item11 Ref="12" Visible="false" Name="Header3" />
+    <Item12 Ref="13" Visible="false" Name="Header4" />
+  </Parameters>
+  <Bands>
+    <Item1 Ref="14" ControlType="DetailBand" Name="Detail" HeightF="0" />
+    <Item2 Ref="15" ControlType="ReportHeaderBand" Name="ReportHeader" HeightF="323">
+      <Controls>
+        <Item1 Ref="16" ControlType="XRBarCode" Name="barcodeTicket" TextAlignment="BottomCenter" SizeF="240,60" LocationFloat="20,0" Font="Courier New, 10pt, style=Bold" Padding="0,0,0,0,100">
+          <Symbology Ref="17" Name="Code128" />
+          <ExpressionBindings>
+            <Item1 Ref="18" EventName="BeforePrint" PropertyName="Text" Expression="[Parameters.Ticket]" />
+          </ExpressionBindings>
+        </Item1>
+        <Item2 Ref="19" ControlType="XRLine" Name="line65" LineStyle="Dash" SizeF="280,2" LocationFloat="0,65" />
+        <Item3 Ref="20" ControlType="XRLabel" Name="lblHeader1" TextAlignment="MiddleCenter" SizeF="280,18" LocationFloat="0,70" Font="Courier New, 12pt, style=Bold">
+          <ExpressionBindings>
+            <Item1 Ref="21" EventName="BeforePrint" PropertyName="Text" Expression="[Parameters.Header1]" />
+          </ExpressionBindings>
+        </Item3>
+        <Item4 Ref="22" ControlType="XRLabel" Name="lblHeader2" TextAlignment="MiddleCenter" SizeF="280,18" LocationFloat="0,88" Font="Courier New, 10pt, style=Bold">
+          <ExpressionBindings>
+            <Item1 Ref="23" EventName="BeforePrint" PropertyName="Text" Expression="[Parameters.Header2]" />
+          </ExpressionBindings>
+        </Item4>
+        <Item5 Ref="24" ControlType="XRLabel" Name="lblHeader3" TextAlignment="MiddleCenter" SizeF="280,18" LocationFloat="0,106" Font="Courier New, 9pt">
+          <ExpressionBindings>
+            <Item1 Ref="25" EventName="BeforePrint" PropertyName="Text" Expression="[Parameters.Header3]" />
+          </ExpressionBindings>
+        </Item5>
+        <Item6 Ref="26" ControlType="XRLabel" Name="lblHeader4" TextAlignment="MiddleCenter" SizeF="280,18" LocationFloat="0,124" Font="Courier New, 9pt">
+          <ExpressionBindings>
+            <Item1 Ref="27" EventName="BeforePrint" PropertyName="Text" Expression="[Parameters.Header4]" />
+          </ExpressionBindings>
+        </Item6>
+        <Item7 Ref="28" ControlType="XRLine" Name="line145" LineStyle="Dash" SizeF="280,2" LocationFloat="0,145" />
+        <Item8 Ref="29" ControlType="XRLabel" Name="lblTitle" Text="INBOUND KIOSK TICKET" TextAlignment="MiddleCenter" SizeF="280,20" LocationFloat="0,150" Font="Courier New, 11pt, style=Bold" />
+        <Item9 Ref="30" ControlType="XRLine" Name="line172" LineStyle="Dash" SizeF="280,2" LocationFloat="0,172" />
+        <Item10 Ref="31" ControlType="XRLabel" Name="capTicket" Text="Ticket #:" SizeF="110,16" LocationFloat="0,177" Font="Courier New, 9pt" />
+        <Item11 Ref="32" ControlType="XRLabel" Name="valTicket" SizeF="170,16" LocationFloat="110,177" Font="Courier New, 9pt">
+          <ExpressionBindings>
+            <Item1 Ref="33" EventName="BeforePrint" PropertyName="Text" Expression="[Parameters.Ticket]" />
+          </ExpressionBindings>
+        </Item11>
+        <Item12 Ref="34" ControlType="XRLabel" Name="capDateIn" Text="Date In:" SizeF="110,16" LocationFloat="0,193" Font="Courier New, 9pt" />
+        <Item13 Ref="35" ControlType="XRLabel" Name="valDateIn" SizeF="170,16" LocationFloat="110,193" Font="Courier New, 9pt">
+          <ExpressionBindings>
+            <Item1 Ref="36" EventName="BeforePrint" PropertyName="Text" Expression="[Parameters.DateIn]" />
+          </ExpressionBindings>
+        </Item13>
+        <Item14 Ref="37" ControlType="XRLabel" Name="capCustomer" Text="Customer:" SizeF="110,16" LocationFloat="0,209" Font="Courier New, 9pt" />
+        <Item15 Ref="38" ControlType="XRLabel" Name="valCustomer" SizeF="170,16" LocationFloat="110,209" Font="Courier New, 9pt">
+          <ExpressionBindings>
+            <Item1 Ref="39" EventName="BeforePrint" PropertyName="Text" Expression="[Parameters.Customer]" />
+          </ExpressionBindings>
+        </Item15>
+        <Item16 Ref="40" ControlType="XRLabel" Name="capCarrier" Text="Carrier:" SizeF="110,16" LocationFloat="0,225" Font="Courier New, 9pt" />
+        <Item17 Ref="41" ControlType="XRLabel" Name="valCarrier" SizeF="170,16" LocationFloat="110,225" Font="Courier New, 9pt">
+          <ExpressionBindings>
+            <Item1 Ref="42" EventName="BeforePrint" PropertyName="Text" Expression="[Parameters.Carrier]" />
+          </ExpressionBindings>
+        </Item17>
+        <Item18 Ref="43" ControlType="XRLabel" Name="capTruckId" Text="Truck ID:" SizeF="110,16" LocationFloat="0,241" Font="Courier New, 9pt" />
+        <Item19 Ref="44" ControlType="XRLabel" Name="valTruckId" SizeF="170,16" LocationFloat="110,241" Font="Courier New, 9pt">
+          <ExpressionBindings>
+            <Item1 Ref="45" EventName="BeforePrint" PropertyName="Text" Expression="[Parameters.TruckId]" />
+          </ExpressionBindings>
+        </Item19>
+        <Item20 Ref="46" ControlType="XRLabel" Name="capCommodity" Text="Commodity:" SizeF="110,16" LocationFloat="0,257" Font="Courier New, 9pt" />
+        <Item21 Ref="47" ControlType="XRLabel" Name="valCommodity" SizeF="170,16" LocationFloat="110,257" Font="Courier New, 9pt">
+          <ExpressionBindings>
+            <Item1 Ref="48" EventName="BeforePrint" PropertyName="Text" Expression="[Parameters.Commodity]" />
+          </ExpressionBindings>
+        </Item21>
+        <Item22 Ref="49" ControlType="XRLabel" Name="capLocation" Text="Location:" SizeF="110,16" LocationFloat="0,273" Font="Courier New, 9pt" />
+        <Item23 Ref="50" ControlType="XRLabel" Name="valLocation" SizeF="170,16" LocationFloat="110,273" Font="Courier New, 9pt">
+          <ExpressionBindings>
+            <Item1 Ref="51" EventName="BeforePrint" PropertyName="Text" Expression="[Parameters.Location]" />
+          </ExpressionBindings>
+        </Item23>
+        <Item24 Ref="52" ControlType="XRLine" Name="line292" LineStyle="Dash" SizeF="280,2" LocationFloat="0,292" />
+        <Item25 Ref="53" ControlType="XRLabel" Name="capInWeight" Text="In Weight:" SizeF="110,16" LocationFloat="0,297" Font="Courier New, 11pt, style=Bold" />
+        <Item26 Ref="54" ControlType="XRLabel" Name="valInWeight" SizeF="170,16" LocationFloat="110,297" Font="Courier New, 11pt, style=Bold">
+          <ExpressionBindings>
+            <Item1 Ref="55" EventName="BeforePrint" PropertyName="Text" Expression="[Parameters.InWeight]" />
+          </ExpressionBindings>
+        </Item26>
+      </Controls>
+    </Item2>
+  </Bands>
+</XtraReportsLayoutSerializer>

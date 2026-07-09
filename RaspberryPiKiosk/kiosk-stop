@@ -8,9 +8,9 @@
 
 set -u
 
-CONFIG_DIR="$HOME/.config/basicweigh-kiosk"
+CONFIG_DIR="$HOME/.config/foundation-kiosk"
 STOP_FLAG="$CONFIG_DIR/STOP"
-PROFILE_DIR="$HOME/.cache/basicweigh-kiosk-profile"
+PROFILE_DIR="$HOME/.cache/foundation-kiosk-profile"
 
 mkdir -p "$CONFIG_DIR"
 date -Iseconds > "$STOP_FLAG"

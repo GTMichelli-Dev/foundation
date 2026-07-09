@@ -2,21 +2,21 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "basicweigh-http",
+      "name": "foundation-http",
       "runtimeExecutable": "dotnet",
-      "runtimeArgs": ["run", "--project", "web/BasicWeigh.Web", "--launch-profile", "http"],
+      "runtimeArgs": ["run", "--project", "web/Foundation.Web", "--launch-profile", "http"],
       "port": 5110
     },
     {
-      "name": "basicweigh-https",
+      "name": "foundation-https",
       "runtimeExecutable": "dotnet",
-      "runtimeArgs": ["run", "--project", "web/BasicWeigh.Web", "--launch-profile", "https"],
+      "runtimeArgs": ["run", "--project", "web/Foundation.Web", "--launch-profile", "https"],
       "port": 7000
     },
     {
-      "name": "basicweigh-iis",
+      "name": "foundation-iis",
       "runtimeExecutable": "dotnet",
-      "runtimeArgs": ["run", "--project", "web/BasicWeigh.Web", "--launch-profile", "IIS Express"],
+      "runtimeArgs": ["run", "--project", "web/Foundation.Web", "--launch-profile", "IIS Express"],
       "port": 45202
     },
     {

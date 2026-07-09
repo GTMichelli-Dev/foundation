@@ -1,11 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-# Install Basic Weigh on a Debian server
+# Install Foundation on a Debian server
 # Run as root: sudo bash install.sh
 #
 # Expects to be run from the extracted tarball directory, or
-# pass the tarball path: sudo bash install.sh /tmp/basicweigh-deploy.tar.gz
+# pass the tarball path: sudo bash install.sh /tmp/foundation-deploy.tar.gz
 #
 # Environment variables (optional):
 #   DOMAIN=scale.example.com   — enables Let's Encrypt SSL
@@ -13,7 +13,7 @@ set -euo pipefail
 #   PORT=5110                  — app listen port (default 5110)
 #   REBUILD_DB=1               — delete and recreate the database
 
-APP_DIR="/opt/basicweigh"
+APP_DIR="/opt/foundation"
 SERVICE_USER="admin"
 DOMAIN="${DOMAIN:-}"
 # Strip protocol prefix from domain if present
@@ -84,22 +84,39 @@ fi
 # 2. Stop existing service
 #--------------------------------------------------
 echo "==> Stopping service (if running)..."
-systemctl stop basicweigh 2>/dev/null || true
+systemctl stop foundation 2>/dev/null || true
+
+# Migrate a pre-rename "Basic Weigh" install: same app, old name.
+# Moves /opt/basicweigh (including the database and captured ticket
+# images) to $APP_DIR and retires the old systemd unit.
+if [[ -d /opt/basicweigh && ! -d "$APP_DIR" ]]; then
+  echo "==> Migrating existing Basic Weigh install to Foundation..."
+  systemctl stop basicweigh 2>/dev/null || true
+  systemctl disable basicweigh 2>/dev/null || true
+  rm -f /etc/systemd/system/basicweigh.service
+  systemctl daemon-reload
+  mv /opt/basicweigh "$APP_DIR"
+  if [[ -f "$APP_DIR/BasicWeigh.db" && ! -f "$APP_DIR/Foundation.db" ]]; then
+    mv "$APP_DIR/BasicWeigh.db" "$APP_DIR/Foundation.db"
+    echo "  Database renamed: BasicWeigh.db -> Foundation.db"
+  fi
+  echo "  Migration complete."
+fi
 
 #--------------------------------------------------
-# 3. Install Basic Weigh web app
+# 3. Install Foundation web app
 #--------------------------------------------------
-echo "==> Installing BasicWeigh.Web to $APP_DIR..."
+echo "==> Installing Foundation.Web to $APP_DIR..."
 mkdir -p "$APP_DIR"
 
 # Preserve database and reports if they exist (unless rebuild requested)
 if [[ "$REBUILD_DB" == "1" ]]; then
   echo "  --rebuild-db: Database will be recreated from scratch."
-  rm -f "$APP_DIR/BasicWeigh.db" /tmp/BasicWeigh.db.bak
+  rm -f "$APP_DIR/Foundation.db" /tmp/Foundation.db.bak
 else
-  if [[ -f "$APP_DIR/BasicWeigh.db" ]]; then
-    cp "$APP_DIR/BasicWeigh.db" /tmp/BasicWeigh.db.bak
-    echo "  Database backed up to /tmp/BasicWeigh.db.bak"
+  if [[ -f "$APP_DIR/Foundation.db" ]]; then
+    cp "$APP_DIR/Foundation.db" /tmp/Foundation.db.bak
+    echo "  Database backed up to /tmp/Foundation.db.bak"
   fi
 fi
 if [[ -d "$APP_DIR/Reports" ]]; then
@@ -110,15 +127,15 @@ fi
 # Copy new files. Exclude wwwroot/images/tickets/ from the --delete sweep
 # so captured ticket photos (runtime uploads, not part of the build) survive
 # every deploy. Without this, --delete wipes the entire directory.
-rsync -a --delete --exclude='wwwroot/images/tickets/' basicweigh/ "$APP_DIR/"
+rsync -a --delete --exclude='wwwroot/images/tickets/' foundation/ "$APP_DIR/"
 
 # Make sure the tickets directory exists for fresh installs and that the
 # service user can write to it.
 mkdir -p "$APP_DIR/wwwroot/images/tickets"
 
 # Restore database and reports
-if [[ "$REBUILD_DB" != "1" ]] && [[ -f /tmp/BasicWeigh.db.bak ]]; then
-  cp /tmp/BasicWeigh.db.bak "$APP_DIR/BasicWeigh.db"
+if [[ "$REBUILD_DB" != "1" ]] && [[ -f /tmp/Foundation.db.bak ]]; then
+  cp /tmp/Foundation.db.bak "$APP_DIR/Foundation.db"
   echo "  Database restored."
 fi
 if [[ -d /tmp/Reports.bak ]]; then
@@ -126,14 +143,14 @@ if [[ -d /tmp/Reports.bak ]]; then
   echo "  Reports restored."
 fi
 
-chmod +x "$APP_DIR/BasicWeigh.Web"
+chmod +x "$APP_DIR/Foundation.Web"
 chown -R "$SERVICE_USER:$SERVICE_USER" "$APP_DIR"
 
 #--------------------------------------------------
 # 4. Install systemd service
 #--------------------------------------------------
 echo "==> Installing systemd service..."
-cp basicweigh.service /etc/systemd/system/basicweigh.service
+cp foundation.service /etc/systemd/system/foundation.service
 systemctl daemon-reload
 
 #--------------------------------------------------
@@ -196,7 +213,7 @@ server {
     }
 }
 
-# HTTPS — reverse proxy to Basic Weigh
+# HTTPS — reverse proxy to Foundation
 server {
     listen 443 ssl default_server;
     listen [::]:443 ssl default_server;
@@ -248,7 +265,7 @@ else
       openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
         -keyout /etc/nginx/ssl/nginx.key \
         -out /etc/nginx/ssl/nginx.crt \
-        -subj "/CN=basicweigh/O=BasicWeigh/C=US" 2>/dev/null
+        -subj "/CN=foundation/O=Foundation/C=US" 2>/dev/null
       echo "  SSL certificate created (self-signed)."
     fi
 
@@ -261,7 +278,7 @@ server {
     return 301 https://\$host\$request_uri;
 }
 
-# HTTPS — reverse proxy to Basic Weigh
+# HTTPS — reverse proxy to Foundation
 server {
     listen 443 ssl default_server;
     listen [::]:443 ssl default_server;
@@ -307,10 +324,10 @@ echo "  Nginx configured."
 #--------------------------------------------------
 # 6. Enable and start service
 #--------------------------------------------------
-echo "==> Enabling and starting BasicWeigh..."
-systemctl enable basicweigh
-systemctl start basicweigh
-echo "  BasicWeigh: $(systemctl is-active basicweigh)"
+echo "==> Enabling and starting Foundation..."
+systemctl enable foundation
+systemctl start foundation
+echo "  Foundation: $(systemctl is-active foundation)"
 
 #--------------------------------------------------
 # 7. Done
@@ -320,8 +337,8 @@ echo "=========================================="
 echo "  Installation complete!"
 echo "=========================================="
 echo "  Web App: $APP_DIR"
-echo "  Service: systemctl status basicweigh"
-echo "  Logs:    journalctl -u basicweigh -f"
+echo "  Service: systemctl status foundation"
+echo "  Logs:    journalctl -u foundation -f"
 if [[ -n "$DOMAIN" ]]; then
 echo "  URL:     https://$DOMAIN"
 echo "  SSL:     Let's Encrypt (auto-renews)"

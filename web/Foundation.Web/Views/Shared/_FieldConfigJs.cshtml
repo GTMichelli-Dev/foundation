@@ -1,0 +1,67 @@
+@* Emits window.bwFieldConfig for grid views: which standard fields are hidden
+   (camelCase dataField names) and the active custom-field definitions.
+   Grid scripts call bwApplyFieldConfig(cols) to filter hidden columns and
+   append custom-field columns (values ride in each row's customFields map,
+   keyed by field id). *@
+@inject Foundation.Web.Services.AppSetupCache SetupCache
+@inject Foundation.Web.Data.ScaleDbContext Db
+@{
+    var fvSetup = SetupCache.Get();
+    var hiddenList = new List<string>();
+    if (fvSetup.HideCustomer) hiddenList.Add("customer");
+    if (fvSetup.HideCarrier) hiddenList.Add("carrier");
+    if (fvSetup.HideTruckId) hiddenList.Add("truckId");
+    if (fvSetup.HideCommodity) hiddenList.Add("commodity");
+    if (fvSetup.HideLocation) hiddenList.Add("location");
+    if (fvSetup.HideDestination) hiddenList.Add("destination");
+    if (fvSetup.HideNotes) hiddenList.Add("notes");
+
+    var cfDefs = Db.CustomFields.Where(f => f.Active)
+        .OrderBy(f => f.SortOrder).ThenBy(f => f.Name)
+        .Select(f => new { id = f.Id, name = f.Name, type = f.FieldType })
+        .ToList();
+}
+<script>
+    window.bwFieldConfig = {
+        hidden: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(hiddenList)),
+        customFields: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(cfDefs))
+    };
+
+    // Removes hidden standard-field columns and appends custom-field columns.
+    // Returns the new columns array.
+    function bwApplyFieldConfig(cols) {
+        cols = cols.filter(function (c) {
+            return !c.dataField || window.bwFieldConfig.hidden.indexOf(c.dataField) === -1;
+        });
+        window.bwFieldConfig.customFields.forEach(function (f) {
+            var isText = f.type === 'Text';
+            cols.push({
+                caption: f.name,
+                name: 'cf_' + f.id,
+                dataType: isText ? 'string' : 'number',
+                allowSorting: true,
+                allowFiltering: true,
+                calculateCellValue: function (row) {
+                    var v = row.customFields ? row.customFields[String(f.id)] : null;
+                    if (v == null || v === '') return isText ? '' : null;
+                    return isText ? v : Number(v);
+                }
+            });
+        });
+        return cols;
+    }
+
+    // Export helpers: custom-field columns carry no dataField, so exports must
+    // match them by their cf_ name and read values via calculateCellValue.
+    function bwIsExportableCol(c) {
+        return !!c.dataField || ((c.name || '').indexOf('cf_') === 0);
+    }
+    function bwColValue(col, row) {
+        if (col.dataField) return row[col.dataField];
+        if (col.calculateCellValue) {
+            var v = col.calculateCellValue(row);
+            return v === '' ? null : v;
+        }
+        return null;
+    }
+</script>

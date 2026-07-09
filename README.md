@@ -1,6 +1,6 @@
-# Basic Weigh - Truck Scale Management System
+# Foundation - Truck Scale Management System
 
-Basic Weigh is a web-based truck scale management application for weighing inbound and outbound trucks, tracking transactions, and generating reports. It runs on ASP.NET Core 8 with a SQLite database and supports touchscreen kiosk terminals with remote ticket printing via Raspberry Pi.
+Foundation is a web-based truck scale management application for weighing inbound and outbound trucks, tracking transactions, and generating reports. It runs on ASP.NET Core 8 with a SQLite database and supports touchscreen kiosk terminals with remote ticket printing via Raspberry Pi.
 
 ---
 
@@ -123,7 +123,7 @@ bash deploy/deploy.sh admin@192.168.1.100
 ./deploy/deploy-pi.sh <user@host> [options]
 
 Options:
-  --server <url>       BasicWeigh server URL (e.g. https://scale.yourcompany.com)
+  --server <url>       Foundation server URL (e.g. https://scale.yourcompany.com)
   --printer <name>     CUPS printer name (run 'lpstat -p' on the Pi to find it)
   --printer-id <1|2>   1 = Inbound kiosk, 2 = Outbound kiosk (default 1)
   --key <ssh-key>      SSH key file
@@ -150,7 +150,7 @@ Unlike the print agent, the kiosk has no separate publish/deploy scripts — the
 **Run on the kiosk Pi:**
 
 ```bash
-cd ~/basic-weigh/RaspberryPiKiosk
+cd ~/foundation/RaspberryPiKiosk
 ./install.sh
 sudo reboot
 ```
@@ -174,16 +174,16 @@ After deployment, use these commands on the server:
 
 ```bash
 # Check if the app is running
-sudo systemctl status basicweigh
+sudo systemctl status foundation
 
 # View live logs
-sudo journalctl -u basicweigh -f
+sudo journalctl -u foundation -f
 
 # Restart the app
-sudo systemctl restart basicweigh
+sudo systemctl restart foundation
 
 # Stop the app
-sudo systemctl stop basicweigh
+sudo systemctl stop foundation
 ```
 
 ### Updating to a New Version
@@ -193,7 +193,7 @@ When the project has been updated (new features, bug fixes, etc.), follow these 
 **1. Pull the latest code** on your local development machine:
 
 ```bash
-cd Basic_Weigh
+cd foundation
 git pull
 ```
 
@@ -215,18 +215,18 @@ Or as a single step (the deploy script will run publish automatically if the tar
 
 **Windows:**
 ```
-del deploy\basicweigh-deploy.tar.gz
+del deploy\foundation-deploy.tar.gz
 deploy\deploy.bat admin@149.28.xxx.xxx --domain yourDNSName.scaledata.net --email admin@yourcompany.com
 ```
 
 **Linux / Mac / Git Bash:**
 ```bash
-rm -f deploy/basicweigh-deploy.tar.gz
+rm -f deploy/foundation-deploy.tar.gz
 bash deploy/deploy.sh admin@149.28.xxx.xxx --domain yourDNSName.scaledata.net --email admin@yourcompany.com
 ```
 
 > **What's preserved during updates:**
-> - Your database (`BasicWeigh.db`) — all transactions, master data, and settings
+> - Your database (`Foundation.db`) — all transactions, master data, and settings
 > - Custom ticket templates in the `Reports/` folder
 > - Nginx configuration and SSL certificates
 >
@@ -237,13 +237,13 @@ bash deploy/deploy.sh admin@149.28.xxx.xxx --domain yourDNSName.scaledata.net --
 **3. Verify** the update by checking the version in the browser footer or running:
 
 ```bash
-ssh admin@149.28.xxx.xxx 'sudo systemctl status basicweigh'
+ssh admin@149.28.xxx.xxx 'sudo systemctl status foundation'
 ```
 
 ### Updating the Pi Print Agent
 
 ```bash
-cd Basic_Weigh
+cd foundation
 git pull
 bash deploy/publish-pi.sh
 bash deploy/deploy-pi.sh pi@192.168.1.50 --server https://yourDNSName.scaledata.net --printer Zebra_LP2844 --printer-id 1
@@ -255,10 +255,10 @@ The Pi agent's `appsettings.json` (ServerUrl, PrinterName, PrinterId) is preserv
 
 | Path | Contents |
 |------|----------|
-| `/opt/basicweigh/` | Application files |
-| `/opt/basicweigh/BasicWeigh.db` | SQLite database (preserved on updates) |
-| `/opt/basicweigh/Reports/` | Custom ticket templates (preserved on updates) |
-| `/etc/systemd/system/basicweigh.service` | Systemd service file |
+| `/opt/foundation/` | Application files |
+| `/opt/foundation/Foundation.db` | SQLite database (preserved on updates) |
+| `/opt/foundation/Reports/` | Custom ticket templates (preserved on updates) |
+| `/etc/systemd/system/foundation.service` | Systemd service file |
 | `/etc/nginx/sites-available/default` | Nginx reverse proxy config |
 | `/etc/letsencrypt/` | SSL certificates (auto-renewed) |
 
@@ -270,14 +270,14 @@ The Pi agent's `appsettings.json` (ServerUrl, PrinterName, PrinterId) is preserv
 
 ### Application Settings
 
-Edit `/opt/basicweigh/appsettings.json` on the server:
+Edit `/opt/foundation/appsettings.json` on the server:
 
 ```json
 {
   "ShowResetDatabase": false,
   "DatabaseProvider": "SQLite",
   "ConnectionStrings": {
-    "SQLite": "Data Source=BasicWeigh.db"
+    "SQLite": "Data Source=Foundation.db"
   }
 }
 ```
@@ -290,7 +290,7 @@ Edit `/opt/basicweigh/appsettings.json` on the server:
 After editing, restart the service:
 
 ```bash
-sudo systemctl restart basicweigh
+sudo systemctl restart foundation
 ```
 
 ### Setup Page
@@ -415,20 +415,20 @@ The app runs in Development mode by default (shows full error details). If you'v
 
 ```bash
 ssh admin@149.28.xxx.xxx
-sudo journalctl -u basicweigh -f
+sudo journalctl -u foundation -f
 ```
 
 Or temporarily switch back to Development mode:
 
 ```bash
-sudo nano /etc/systemd/system/basicweigh.service
+sudo nano /etc/systemd/system/foundation.service
 ```
 
 Change `ASPNETCORE_ENVIRONMENT=Production` to `Development`, then:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl restart basicweigh
+sudo systemctl restart foundation
 ```
 
 > **Remember to set it back to `Production` when done troubleshooting.**
@@ -471,7 +471,7 @@ The deploy script checks DNS before deploying. If it fails, make sure:
 │     ├── Reverse proxy → localhost:5110       │
 │     └── WebSocket passthrough (SignalR)      │
 │                                              │
-│   BasicWeigh.Web (port 5110)                 │
+│   Foundation.Web (port 5110)                 │
 │     ├── ASP.NET Core 8 / Kestrel            │
 │     ├── SQLite database                      │
 │     ├── DevExpress Report Engine             │
@@ -502,8 +502,8 @@ The deploy script checks DNS before deploying. If it fails, make sure:
 ### Run Locally
 
 ```bash
-git clone https://github.com/TotalScaleService/Basic_Weigh.git
-cd Basic_Weigh/web/BasicWeigh.Web
+git clone https://github.com/GTMichelli-Dev/foundation.git
+cd foundation/web/Foundation.Web
 dotnet run
 ```
 

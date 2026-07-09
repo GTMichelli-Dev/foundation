@@ -2,25 +2,25 @@
 # kiosk-loop.sh — the watchdog. Loaded by the desktop autostart entry.
 #
 # Behavior:
-#   1. Reads ~/.config/basicweigh-kiosk/config for SERVER_URL / KIOSK_URL.
+#   1. Reads ~/.config/foundation-kiosk/config for SERVER_URL / KIOSK_URL.
 #   2. Waits for the server to be reachable.
 #   3. Launches Chromium in kiosk mode at $KIOSK_URL.
 #   4. Probes the server every HEALTH_INTERVAL seconds. If it stays
 #      unreachable for UNREACHABLE_THRESHOLD seconds, kills Chromium
 #      and starts the whole cycle over.
-#   5. Honors a stop flag at ~/.config/basicweigh-kiosk/STOP so an operator
+#   5. Honors a stop flag at ~/.config/foundation-kiosk/STOP so an operator
 #      can pause the loop over SSH (see kiosk-stop / kiosk-start).
 #
-# Logs are written to ~/.config/basicweigh-kiosk/kiosk.log .
+# Logs are written to ~/.config/foundation-kiosk/kiosk.log .
 
 set -u
 
-CONFIG_DIR="$HOME/.config/basicweigh-kiosk"
+CONFIG_DIR="$HOME/.config/foundation-kiosk"
 CONFIG_FILE="$CONFIG_DIR/config"
 STOP_FLAG="$CONFIG_DIR/STOP"
 PID_FILE="$CONFIG_DIR/kiosk.pid"
 LOG_FILE="$CONFIG_DIR/kiosk.log"
-PROFILE_DIR="$HOME/.cache/basicweigh-kiosk-profile"
+PROFILE_DIR="$HOME/.cache/foundation-kiosk-profile"
 
 mkdir -p "$CONFIG_DIR" "$PROFILE_DIR"
 exec >>"$LOG_FILE" 2>&1

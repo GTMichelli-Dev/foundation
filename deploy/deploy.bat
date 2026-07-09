@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 
-REM Deploy Basic Weigh to a remote Debian server
+REM Deploy Foundation to a remote Debian server
 REM Usage: deploy.bat <user@host> [options]
 REM
 REM Options:
@@ -12,7 +12,7 @@ REM   --key <ssh-key>      SSH key file
 REM   --rebuild-db         Delete and recreate the database (CAUTION: destroys data!)
 
 set "SCRIPT_DIR=%~dp0"
-set "TARBALL=%SCRIPT_DIR%basicweigh-deploy.tar.gz"
+set "TARBALL=%SCRIPT_DIR%foundation-deploy.tar.gz"
 
 set "REMOTE="
 set "DOMAIN="
@@ -87,14 +87,14 @@ if not exist "%TARBALL%" (
 )
 
 echo ==^> Uploading to %REMOTE%...
-scp %SCP_OPTS% "%TARBALL%" "%REMOTE%:/tmp/basicweigh-deploy.tar.gz"
+scp %SCP_OPTS% "%TARBALL%" "%REMOTE%:/tmp/foundation-deploy.tar.gz"
 if errorlevel 1 (
     echo ERROR: Upload failed
     exit /b 1
 )
 
 REM Build install command - sed fixes Windows CRLF line endings before running
-set "INSTALL_CMD=cd /tmp && mkdir -p /tmp/basicweigh-install && tar -xzf /tmp/basicweigh-deploy.tar.gz -C /tmp/basicweigh-install && cd /tmp/basicweigh-install && sed -i 's/\r$//' install.sh && sudo DOMAIN='%DOMAIN%' EMAIL='%EMAIL%' PORT='%APP_PORT%' REBUILD_DB='%REBUILD_DB%' bash install.sh && rm -rf /tmp/basicweigh-install /tmp/basicweigh-deploy.tar.gz"
+set "INSTALL_CMD=cd /tmp && mkdir -p /tmp/foundation-install && tar -xzf /tmp/foundation-deploy.tar.gz -C /tmp/foundation-install && cd /tmp/foundation-install && sed -i 's/\r$//' install.sh && sudo DOMAIN='%DOMAIN%' EMAIL='%EMAIL%' PORT='%APP_PORT%' REBUILD_DB='%REBUILD_DB%' bash install.sh && rm -rf /tmp/foundation-install /tmp/foundation-deploy.tar.gz"
 
 echo ==^> Installing on remote server...
 ssh %SSH_OPTS% "%REMOTE%" "%INSTALL_CMD%"
@@ -113,5 +113,5 @@ if not "%DOMAIN%"=="" (
 ) else (
     echo   URL:    https://%REMOTE%
 )
-echo   Check:  ssh %REMOTE% "systemctl status basicweigh"
+echo   Check:  ssh %REMOTE% "systemctl status foundation"
 echo ==========================================
