@@ -62,6 +62,24 @@ After the app is running, see [Server Management](#server-management) for update
 
 > **Field commissioning tip:** to configure a headless Pi's network from a phone (tech access point + browser-based Wi-Fi/ethernet setup and connectivity test), install [pi-network-setup](https://github.com/GTMichelli-Dev/pi-network-setup) on the Pi alongside the app.
 
+### Pi access to private repos (GitHub App token)
+
+Deploy Pis clone private GTMichelli-Dev repos over plain HTTPS using a
+**GitHub App installation token** instead of PATs or SSH keys. A one-time
+bootstrap per Pi installs a git credential helper that mints short-lived
+tokens from the App's private key — after that, `git clone` / `git pull` of
+any org repo just works on the box:
+
+```bash
+scp scripts/setup-pi-github-app.sh scripts/michelli-github-app-token.sh \
+    scripts/git-credential-michelli.sh /path/to/michelli-app.pem admin@<pi>:/tmp/
+ssh admin@<pi> "sudo bash /tmp/setup-pi-github-app.sh --install-id <ID> --pem /tmp/michelli-app.pem"
+```
+
+Full walkthrough — including creating the GitHub App the first time (org
+settings → Developer settings → GitHub Apps, Contents: Read-only) — in
+[docs/pi-git-auth.md](docs/pi-git-auth.md).
+
 <!-- Legacy heading anchors. The old inline deploy sections used these
      ids; readers with saved deep-links land on the table above and follow
      the link to the new file. -->
