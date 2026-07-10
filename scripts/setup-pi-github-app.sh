@@ -35,8 +35,8 @@ set -euo pipefail
 # Baked-in App identity. FILL THESE IN once the Michelli GitHub App is
 # created (see docs/pi-git-auth.md) so operators only need to supply
 # --install-id and --pem the first time. Until then, pass --client-id.
-CLIENT_ID_DEFAULT=""   # Michelli App Client ID (e.g. Iv23li...)
-APP_ID_DEFAULT=""      # Michelli App numeric App ID (legacy alt to Client ID)
+CLIENT_ID_DEFAULT="Iv23livFZQOXhMbgSTed"   # GTMichelli-Dev michelli-fleet App Client ID
+APP_ID_DEFAULT="4260960"                    # GTMichelli-Dev michelli-fleet App numeric App ID
 
 CLIENT_ID=""
 APP_ID=""
