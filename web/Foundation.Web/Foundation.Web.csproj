@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <Version>1.3.77</Version>
@@ -32,12 +32,19 @@
     <PackageReference Include="DevExpress.AspNetCore.Reporting" Version="25.2.5" />
     <PackageReference Include="DevExpress.Drawing.Skia" Version="25.2.5" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.1" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.*" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.*">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.*" />
+    <!-- Pins the native SQLite bundle above the vulnerable 2.1.11 that
+         EF Core 10 currently pulls transitively (GHSA-2m69-gcr7-jv3q). -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.*">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="8.0.*" />
+    <!-- Pomelo (MySQL/MariaDB provider) pins EF Core <= 9 and cannot load
+         alongside EF Core 10, so it's parked. MariaDB is the unused
+         escape-hatch provider (SQLite is the shipped default); the MariaDB
+         branch in Program.cs throws with guidance. Re-add
+         Pomelo.EntityFrameworkCore.MySql when a 10.x release exists. -->
   </ItemGroup>
 
 </Project>

@@ -27,12 +27,17 @@ builder.Services.AddDbContext<ScaleDbContext>(options =>
 {
     if (dbProvider == "MariaDB")
     {
-        options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+        // The Pomelo MySQL/MariaDB provider has no EF Core 10 release yet, so
+        // it was parked in the .NET 10 migration. SQLite is the shipped
+        // default; restore the Pomelo.EntityFrameworkCore.MySql package (and
+        // the UseMySql call here) once Pomelo ships a 10.x.
+        throw new NotSupportedException(
+            "DatabaseProvider=MariaDB is not available in this build: the Pomelo EF Core " +
+            "provider does not support EF Core 10 yet. Set DatabaseProvider to \"SQLite\" " +
+            "in appsettings.json, or re-add Pomelo.EntityFrameworkCore.MySql when a " +
+            "10.x release exists.");
     }
-    else
-    {
-        options.UseSqlite(connectionString);
-    }
+    options.UseSqlite(connectionString);
 });
 
 // Scale service (simulated for demo mode)
