@@ -23,12 +23,14 @@ SERVER_URL=""
 PRINTER_NAME=""
 PRINTER_ID=""
 SSH_KEY=""
+SKIP_BUILD="0"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --server)      SERVER_URL="$2";   shift 2 ;;
     --printer)     PRINTER_NAME="$2"; shift 2 ;;
     --printer-id)  PRINTER_ID="$2";   shift 2 ;;
+    --skip-build) SKIP_BUILD="1"; shift ;;
     --key)         SSH_KEY="$2";      shift 2 ;;
     -*)            echo "Unknown option: $1"; exit 1 ;;
     *)             REMOTE="$1";       shift ;;
@@ -58,9 +60,12 @@ if [[ -n "$SSH_KEY" ]]; then
   SCP_OPTS="$SCP_OPTS -i $SSH_KEY"
 fi
 
-# Check if tarball exists, if not run publish first
-if [[ ! -f "$TARBALL" ]]; then
-  echo "==> Tarball not found. Running publish-pi first..."
+# Always publish a fresh build — a cached tarball silently deploys stale
+# code. Pass --skip-build to reuse the existing tarball.
+if [[ "$SKIP_BUILD" == "1" && -f "$TARBALL" ]]; then
+  echo "==> Reusing existing tarball (--skip-build)."
+else
+  echo "==> Publishing fresh build..."
   bash "$SCRIPT_DIR/publish-pi.sh"
 fi
 

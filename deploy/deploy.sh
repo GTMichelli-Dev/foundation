@@ -24,12 +24,14 @@ DOMAIN=""
 EMAIL=""
 APP_PORT="5110"
 SSH_KEY=""
+SKIP_BUILD="0"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --domain)  DOMAIN="$2";   shift 2 ;;
     --email)   EMAIL="$2";    shift 2 ;;
     --port)    APP_PORT="$2"; shift 2 ;;
+    --skip-build) SKIP_BUILD="1"; shift ;;
     --key)     SSH_KEY="$2";  shift 2 ;;
     -*)        echo "Unknown option: $1"; exit 1 ;;
     *)         REMOTE="$1";   shift ;;
@@ -78,9 +80,12 @@ if [[ -n "$DOMAIN" ]]; then
   echo "  DNS OK: $DOMAIN resolves."
 fi
 
-# Check if tarball exists, if not run publish first
-if [[ ! -f "$TARBALL" ]]; then
-  echo "==> Tarball not found. Running publish first..."
+# Always publish a fresh build — a cached tarball silently deploys stale
+# code. Pass --skip-build to reuse the existing tarball.
+if [[ "$SKIP_BUILD" == "1" && -f "$TARBALL" ]]; then
+  echo "==> Reusing existing tarball (--skip-build)."
+else
+  echo "==> Publishing fresh build..."
   bash "$SCRIPT_DIR/publish.sh"
 fi
 

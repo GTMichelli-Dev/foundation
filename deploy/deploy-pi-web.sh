@@ -21,12 +21,14 @@ REMOTE=""
 APP_PORT="80"
 SSH_KEY=""
 REBUILD_DB="0"
+SKIP_BUILD="0"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --port)       APP_PORT="$2"; shift 2 ;;
     --key)        SSH_KEY="$2";  shift 2 ;;
     --rebuild-db) REBUILD_DB="1"; shift ;;
+    --skip-build) SKIP_BUILD="1"; shift ;;
     -*)           echo "Unknown option: $1"; exit 1 ;;
     *)            REMOTE="$1";   shift ;;
   esac
@@ -54,9 +56,13 @@ if [[ -n "$SSH_KEY" ]]; then
   SCP_OPTS="$SCP_OPTS -i $SSH_KEY"
 fi
 
-# Check if tarball exists, if not run publish first
-if [[ ! -f "$TARBALL" ]]; then
-  echo "==> Tarball not found. Running publish-pi-web first..."
+# Always publish a fresh build — a cached tarball silently deploys stale
+# code. Pass --skip-build to reuse the existing tarball (e.g. fanning the
+# same build out to several Pis).
+if [[ "$SKIP_BUILD" == "1" && -f "$TARBALL" ]]; then
+  echo "==> Reusing existing tarball (--skip-build)."
+else
+  echo "==> Publishing fresh build..."
   bash "$SCRIPT_DIR/publish-pi-web.sh"
 fi
 
