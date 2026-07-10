@@ -6,6 +6,7 @@ set -euo pipefail
 #   1. Foundation web app   — built here, Kestrel direct on port 80
 #   2. Scale Reader Service — cloned + built on the Pi (serial/TCP scales)
 #   3. Web Print Service    — cloned + built on the Pi (CUPS / Bixolon)
+#   4. Pi Network Setup     — tech Wi-Fi access point + phone config page
 #
 # Usage: ./deploy-pi-all.sh <user@host> [options]
 #
@@ -17,6 +18,7 @@ set -euo pipefail
 #   --skip-web             Don't deploy the web app
 #   --skip-scale           Don't install the scale reader service
 #   --skip-print           Don't install the print service
+#   --skip-net             Don't install the network setup helper (tech AP)
 #
 # Prerequisites:
 #   - The Pi is bootstrapped with the GitHub App credential helper
@@ -36,6 +38,7 @@ PRINTER_NAME="TicketPrinter"
 SKIP_WEB=0
 SKIP_SCALE=0
 SKIP_PRINT=0
+SKIP_NET=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -45,6 +48,7 @@ while [[ $# -gt 0 ]]; do
     --skip-web)     SKIP_WEB=1;   shift ;;
     --skip-scale)   SKIP_SCALE=1; shift ;;
     --skip-print)   SKIP_PRINT=1; shift ;;
+    --skip-net)     SKIP_NET=1;   shift ;;
     --help|-h)
       sed -n '4,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
@@ -71,15 +75,15 @@ echo "============================================"
 echo "  Pi:           $REMOTE"
 echo "  Services URL: $SERVER_URL"
 echo "  Printer:      $PRINTER_NAME"
-echo "  Steps:        web=$((1-SKIP_WEB)) scale=$((1-SKIP_SCALE)) print=$((1-SKIP_PRINT))"
+echo "  Steps:        web=$((1-SKIP_WEB)) scale=$((1-SKIP_SCALE)) print=$((1-SKIP_PRINT)) net=$((1-SKIP_NET))"
 echo "============================================"
 echo ""
 
 #--------------------------------------------------
 # 0. Pre-flight: the Pi must be able to clone private repos
 #--------------------------------------------------
-if [[ "$SKIP_SCALE" == "0" || "$SKIP_PRINT" == "0" ]]; then
-  echo "==> [0/3] Checking GitHub access on the Pi..."
+if [[ "$SKIP_SCALE" == "0" || "$SKIP_PRINT" == "0" || "$SKIP_NET" == "0" ]]; then
+  echo "==> [0/4] Checking GitHub access on the Pi..."
   GIT_CHECK_OUT=$(ssh $SSH_OPTS "$REMOTE" "git ls-remote https://github.com/GTMichelli-Dev/foundation.git HEAD" 2>&1) && GIT_CHECK_OK=1 || GIT_CHECK_OK=0
   if [[ "$GIT_CHECK_OK" == "1" ]]; then
     echo "  Git auth OK."
@@ -101,7 +105,7 @@ fi
 #--------------------------------------------------
 if [[ "$SKIP_WEB" == "0" ]]; then
   echo ""
-  echo "==> [1/3] Deploying Foundation web app..."
+  echo "==> [1/4] Deploying Foundation web app..."
   if [[ -n "$SSH_KEY" ]]; then
     bash "$SCRIPT_DIR/deploy-pi-web.sh" "$REMOTE" --key "$SSH_KEY"
   else
@@ -109,7 +113,7 @@ if [[ "$SKIP_WEB" == "0" ]]; then
   fi
 else
   echo ""
-  echo "==> [1/3] Skipping web app (--skip-web)."
+  echo "==> [1/4] Skipping web app (--skip-web)."
 fi
 
 #--------------------------------------------------
@@ -117,7 +121,7 @@ fi
 #--------------------------------------------------
 if [[ "$SKIP_SCALE" == "0" ]]; then
   echo ""
-  echo "==> [2/3] Installing Scale Reader Service on the Pi..."
+  echo "==> [2/4] Installing Scale Reader Service on the Pi..."
   ssh $SSH_OPTS "$REMOTE" "
     rm -rf /tmp/srs && \
     git clone -q --depth 1 https://github.com/GTMichelli-Dev/scale-reader-service.git /tmp/srs && \
@@ -126,7 +130,7 @@ if [[ "$SKIP_SCALE" == "0" ]]; then
   "
 else
   echo ""
-  echo "==> [2/3] Skipping scale reader (--skip-scale)."
+  echo "==> [2/4] Skipping scale reader (--skip-scale)."
 fi
 
 #--------------------------------------------------
@@ -137,7 +141,7 @@ fi
 # is passed explicitly so there's no prompt for it.
 if [[ "$SKIP_PRINT" == "0" ]]; then
   echo ""
-  echo "==> [3/3] Installing Web Print Service on the Pi..."
+  echo "==> [3/4] Installing Web Print Service on the Pi..."
   ssh -t $SSH_OPTS "$REMOTE" "
     rm -rf /tmp/wps && \
     git clone -q --depth 1 https://github.com/GTMichelli-Dev/web-print-service.git /tmp/wps && \
@@ -146,7 +150,26 @@ if [[ "$SKIP_PRINT" == "0" ]]; then
   "
 else
   echo ""
-  echo "==> [3/3] Skipping print service (--skip-print)."
+  echo "==> [3/4] Skipping print service (--skip-print)."
+fi
+
+#--------------------------------------------------
+# 4. Pi Network Setup (tech Wi-Fi access point + phone config page)
+#--------------------------------------------------
+# Idempotent: re-running refreshes the app and recreates the AP profile with
+# the SSID derived from this Pi's Wi-Fi MAC (config.env defaults).
+if [[ "$SKIP_NET" == "0" ]]; then
+  echo ""
+  echo "==> [4/4] Installing Pi Network Setup (tech access point)..."
+  ssh $SSH_OPTS "$REMOTE" "
+    rm -rf /tmp/pns && \
+    git clone -q --depth 1 https://github.com/GTMichelli-Dev/pi-network-setup.git /tmp/pns && \
+    sudo bash /tmp/pns/install.sh && \
+    rm -rf /tmp/pns
+  "
+else
+  echo ""
+  echo "==> [4/4] Skipping network setup helper (--skip-net)."
 fi
 
 #--------------------------------------------------
@@ -161,9 +184,12 @@ echo "  Web app:       http://$PI_HOST"
 echo "  Scale reader:  http://$PI_HOST:5220/swagger"
 echo "  Print service: http://$PI_HOST:5230/swagger"
 echo "  CUPS admin:    http://$PI_HOST:631"
+if [[ "$SKIP_NET" == "0" ]]; then
+echo "  Tech AP:       SSID Michelli-<MAC suffix>, setup page http://192.168.50.1:8080"
+fi
 echo ""
 echo "  Check services:"
-echo "    ssh $REMOTE 'systemctl status foundation scale-reader-service web-print-service'"
+echo "    ssh $REMOTE 'systemctl status foundation scale-reader-service web-print-service netsetup-web'"
 echo ""
 echo "  Next (first install only):"
 echo "    - Register the scale:   http://$PI_HOST:5220/swagger (serial: /dev/ttyUSB0, 9600,8,N,1)"
