@@ -4,7 +4,16 @@ namespace Foundation.Web.Data;
 
 public static class DbInitializer
 {
-    public static void Seed(ScaleDbContext context)
+    /// <param name="seedDemoData">
+    /// Gate for the demo payload (sample customers/carriers/trucks and ~45
+    /// fake transactions). Controlled by the "SeedDemoData" config key,
+    /// default false: production databases must never be re-populated with
+    /// demo data just because they're empty — clearing the DB on a site and
+    /// then redeploying used to resurrect all of it on the next startup.
+    /// The user accounts below are always ensured regardless.
+    /// For demo/training data on demand, use Setup → Load Test Data.
+    /// </param>
+    public static void Seed(ScaleDbContext context, bool seedDemoData = false)
     {
         // Always ensure the support backdoor account exists
         if (!context.Users.Any(u => u.Username == "support"))
@@ -35,6 +44,9 @@ public static class DbInitializer
             });
             context.SaveChanges();
         }
+
+        if (!seedDemoData)
+            return; // Demo seeding disabled (SeedDemoData=false) — users only.
 
         if (context.Customers.Any())
             return; // Already seeded

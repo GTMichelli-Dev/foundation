@@ -116,7 +116,7 @@ using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ScaleDbContext>();
     context.Database.Migrate();
-    DbInitializer.Seed(context);
+    DbInitializer.Seed(context, builder.Configuration.GetValue<bool>("SeedDemoData", false));
 
     // Apply the saved display TZ from AppSetup. SetupController will re-Configure
     // on each save so a restart isn't needed.
