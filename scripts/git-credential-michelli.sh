@@ -20,5 +20,11 @@ esac
 # this helper is already scoped to github.com/GTMichelli-Dev via gitconfig).
 cat >/dev/null
 
-TOKEN=$(michelli-github-app-token)
+# Absolute path with PATH fallback: non-interactive ssh sessions may not have
+# /usr/local/bin in PATH, and git invokes this helper with whatever PATH the
+# calling shell had.
+TOKEN_BIN="/usr/local/bin/michelli-github-app-token"
+[[ -x "$TOKEN_BIN" ]] || TOKEN_BIN="michelli-github-app-token"
+
+TOKEN=$("$TOKEN_BIN")
 printf 'username=x-access-token\npassword=%s\n' "$TOKEN"

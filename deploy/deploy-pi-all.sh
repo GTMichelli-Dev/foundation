@@ -80,10 +80,14 @@ echo ""
 #--------------------------------------------------
 if [[ "$SKIP_SCALE" == "0" || "$SKIP_PRINT" == "0" ]]; then
   echo "==> [0/3] Checking GitHub access on the Pi..."
-  if ssh $SSH_OPTS "$REMOTE" "git ls-remote https://github.com/GTMichelli-Dev/foundation.git HEAD" > /dev/null 2>&1; then
+  GIT_CHECK_OUT=$(ssh $SSH_OPTS "$REMOTE" "git ls-remote https://github.com/GTMichelli-Dev/foundation.git HEAD" 2>&1) && GIT_CHECK_OK=1 || GIT_CHECK_OK=0
+  if [[ "$GIT_CHECK_OK" == "1" ]]; then
     echo "  Git auth OK."
   else
-    echo "ERROR: the Pi cannot clone GTMichelli-Dev repos."
+    echo "ERROR: the Pi cannot clone GTMichelli-Dev repos. Underlying error:"
+    echo "----------------------------------------"
+    echo "$GIT_CHECK_OUT" | tail -5
+    echo "----------------------------------------"
     echo "       Bootstrap it first — see docs/pi-git-auth.md:"
     echo "         scp scripts/setup-pi-github-app.sh scripts/michelli-github-app-token.sh \\"
     echo "             scripts/git-credential-michelli.sh <pem> $REMOTE:/tmp/"
