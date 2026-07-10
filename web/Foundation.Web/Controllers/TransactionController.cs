@@ -305,10 +305,45 @@ public class TransactionController : Controller
                 if (f.Required) errors.Add($"{f.Name} is required.");
                 continue;
             }
-            if (f.FieldType == "Integer" && !long.TryParse(raw, out _))
-                errors.Add($"{f.Name} must be a whole number.");
-            else if (f.FieldType == "Real" && !double.TryParse(raw, out _))
-                errors.Add($"{f.Name} must be a number.");
+            if (f.FieldType == "Integer")
+            {
+                if (!long.TryParse(raw, out var intVal))
+                    errors.Add($"{f.Name} must be a whole number.");
+                else if (f.MinValue.HasValue && intVal < f.MinValue.Value)
+                    errors.Add($"{f.Name} must be at least {f.MinValue.Value}.");
+                else if (f.MaxValue.HasValue && intVal > f.MaxValue.Value)
+                    errors.Add($"{f.Name} must be at most {f.MaxValue.Value}.");
+            }
+            else if (f.FieldType == "Real")
+            {
+                if (!double.TryParse(raw, out var realVal))
+                    errors.Add($"{f.Name} must be a number.");
+                else if (f.MinValue.HasValue && realVal < f.MinValue.Value)
+                    errors.Add($"{f.Name} must be at least {f.MinValue.Value}.");
+                else if (f.MaxValue.HasValue && realVal > f.MaxValue.Value)
+                    errors.Add($"{f.Name} must be at most {f.MaxValue.Value}.");
+                else if (f.Precision.HasValue)
+                {
+                    var dot = raw.IndexOf('.');
+                    var decimals = dot < 0 ? 0 : raw.Length - dot - 1;
+                    if (decimals > f.Precision.Value)
+                        errors.Add($"{f.Name} allows at most {f.Precision.Value} decimal place(s).");
+                }
+            }
+            else
+            {
+                // List-backed text: the posted value must be one of the
+                // configured choices, or the ticket's previously stored value
+                // (a retired choice kept selectable when editing history).
+                var choices = f.GetListValues();
+                if (choices.Count > 0 && !choices.Contains(raw))
+                {
+                    var stored = _db.TransactionCustomValues
+                        .Any(v => v.CustomFieldId == f.Id && v.Value == raw);
+                    if (!stored)
+                        errors.Add($"{f.Name} must be one of the configured list values.");
+                }
+            }
         }
         return errors;
     }

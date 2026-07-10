@@ -369,7 +369,9 @@
                                     <input asp-for="SignaturePadId" class="form-control form-control-sm" placeholder="default" />
                                 </div>
                                 <div class="col-6 d-flex align-items-end">
-                                    <span class="small text-muted">Open on the tablet:<br /><code id="signaturePadUrl"></code></span>
+                                    <span class="small text-muted">Open on the tablet:<br />
+                                        <a id="signaturePadLink" href="#" target="_blank" rel="noopener"><code id="signaturePadUrl"></code></a>
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -863,6 +865,26 @@
                         <input type="number" id="cfSortOrder" class="form-control form-control-sm" value="0" step="1" />
                     </div>
                 </div>
+                <div class="mb-2" id="cfListSection" style="display:none;">
+                    <label class="form-label mb-0 small">Dropdown values <span class="text-muted">(optional — one per line; leave empty for free text)</span></label>
+                    <textarea id="cfListValues" class="form-control form-control-sm" rows="5"
+                              placeholder="Value 1&#10;Value 2&#10;Value 3"></textarea>
+                    <div class="form-text small">Add, change, delete, or reorder lines to manage the list. Values already saved on tickets are kept even if removed here.</div>
+                </div>
+                <div class="row g-2 mb-2" id="cfNumberSection" style="display:none;">
+                    <div class="col-4">
+                        <label class="form-label mb-0 small">Min <span class="text-muted">(optional)</span></label>
+                        <input type="number" id="cfMinValue" class="form-control form-control-sm" step="any" />
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label mb-0 small">Max <span class="text-muted">(optional)</span></label>
+                        <input type="number" id="cfMaxValue" class="form-control form-control-sm" step="any" />
+                    </div>
+                    <div class="col-4" id="cfPrecisionCol">
+                        <label class="form-label mb-0 small">Decimals <span class="text-muted">(0–6)</span></label>
+                        <input type="number" id="cfPrecision" class="form-control form-control-sm" min="0" max="6" step="1" />
+                    </div>
+                </div>
                 <div class="d-flex gap-4">
                     <div class="form-check">
                         <input type="checkbox" id="cfShowOnTicket" class="form-check-input" checked />
@@ -1017,8 +1039,9 @@
         });
         document.getElementById('signaturePadIdSection').style.display = mode === 'RemotePad' ? 'flex' : 'none';
         var padId = document.getElementById('SignaturePadId').value || 'default';
-        document.getElementById('signaturePadUrl').textContent =
-            window.location.origin + '/SignaturePad?pad-id=' + encodeURIComponent(padId);
+        var padUrl = window.location.origin + '/SignaturePad?pad-id=' + encodeURIComponent(padId);
+        document.getElementById('signaturePadUrl').textContent = padUrl;
+        document.getElementById('signaturePadLink').href = padUrl;
     }
     document.getElementById('SignatureMode').addEventListener('change', syncSignatureSections);
     document.getElementById('SignaturePadId').addEventListener('input', syncSignatureSections);
@@ -1056,7 +1079,21 @@
             });
         }
 
-        function typeLabel(t) { return t === 'Real' ? 'Decimal' : t; }
+        function typeLabel(f) {
+            var t = f.fieldType === 'Real' ? 'Decimal' : f.fieldType;
+            if (f.fieldType === 'Text' && f.listValues) t += ' (List)';
+            return t;
+        }
+
+        // Show the dropdown-list editor for Text, the min/max (+ decimals for
+        // Decimal) inputs for number types.
+        function syncCfTypeSections() {
+            var t = document.getElementById('cfType').value;
+            document.getElementById('cfListSection').style.display = t === 'Text' ? 'block' : 'none';
+            document.getElementById('cfNumberSection').style.display = t === 'Text' ? 'none' : 'flex';
+            document.getElementById('cfPrecisionCol').style.display = t === 'Real' ? 'block' : 'none';
+        }
+        document.getElementById('cfType').addEventListener('change', syncCfTypeSections);
 
         function loadCustomFields() {
             fetch('/api/customfields').then(function (r) { return r.json(); }).then(function (fields) {
@@ -1068,7 +1105,7 @@
                     if (!f.active) tr.style.opacity = '0.5';
                     tr.innerHTML =
                         '<td class="fw-bold">' + esc(f.name) + '</td>' +
-                        '<td>' + typeLabel(f.fieldType) + '</td>' +
+                        '<td>' + typeLabel(f) + '</td>' +
                         '<td>' + (f.required ? '<span class="badge bg-danger">Required</span>' : 'Optional') + '</td>' +
                         '<td>' + (f.showOnTicket ? 'Yes' : 'No') + '</td>' +
                         '<td>' + f.sortOrder + '</td>' +
@@ -1092,7 +1129,12 @@
             document.getElementById('cfSortOrder').value = field ? field.sortOrder : 0;
             document.getElementById('cfShowOnTicket').checked = field ? field.showOnTicket : true;
             document.getElementById('cfActive').checked = field ? field.active : true;
+            document.getElementById('cfListValues').value = field && field.listValues ? field.listValues : '';
+            document.getElementById('cfMinValue').value = field && field.minValue != null ? field.minValue : '';
+            document.getElementById('cfMaxValue').value = field && field.maxValue != null ? field.maxValue : '';
+            document.getElementById('cfPrecision').value = field && field.precision != null ? field.precision : '';
             document.getElementById('cfModalError').style.display = 'none';
+            syncCfTypeSections();
             new bootstrap.Modal('#customFieldModal').show();
         }
 
@@ -1112,7 +1154,11 @@
                 required: document.getElementById('cfRequired').value === 'true',
                 sortOrder: parseInt(document.getElementById('cfSortOrder').value) || 0,
                 showOnTicket: document.getElementById('cfShowOnTicket').checked,
-                active: document.getElementById('cfActive').checked
+                active: document.getElementById('cfActive').checked,
+                listValues: document.getElementById('cfListValues').value || null,
+                minValue: document.getElementById('cfMinValue').value === '' ? null : parseFloat(document.getElementById('cfMinValue').value),
+                maxValue: document.getElementById('cfMaxValue').value === '' ? null : parseFloat(document.getElementById('cfMaxValue').value),
+                precision: document.getElementById('cfPrecision').value === '' ? null : parseInt(document.getElementById('cfPrecision').value)
             };
             fetch(editingId ? '/api/customfields/' + editingId : '/api/customfields', {
                 method: editingId ? 'PUT' : 'POST',

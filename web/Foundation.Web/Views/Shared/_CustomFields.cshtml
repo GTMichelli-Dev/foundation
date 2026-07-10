@@ -21,12 +21,34 @@
         @if (f.FieldType == "Integer")
         {
             <input type="number" step="1" name="cf_@f.Id" class="form-control custom-field-input"
+                   min="@(f.MinValue?.ToString() ?? "")" max="@(f.MaxValue?.ToString() ?? "")"
                    value="@val" required="@(f.Required ? "required" : null)" />
         }
         else if (f.FieldType == "Real")
         {
-            <input type="number" step="any" name="cf_@f.Id" class="form-control custom-field-input"
+            var step = f.Precision.HasValue ? Math.Pow(10, -f.Precision.Value).ToString("0.######") : "any";
+            <input type="number" step="@step" name="cf_@f.Id" class="form-control custom-field-input"
+                   min="@(f.MinValue?.ToString() ?? "")" max="@(f.MaxValue?.ToString() ?? "")"
                    value="@val" required="@(f.Required ? "required" : null)" />
+        }
+        else if (f.GetListValues().Count > 0)
+        {
+            @* List-backed text field: dropdown of admin-defined choices. A
+               historical value no longer in the list is kept selectable so
+               editing an old ticket doesn't silently lose it. *@
+            var choices = f.GetListValues();
+            <select name="cf_@f.Id" class="form-select custom-field-input"
+                    required="@(f.Required ? "required" : null)">
+                <option value=""></option>
+                @if (!string.IsNullOrEmpty(val) && !choices.Contains(val))
+                {
+                    <option value="@val" selected>@val (retired)</option>
+                }
+                @foreach (var choice in choices)
+                {
+                    <option value="@choice" selected="@(choice == val ? "selected" : null)">@choice</option>
+                }
+            </select>
         }
         else
         {

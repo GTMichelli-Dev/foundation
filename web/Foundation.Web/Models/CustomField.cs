@@ -35,6 +35,31 @@ public class CustomField
 
     [Display(Name = "Sort Order")]
     public int SortOrder { get; set; }
+
+    /// <summary>
+    /// Text fields only: newline-separated dropdown choices. When set, the
+    /// weigh forms render a select instead of a free-text input. Managed on
+    /// Setup → Fields (one value per line = full add/edit/delete/reorder).
+    /// </summary>
+    [StringLength(4000)]
+    public string? ListValues { get; set; }
+
+    /// <summary>Integer/Real fields only: inclusive minimum allowed value.</summary>
+    public double? MinValue { get; set; }
+
+    /// <summary>Integer/Real fields only: inclusive maximum allowed value.</summary>
+    public double? MaxValue { get; set; }
+
+    /// <summary>Real fields only: max decimal places (0–6). Null = unlimited.</summary>
+    public int? Precision { get; set; }
+
+    /// <summary>ListValues split into clean entries (empty for free-text fields).</summary>
+    public List<string> GetListValues() =>
+        (ListValues ?? "")
+            .Split('\n')
+            .Select(v => v.Trim())
+            .Where(v => v.Length > 0)
+            .ToList();
 }
 
 /// <summary>Per-ticket value for a CustomField. Stored as text; the field's
