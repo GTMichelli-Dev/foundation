@@ -18,7 +18,7 @@ dotnet publish "$ROOT_DIR/web/Foundation.Web/Foundation.Web.csproj" \
   -r linux-arm64 \
   --self-contained true \
   -o "$OUT_DIR/foundation" \
-  /p:PublishSingleFile=false
+  -p:PublishSingleFile=false
 
 echo "==> Copying service files..."
 cp "$SCRIPT_DIR/foundation-pi.service" "$OUT_DIR/"

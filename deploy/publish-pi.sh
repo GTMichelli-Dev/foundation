@@ -18,7 +18,7 @@ dotnet publish "$ROOT_DIR/KioskPrintAgent/KioskPrintAgent.csproj" \
   -r linux-arm64 \
   --self-contained true \
   -o "$OUT_DIR/kioskprint" \
-  /p:PublishSingleFile=false
+  -p:PublishSingleFile=false
 
 echo "==> Copying service and install files..."
 cp "$SCRIPT_DIR/kioskprint.service" "$OUT_DIR/"
