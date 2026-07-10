@@ -129,6 +129,22 @@ bash deploy/deploy.sh admin@149.28.xxx.xxx --domain scale.yourcompany.com --emai
 bash deploy/deploy.sh admin@192.168.1.100
 ```
 
+### Raspberry Pi Full Stack (web + scale reader + print service)
+
+One command deploys or updates everything on a scale-house Pi — the web app
+(built locally, pushed over SSH) plus the Scale Reader Service and Web Print
+Service (cloned and built on the Pi; requires the
+[GitHub App bootstrap](docs/pi-git-auth.md) once per Pi):
+
+```bash
+bash deploy/deploy-pi-all.sh admin@<pi-ip>
+```
+
+Defaults: services point at `http://127.0.0.1` (same-Pi web app) and the
+printer queue is `TicketPrinter`. Options: `--server-url`, `--printer-name`,
+`--key`, and `--skip-web` / `--skip-scale` / `--skip-print` to deploy a
+subset. Re-running is safe — all three installers preserve their databases.
+
 ### Raspberry Pi Web App (arm64, Kestrel on port 80)
 
 For internal-network Pi installs of the full web app — Kestrel serves plain HTTP
