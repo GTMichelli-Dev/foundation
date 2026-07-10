@@ -32,6 +32,13 @@
     <PackageReference Include="DevExpress.AspNetCore.Reporting" Version="25.2.5" />
     <PackageReference Include="DevExpress.Drawing.Skia" Version="25.2.5" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.1" />
+    <!-- DevExpress.Drawing.Skia transitively pulls the regular Linux native
+         assets, whose libSkiaSharp.so needs system FreeType symbols that
+         Raspberry Pi OS doesn't ship (FT_Get_BDF_Property) — the app dies
+         with a symbol lookup error the first time a report renders. Keep the
+         package in the graph but strip its native payload so the
+         NoDependencies .so above is the one that gets published. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.1" ExcludeAssets="native" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.*" />
     <!-- Pins the native SQLite bundle above the vulnerable 2.1.11 that
          EF Core 10 currently pulls transitively (GHSA-2m69-gcr7-jv3q). -->
