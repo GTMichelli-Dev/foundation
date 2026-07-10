@@ -53,6 +53,17 @@ public class CustomField
     /// <summary>Real fields only: max decimal places (0–6). Null = unlimited.</summary>
     public int? Precision { get; set; }
 
+    /// <summary>
+    /// Ask for this field during the kiosk weigh-in flow. Only meaningful for
+    /// constrained inputs — numeric fields and list-backed text fields; a
+    /// free-text field can't prompt at the kiosk (no keyboard-driven prose).
+    /// </summary>
+    public bool PromptAtKiosk { get; set; }
+
+    /// <summary>True when this field is allowed to prompt at the kiosk.</summary>
+    public bool IsKioskEligible() =>
+        FieldType != "Text" || GetListValues().Count > 0;
+
     /// <summary>ListValues split into clean entries (empty for free-text fields).</summary>
     public List<string> GetListValues() =>
         (ListValues ?? "")

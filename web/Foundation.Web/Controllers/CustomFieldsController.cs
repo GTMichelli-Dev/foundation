@@ -27,7 +27,7 @@ public class CustomFieldsController : Controller
         return Json(fields.Select(f => new
         {
             f.Id, f.Name, f.FieldType, f.Required, f.Active, f.ShowOnTicket, f.SortOrder,
-            f.ListValues, f.MinValue, f.MaxValue, f.Precision
+            f.ListValues, f.MinValue, f.MaxValue, f.Precision, f.PromptAtKiosk
         }));
     }
 
@@ -69,6 +69,7 @@ public class CustomFieldsController : Controller
         existing.MinValue = field.MinValue;
         existing.MaxValue = field.MaxValue;
         existing.Precision = field.Precision;
+        existing.PromptAtKiosk = field.PromptAtKiosk;
         _db.SaveChanges();
         return Json(existing);
     }
@@ -124,5 +125,7 @@ public class CustomFieldsController : Controller
             field.ListValues = null;
             if (field.FieldType == "Integer") field.Precision = null;
         }
+        // Kiosk prompting requires a constrained input.
+        if (!field.IsKioskEligible()) field.PromptAtKiosk = false;
     }
 }

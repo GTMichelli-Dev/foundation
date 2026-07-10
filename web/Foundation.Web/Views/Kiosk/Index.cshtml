@@ -679,6 +679,15 @@
         body.kiosk-light .overlay-yellow { background: #ffc107; color: #111; }
         body.kiosk-light .overlay-red { background: #dc3545; color: #fff; }
         body.kiosk-light .demo-ticket { background: #fff; color: #000; border: 1px solid #ccc; }
+
+        /* Numeric custom-field prompt (shares list-selector chrome + numpad look) */
+        #prompt-number { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 8px 0; }
+        #prompt-number .number-readout { min-width: 320px; min-height: 64px; font-size: 2.6rem; text-align: center; }
+        #prompt-number .number-pad { margin: 0 auto; }
+        .number-hint { font-size: 1.1rem; color: #9aa5b1; min-height: 1.4rem; }
+        .number-hint.number-hint-error { color: #ff6666; font-weight: bold; }
+        body.kiosk-light .number-hint { color: #555; }
+        body.kiosk-light .number-hint.number-hint-error { color: #dc3545; }
     </style>
 </head>
 <body class="@(Model.DemoMode ? "demo-mode" : "") @(!Model.KioskDarkMode ? "kiosk-light" : "") @(Model.HideKioskOnScreenButtons ? "kiosk-hide-buttons" : "")">
@@ -774,6 +783,26 @@
             <div class="list-selector">
                 <div class="list-title" id="prompt-title">Select Item</div>
                 <div class="list-container" id="prompt-list"></div>
+                <!-- Numeric entry pane for number-type custom field prompts.
+                     Shares the title/Cancel/Skip/Select chrome with the list. -->
+                <div id="prompt-number" style="display:none;">
+                    <div class="number-readout ticket-value" id="prompt-number-value">&nbsp;</div>
+                    <div class="number-hint" id="prompt-number-hint"></div>
+                    <div class="numpad number-pad">
+                        <button type="button" class="numpad-btn num-key" data-key="7">7</button>
+                        <button type="button" class="numpad-btn num-key" data-key="8">8</button>
+                        <button type="button" class="numpad-btn num-key" data-key="9">9</button>
+                        <button type="button" class="numpad-btn num-key" data-key="4">4</button>
+                        <button type="button" class="numpad-btn num-key" data-key="5">5</button>
+                        <button type="button" class="numpad-btn num-key" data-key="6">6</button>
+                        <button type="button" class="numpad-btn num-key" data-key="1">1</button>
+                        <button type="button" class="numpad-btn num-key" data-key="2">2</button>
+                        <button type="button" class="numpad-btn num-key" data-key="3">3</button>
+                        <button type="button" class="numpad-btn num-key" id="prompt-num-dot" data-key=".">.</button>
+                        <button type="button" class="numpad-btn num-key" data-key="0">0</button>
+                        <button type="button" class="numpad-btn num-key btn-clr" data-key="back">&#9003;</button>
+                    </div>
+                </div>
                 <div class="list-buttons">
                     <button class="list-btn list-btn-cancel" id="prompt-cancel">Cancel</button>
                     <button class="list-btn list-btn-skip" id="prompt-skip">Skip</button>
@@ -906,7 +935,7 @@
     var selectedListIndex = 0;
     var currentListItems = [];
     var motionTimer = null;
-    var lists = { commodities: [], customers: [], carriers: [], locations: [], destinations: [] };
+    var lists = { commodities: [], customers: [], carriers: [], locations: [], destinations: [], customFields: [] };
     var completedWeight = null;  // weight at time of completion
     var completedTicket = null;  // ticket number for reprint
     var completedType = null;    // 'Weigh In' or 'Weigh Out'
@@ -1247,6 +1276,27 @@
                            items: lists.destinations,
                            allowSkip: kioskSettings.allowSkipDestination });
         }
+        // Kiosk-enabled custom fields (weigh-in only). Only constrained inputs
+        // reach the kiosk: list-backed text renders the standard list prompt,
+        // numeric fields render the keypad prompt.
+        if (inbound && lists.customFields && lists.customFields.length) {
+            lists.customFields.forEach(function (f) {
+                if (f.fieldType === 'Text') {
+                    prompts.push({ key: 'cf' + f.id, cfId: f.id,
+                                   title: 'Select ' + f.name,
+                                   items: f.listValues || [],
+                                   allowSkip: !f.required });
+                } else {
+                    prompts.push({ key: 'cf' + f.id, cfId: f.id,
+                                   title: 'Enter ' + f.name,
+                                   type: 'number',
+                                   integer: f.fieldType === 'Integer',
+                                   min: f.minValue, max: f.maxValue,
+                                   precision: f.precision,
+                                   allowSkip: !f.required });
+                }
+            });
+        }
         return prompts;
     }
 
@@ -1294,6 +1344,12 @@
     }
 
     function renderPrompt(prompt) {
+        if (prompt.type === 'number') {
+            renderNumberPrompt(prompt);
+            return;
+        }
+        $('#prompt-number').hide();
+        $('#prompt-list').show();
         var rawItems = prompt.items || [];
         // Auto-skip lists with no real items — no point showing only "— None —".
         if (rawItems.length === 0) {
@@ -1401,7 +1457,94 @@
         setState(scaleData.weight >= WEIGHT_THRESHOLD ? 'ready' : 'idle');
     });
 
+    // ===== NUMERIC CUSTOM-FIELD PROMPT =====
+    var numberValue = '';
+
+    function isNumberPromptActive() {
+        var p = promptQueue[promptIndex];
+        return currentState === 'prompt' && p && p.type === 'number';
+    }
+
+    function renderNumberPrompt(prompt) {
+        currentListItems = [];
+        numberValue = '';
+        $('#prompt-title').text(prompt.title);
+        $('#prompt-list').hide();
+        $('#prompt-number').show();
+        // '.' key only for decimal fields that actually allow decimals
+        var allowDot = !prompt.integer && prompt.precision !== 0;
+        $('#prompt-num-dot').css('visibility', allowDot ? 'visible' : 'hidden');
+        updateNumberReadout(prompt);
+        $('#prompt-select').show();
+        if (prompt.allowSkip !== false) { $('#prompt-skip').show(); } else { $('#prompt-skip').hide(); }
+        setState('prompt');
+    }
+
+    function updateNumberReadout(prompt) {
+        $('#prompt-number-value').text(numberValue === '' ? ' ' : numberValue);
+        var hints = [];
+        if (prompt.integer) hints.push('whole number');
+        if (prompt.min != null) hints.push('min ' + prompt.min);
+        if (prompt.max != null) hints.push('max ' + prompt.max);
+        if (!prompt.integer && prompt.precision != null) hints.push('up to ' + prompt.precision + ' decimal' + (prompt.precision === 1 ? '' : 's'));
+        $('#prompt-number-hint').removeClass('number-hint-error').text(hints.join(' · '));
+    }
+
+    function showNumberError(prompt, msg) {
+        $('#prompt-number-hint').addClass('number-hint-error').text(msg);
+    }
+
+    function appendNumberChar(c) {
+        var prompt = promptQueue[promptIndex];
+        if (!prompt) return;
+        if (c === 'back') {
+            numberValue = numberValue.slice(0, -1);
+        } else if (c === '.') {
+            if (prompt.integer || prompt.precision === 0) return;
+            if (numberValue.indexOf('.') >= 0) return;
+            numberValue = numberValue === '' ? '0.' : numberValue + '.';
+        } else if (/^\d$/.test(c)) {
+            if (numberValue.replace('.', '').length >= 12) return; // sanity cap
+            numberValue += c;
+        }
+        updateNumberReadout(prompt);
+        resetOperationTimerIfActive();
+    }
+
+    $(document).on('click', '#prompt-number .num-key', function () {
+        appendNumberChar($(this).attr('data-key'));
+    });
+
+    function confirmNumberPrompt(prompt) {
+        if (numberValue === '' || numberValue === '0.') {
+            if (prompt.allowSkip !== false) { promptIndex++; showNextPrompt(); }
+            else showNumberError(prompt, 'A value is required');
+            return;
+        }
+        var v = parseFloat(numberValue);
+        if (isNaN(v)) { showNumberError(prompt, 'Not a valid number'); return; }
+        if (prompt.min != null && v < prompt.min) { showNumberError(prompt, 'Minimum is ' + prompt.min); return; }
+        if (prompt.max != null && v > prompt.max) { showNumberError(prompt, 'Maximum is ' + prompt.max); return; }
+        if (!prompt.integer && prompt.precision != null) {
+            var dot = numberValue.indexOf('.');
+            var dec = dot < 0 ? 0 : numberValue.length - dot - 1;
+            if (dec > prompt.precision) {
+                showNumberError(prompt, 'Up to ' + prompt.precision + ' decimal place' + (prompt.precision === 1 ? '' : 's'));
+                return;
+            }
+        }
+        // Trim a trailing dot ("12." -> "12")
+        weighinData[prompt.key] = numberValue.replace(/\.$/, '');
+        promptIndex++;
+        showNextPrompt();
+    }
+
     function selectCurrentPromptItem() {
+        var numPrompt = promptQueue[promptIndex];
+        if (numPrompt && numPrompt.type === 'number') {
+            confirmNumberPrompt(numPrompt);
+            return;
+        }
         if (currentListItems.length === 0) return;
         var prompt = promptQueue[promptIndex];
         var selected = currentListItems[selectedListIndex];
@@ -1502,6 +1645,16 @@
     }
 
     // ===== SAVE TRANSACTIONS =====
+    /// Collect answered custom-field prompts as { fieldId: "value" }.
+    function buildCustomFieldPayload() {
+        var out = {};
+        (lists.customFields || []).forEach(function (f) {
+            var v = weighinData['cf' + f.id];
+            if (v !== undefined && v !== null && v !== '') out[f.id] = String(v);
+        });
+        return out;
+    }
+
     function saveWeighIn(weight) {
         setState('saving');
         $.ajax({
@@ -1516,7 +1669,8 @@
                 truckId: weighinData.truck || null,
                 location: weighinData.location || null,
                 destination: weighinData.destination || null,
-                printerId: kioskHasPrinter ? (kioskServiceId + ':' + kioskPrinterId) : null
+                printerId: kioskHasPrinter ? (kioskServiceId + ':' + kioskPrinterId) : null,
+                customFields: buildCustomFieldPayload()
             }),
             success: function (result) {
                 // Server may suppress the inbound-leg print when Retained Tare
@@ -1795,6 +1949,13 @@
     $(document).on('keydown', function (e) {
         var key = e.key;
 
+        // Numeric custom-field prompt: digits feed the readout
+        if (isNumberPromptActive() && (/^\d$/.test(key) || key === '.')) {
+            appendNumberChar(key);
+            e.preventDefault();
+            return;
+        }
+
         // Barcode scanner: rapid digit input
         if (/^\d$/.test(key)) {
             clearTimeout(barcodeTimer);
@@ -1845,7 +2006,13 @@
                     updateTicketDisplay();
                     setState('ready');
                 } else if (currentState === 'prompt') {
-                    $('#prompt-cancel').click();
+                    // On a numeric prompt, Backspace/Delete erase a digit;
+                    // Escape always cancels the whole flow.
+                    if (key !== 'Escape' && isNumberPromptActive() && numberValue.length > 0) {
+                        appendNumberChar('back');
+                    } else {
+                        $('#prompt-cancel').click();
+                    }
                 }
                 break;
 

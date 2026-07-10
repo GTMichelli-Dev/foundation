@@ -885,7 +885,7 @@
                         <input type="number" id="cfPrecision" class="form-control form-control-sm" min="0" max="6" step="1" />
                     </div>
                 </div>
-                <div class="d-flex gap-4">
+                <div class="d-flex gap-4 flex-wrap">
                     <div class="form-check">
                         <input type="checkbox" id="cfShowOnTicket" class="form-check-input" checked />
                         <label class="form-check-label small" for="cfShowOnTicket">Show on printed ticket</label>
@@ -893,6 +893,10 @@
                     <div class="form-check">
                         <input type="checkbox" id="cfActive" class="form-check-input" checked />
                         <label class="form-check-label small" for="cfActive">Active</label>
+                    </div>
+                    <div class="form-check" title="Numbers and dropdown lists only — free text can't prompt at the kiosk">
+                        <input type="checkbox" id="cfPromptAtKiosk" class="form-check-input" />
+                        <label class="form-check-label small" for="cfPromptAtKiosk">Ask at kiosk (weigh-in)</label>
                     </div>
                 </div>
                 <div id="cfModalError" class="small text-danger mt-2" style="display:none;"></div>
@@ -1086,14 +1090,20 @@
         }
 
         // Show the dropdown-list editor for Text, the min/max (+ decimals for
-        // Decimal) inputs for number types.
+        // Decimal) inputs for number types. The kiosk checkbox only applies to
+        // constrained inputs: numbers, or Text with a non-empty dropdown list.
         function syncCfTypeSections() {
             var t = document.getElementById('cfType').value;
             document.getElementById('cfListSection').style.display = t === 'Text' ? 'block' : 'none';
             document.getElementById('cfNumberSection').style.display = t === 'Text' ? 'none' : 'flex';
             document.getElementById('cfPrecisionCol').style.display = t === 'Real' ? 'block' : 'none';
+            var kiosk = document.getElementById('cfPromptAtKiosk');
+            var eligible = t !== 'Text' || document.getElementById('cfListValues').value.trim() !== '';
+            kiosk.disabled = !eligible;
+            if (!eligible) kiosk.checked = false;
         }
         document.getElementById('cfType').addEventListener('change', syncCfTypeSections);
+        document.getElementById('cfListValues').addEventListener('input', syncCfTypeSections);
 
         function loadCustomFields() {
             fetch('/api/customfields').then(function (r) { return r.json(); }).then(function (fields) {
@@ -1133,6 +1143,7 @@
             document.getElementById('cfMinValue').value = field && field.minValue != null ? field.minValue : '';
             document.getElementById('cfMaxValue').value = field && field.maxValue != null ? field.maxValue : '';
             document.getElementById('cfPrecision').value = field && field.precision != null ? field.precision : '';
+            document.getElementById('cfPromptAtKiosk').checked = field ? !!field.promptAtKiosk : false;
             document.getElementById('cfModalError').style.display = 'none';
             syncCfTypeSections();
             new bootstrap.Modal('#customFieldModal').show();
@@ -1158,7 +1169,8 @@
                 listValues: document.getElementById('cfListValues').value || null,
                 minValue: document.getElementById('cfMinValue').value === '' ? null : parseFloat(document.getElementById('cfMinValue').value),
                 maxValue: document.getElementById('cfMaxValue').value === '' ? null : parseFloat(document.getElementById('cfMaxValue').value),
-                precision: document.getElementById('cfPrecision').value === '' ? null : parseInt(document.getElementById('cfPrecision').value)
+                precision: document.getElementById('cfPrecision').value === '' ? null : parseInt(document.getElementById('cfPrecision').value),
+                promptAtKiosk: document.getElementById('cfPromptAtKiosk').checked
             };
             fetch(editingId ? '/api/customfields/' + editingId : '/api/customfields', {
                 method: editingId ? 'PUT' : 'POST',

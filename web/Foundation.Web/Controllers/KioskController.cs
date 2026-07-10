@@ -73,7 +73,28 @@ public class KioskController : Controller
             .Select(d => d.DestinationName)
             .ToList();
 
-        return Json(new { commodities, customers, carriers, locations, destinations });
+        // Kiosk-enabled custom fields. Only constrained inputs prompt at the
+        // kiosk: numeric fields and list-backed text fields (free text is
+        // filtered out even if the flag was somehow set).
+        var customFields = _db.CustomFields
+            .Where(f => f.Active && f.PromptAtKiosk)
+            .OrderBy(f => f.SortOrder).ThenBy(f => f.Name)
+            .ToList()
+            .Where(f => f.IsKioskEligible())
+            .Select(f => new
+            {
+                id = f.Id,
+                name = f.Name,
+                fieldType = f.FieldType,
+                required = f.Required,
+                listValues = f.GetListValues(),
+                minValue = f.MinValue,
+                maxValue = f.MaxValue,
+                precision = f.Precision
+            })
+            .ToList();
+
+        return Json(new { commodities, customers, carriers, locations, destinations, customFields });
     }
 
     [HttpGet("api/kiosk/trucks/{carrier}")]
@@ -227,6 +248,7 @@ public class KioskController : Controller
         setup.TicketNumber++;
         _db.AppSetup.Update(setup);
         _db.Transactions.Add(transaction);
+        SaveKioskCustomFields(ticketNumber, request.CustomFields);
         _db.SaveChanges();
         _setupCache.Invalidate();
 
@@ -466,6 +488,61 @@ public class KioskController : Controller
         }
     }
 
+    /// <summary>
+    /// Server-side backstop for kiosk-collected custom field values. The kiosk
+    /// UI already constrains input (dropdown choices, numeric keypad with
+    /// min/max/precision), so an invalid value here means a stale kiosk page
+    /// or a hand-crafted request — it is silently dropped rather than failing
+    /// the weigh-in, since a truck is standing on the scale. Caller SaveChanges().
+    /// </summary>
+    private void SaveKioskCustomFields(string ticket, Dictionary<string, string>? values)
+    {
+        if (values == null || values.Count == 0) return;
+
+        var fields = _db.CustomFields
+            .Where(f => f.Active && f.PromptAtKiosk)
+            .ToList()
+            .Where(f => f.IsKioskEligible())
+            .ToList();
+
+        foreach (var f in fields)
+        {
+            if (!values.TryGetValue(f.Id.ToString(), out var raw)) continue;
+            raw = raw?.Trim() ?? "";
+            if (raw.Length == 0) continue;
+            if (raw.Length > 200) raw = raw[..200];
+
+            if (f.FieldType == "Integer")
+            {
+                if (!long.TryParse(raw, out var i)) continue;
+                if (f.MinValue.HasValue && i < f.MinValue.Value) continue;
+                if (f.MaxValue.HasValue && i > f.MaxValue.Value) continue;
+            }
+            else if (f.FieldType == "Real")
+            {
+                if (!double.TryParse(raw, out var d)) continue;
+                if (f.MinValue.HasValue && d < f.MinValue.Value) continue;
+                if (f.MaxValue.HasValue && d > f.MaxValue.Value) continue;
+                if (f.Precision.HasValue)
+                {
+                    var dot = raw.IndexOf('.');
+                    if (dot >= 0 && raw.Length - dot - 1 > f.Precision.Value) continue;
+                }
+            }
+            else if (!f.GetListValues().Contains(raw))
+            {
+                continue;
+            }
+
+            _db.TransactionCustomValues.Add(new TransactionCustomValue
+            {
+                Ticket = ticket,
+                CustomFieldId = f.Id,
+                Value = raw
+            });
+        }
+    }
+
     public class KioskWeighInRequest
     {
         public int Weight { get; set; }
@@ -475,6 +552,8 @@ public class KioskController : Controller
         public string? TruckId { get; set; }
         public string? Location { get; set; }
         public string? Destination { get; set; }
+        /// <summary>Custom field values keyed by field id ("3" -> "12.5").</summary>
+        public Dictionary<string, string>? CustomFields { get; set; }
         /// <summary>
         /// Optional printer in "serviceId:printerId" format.
         /// If not set: demo mode uses "demo:KioskPrinter", normal mode uses inbound printer from Setup.
