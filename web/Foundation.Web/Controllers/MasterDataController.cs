@@ -24,6 +24,8 @@ public class MasterDataController : Controller
         ViewBag.KioskCount = setup.KioskCount;
         ViewBag.UseQuickBooks = setup.UseQuickBooks;
         ViewBag.UseRetainedTare = setup.UseRetainedTare;
+        // Hidden standard fields lose their Edit Tables tab too (Setup → Fields).
+        ViewBag.Setup = setup;
         // Active dropdown-backed custom fields each get their own edit tab.
         ViewBag.CustomFieldLists = _db.CustomFields
             .Where(f => f.Active && f.FieldType == "Text" && f.ListValues != null && f.ListValues != "")

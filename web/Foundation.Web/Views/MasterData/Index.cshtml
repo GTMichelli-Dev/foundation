@@ -6,6 +6,15 @@
     var useRetainedTare = (bool)(ViewBag.UseRetainedTare ?? false);
     var customFieldLists = ViewBag.CustomFieldLists as List<Foundation.Web.Models.CustomField>
         ?? new List<Foundation.Web.Models.CustomField>();
+    var setup = (Foundation.Web.Models.AppSetup)ViewBag.Setup;
+    // Standard-field tabs follow the field's visibility (Setup → Fields):
+    // no point managing master data for a field the forms never show.
+    var standardTabs = new List<(string Tab, string Grid, string Label)>();
+    if (!setup.HideCustomer) standardTabs.Add(("customersTab", "customersGrid", "Customers"));
+    if (!setup.HideCarrier) standardTabs.Add(("carriersTab", "carriersGrid", "Carriers & Trucks"));
+    if (!setup.HideLocation) standardTabs.Add(("locationsTab", "locationsGrid", "Locations"));
+    if (!setup.HideDestination) standardTabs.Add(("destinationsTab", "destinationsGrid", "Destinations"));
+    if (!setup.HideCommodity) standardTabs.Add(("commoditiesTab", "commoditiesGrid", "Commodities"));
 }
 
 <style>
@@ -73,48 +82,35 @@
 }
 
 <ul class="nav nav-tabs" id="masterDataTabs" role="tablist">
-    <li class="nav-item">
-        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#customersTab">Customers</button>
-    </li>
-    <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#carriersTab">Carriers & Trucks</button>
-    </li>
-    <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#locationsTab">Locations</button>
-    </li>
-    <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#destinationsTab">Destinations</button>
-    </li>
-    <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#commoditiesTab">Commodities</button>
-    </li>
+    @{ var isFirstTab = true; }
+    @foreach (var (tab, _, label) in standardTabs)
+    {
+        <li class="nav-item">
+            <button class="nav-link @(isFirstTab ? "active" : "")" data-bs-toggle="tab" data-bs-target="#@tab">@label</button>
+        </li>
+        isFirstTab = false;
+    }
     @foreach (var cf in customFieldLists)
     {
         <li class="nav-item">
-            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#cfListTab_@cf.Id">@cf.Name</button>
+            <button class="nav-link @(isFirstTab ? "active" : "")" data-bs-toggle="tab" data-bs-target="#cfListTab_@cf.Id">@cf.Name</button>
         </li>
+        isFirstTab = false;
     }
 </ul>
 
 <div class="tab-content mt-3">
-    <div class="tab-pane fade show active" id="customersTab">
-        <div id="customersGrid"></div>
-    </div>
-    <div class="tab-pane fade" id="carriersTab">
-        <div id="carriersGrid"></div>
-    </div>
-    <div class="tab-pane fade" id="locationsTab">
-        <div id="locationsGrid"></div>
-    </div>
-    <div class="tab-pane fade" id="destinationsTab">
-        <div id="destinationsGrid"></div>
-    </div>
-    <div class="tab-pane fade" id="commoditiesTab">
-        <div id="commoditiesGrid"></div>
-    </div>
+    @{ var isFirstPane = true; }
+    @foreach (var (tab, grid, _) in standardTabs)
+    {
+        <div class="tab-pane fade @(isFirstPane ? "show active" : "")" id="@tab">
+            <div id="@grid"></div>
+        </div>
+        isFirstPane = false;
+    }
     @foreach (var cf in customFieldLists)
     {
-        <div class="tab-pane fade" id="cfListTab_@cf.Id">
+        <div class="tab-pane fade @(isFirstPane ? "show active" : "")" id="cfListTab_@cf.Id">
             <p class="small text-muted mb-2">
                 Dropdown choices for the <strong>@cf.Name</strong> custom field
                 (Setup &rarr; Fields). Drag rows to reorder. Values already saved
@@ -122,6 +118,11 @@
             </p>
             <div id="cfListGrid_@cf.Id" class="cf-list-grid" data-field-id="@cf.Id" style="max-width: 480px;"></div>
         </div>
+        isFirstPane = false;
+    }
+    @if (standardTabs.Count == 0 && customFieldLists.Count == 0)
+    {
+        <p class="text-muted">All standard fields are hidden and no dropdown custom fields are defined — nothing to edit here. Manage field visibility on <a href="/Setup">Setup &rarr; Fields</a>.</p>
     }
 </div>
 
@@ -365,6 +366,7 @@
         }
 
         function initNameActiveGrid(selector, endpoint, nameField, nameCaption, qbManaged, addCarrierAction) {
+            if (!$(selector).length) return; // tab hidden with its field (Setup → Fields)
             var lockName = useQuickBooks && qbManaged;
             var cols = [
                 { dataField: 'id', caption: 'ID', width: 60, allowEditing: false },
@@ -555,6 +557,7 @@
 
         var carrierStore = createIdStore('carriers');
 
+        if ($('#carriersGrid').length)
         $('#carriersGrid').dxDataGrid({
             hoverStateEnabled: true,
             dataSource: carrierStore,
