@@ -107,9 +107,13 @@ builder.Services.ConfigureReportingServices(configurator =>
         viewerConfigurator.UseCachedReportSourceBuilder();
     });
 });
-DevExpress.XtraReports.Web.Extensions.ReportStorageWebExtension.RegisterExtensionGlobal(new ReportStorageService());
-
 var app = builder.Build();
+
+// Report storage needs the service provider to resolve a DB context per call
+// (it injects custom-field parameters into served layouts), so it is created
+// and registered after Build() rather than with the other DevExpress setup.
+var reportStorage = new ReportStorageService(app.Services);
+DevExpress.XtraReports.Web.Extensions.ReportStorageWebExtension.RegisterExtensionGlobal(reportStorage);
 
 // Initialize database and seed data
 using (var scope = app.Services.CreateScope())
@@ -128,10 +132,9 @@ using (var scope = app.Services.CreateScope())
 // designer can open them directly without first running the web designer.
 // GetData() is a no-op when the file already exists; preserves any edits.
 {
-    var storage = new ReportStorageService();
     foreach (var report in new[] { "TicketReport", "KioskTicketReport" })
     {
-        try { storage.GetData(report); }
+        try { reportStorage.GetData(report); }
         catch (Exception ex) { Console.WriteLine($"[ReportStorage] seed failed for {report}: {ex.Message}"); }
     }
 }

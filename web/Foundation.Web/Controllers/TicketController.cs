@@ -340,8 +340,11 @@ public class TicketController : Controller
         if (setup.HideNotes) ReportFieldLayout.CollapseRow(report, "Notes");
     }
 
-    /// <summary>Insert printed rows for this ticket's custom-field values
-    /// (fields marked Show on Ticket only), above the given anchor control.</summary>
+    /// <summary>Print this ticket's custom-field values (fields marked Show on
+    /// Ticket only). Hybrid: a field whose cf_ parameter is referenced in the
+    /// layout (placed via the designer) gets its value through that parameter;
+    /// unreferenced fields keep the legacy auto-appended row above the given
+    /// anchor control, so existing layouts print unchanged.</summary>
     private void InjectCustomFields(XtraReport report, string ticketId, params string[] anchorNames)
     {
         var rows = (from v in _db.TransactionCustomValues
@@ -352,9 +355,22 @@ public class TicketController : Controller
                     select new { f.Name, v.Value }).ToList();
         if (rows.Count == 0) return;
 
-        ReportFieldLayout.InsertRows(report,
-            rows.Select(r => (r.Name + ":", r.Value!)).ToList(),
-            anchorNames);
+        var appendRows = new List<(string Label, string Value)>();
+        foreach (var row in rows)
+        {
+            var paramName = CustomFieldParams.ParamName(row.Name);
+            if (CustomFieldParams.IsReferenced(report, paramName))
+            {
+                CustomFieldParams.EnsureParameter(report, paramName, row.Name);
+                report.Parameters[paramName].Value = row.Value;
+            }
+            else
+            {
+                appendRows.Add((row.Name + ":", row.Value!));
+            }
+        }
+
+        ReportFieldLayout.InsertRows(report, appendRows, anchorNames);
     }
 
     private void SetLogoImage(XtraReport report, AppSetup setup)
