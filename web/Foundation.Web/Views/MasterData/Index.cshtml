@@ -4,6 +4,8 @@
     var showKiosk = kioskCount > 0;
     var useQuickBooks = (bool)ViewBag.UseQuickBooks;
     var useRetainedTare = (bool)(ViewBag.UseRetainedTare ?? false);
+    var customFieldLists = ViewBag.CustomFieldLists as List<Foundation.Web.Models.CustomField>
+        ?? new List<Foundation.Web.Models.CustomField>();
 }
 
 <style>
@@ -86,6 +88,12 @@
     <li class="nav-item">
         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#commoditiesTab">Commodities</button>
     </li>
+    @foreach (var cf in customFieldLists)
+    {
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#cfListTab_@cf.Id">@cf.Name</button>
+        </li>
+    }
 </ul>
 
 <div class="tab-content mt-3">
@@ -104,6 +112,17 @@
     <div class="tab-pane fade" id="commoditiesTab">
         <div id="commoditiesGrid"></div>
     </div>
+    @foreach (var cf in customFieldLists)
+    {
+        <div class="tab-pane fade" id="cfListTab_@cf.Id">
+            <p class="small text-muted mb-2">
+                Dropdown choices for the <strong>@cf.Name</strong> custom field
+                (Setup &rarr; Fields). Drag rows to reorder. Values already saved
+                on tickets are kept even if removed here.
+            </p>
+            <div id="cfListGrid_@cf.Id" class="cf-list-grid" data-field-id="@cf.Id" style="max-width: 480px;"></div>
+        </div>
+    }
 </div>
 
 <!-- Unsaved-changes confirmation when leaving the page -->
@@ -422,6 +441,63 @@
         initNameActiveGrid('#locationsGrid', 'locations', 'locationName', 'Location Name', false);
         initNameActiveGrid('#destinationsGrid', 'destinations', 'destinationName', 'Destination Name', false);
         initNameActiveGrid('#commoditiesGrid', 'commodities', 'commodityName', 'Commodity Name', true);
+
+        // Dropdown-value grids for list-backed custom fields (one tab each).
+        // The choices are a small ordered list, so edits save immediately
+        // (cell mode) and drag-reorder PUTs the full list.
+        $('.cf-list-grid').each(function () {
+            var fieldId = $(this).data('field-id');
+            var apiBase = '/api/customfields/' + fieldId + '/values';
+
+            function editValue(oldValue, newValue) {
+                return $.ajax({
+                    url: apiBase,
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ oldValue: oldValue, newValue: newValue })
+                });
+            }
+
+            $(this).dxDataGrid({
+                hoverStateEnabled: true,
+                showBorders: true,
+                dataSource: new DevExpress.data.CustomStore({
+                    key: 'value',
+                    load: function () { return $.getJSON(apiBase); },
+                    insert: function (values) { return editValue(null, values.value); },
+                    update: function (key, values) { return editValue(key, values.value); },
+                    remove: function (key) { return editValue(key, null); }
+                }),
+                editing: {
+                    mode: 'cell',
+                    allowAdding: true,
+                    allowUpdating: true,
+                    allowDeleting: true,
+                    useIcons: false
+                },
+                rowDragging: {
+                    allowReordering: true,
+                    onReorder: function (e) {
+                        var grid = e.component;
+                        var values = grid.getVisibleRows().map(function (r) { return r.data.value; });
+                        values.splice(e.fromIndex, 1);
+                        values.splice(e.toIndex, 0, e.itemData.value);
+                        $.ajax({
+                            url: apiBase,
+                            method: 'PUT',
+                            contentType: 'application/json',
+                            data: JSON.stringify(values)
+                        }).done(function () { grid.refresh(); });
+                    }
+                },
+                sorting: { mode: 'none' }, // list order = dropdown order
+                columns: [{
+                    dataField: 'value',
+                    caption: 'Value',
+                    validationRules: [{ type: 'required' }, { type: 'stringLength', max: 200 }]
+                }]
+            });
+        });
 
         // Carriers grid with trucks sub-grid (master-detail)
         var customerSuggestions = [];

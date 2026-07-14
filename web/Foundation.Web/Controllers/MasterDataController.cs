@@ -24,6 +24,11 @@ public class MasterDataController : Controller
         ViewBag.KioskCount = setup.KioskCount;
         ViewBag.UseQuickBooks = setup.UseQuickBooks;
         ViewBag.UseRetainedTare = setup.UseRetainedTare;
+        // Active dropdown-backed custom fields each get their own edit tab.
+        ViewBag.CustomFieldLists = _db.CustomFields
+            .Where(f => f.Active && f.FieldType == "Text" && f.ListValues != null && f.ListValues != "")
+            .OrderBy(f => f.SortOrder).ThenBy(f => f.Name)
+            .ToList();
         return View();
     }
 

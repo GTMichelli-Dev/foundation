@@ -1,0 +1,144 @@
+@model Foundation.Web.Models.FieldSlot
+@* Renders one weigh-form field (standard or custom) in the unified sort order
+   (Setup → Fields). Parent views set ViewData["SlotTransaction"] to the ticket
+   being edited (null on Basic Ticket) and populate the usual ViewBag lists.
+   Custom-field inputs post as cf_{fieldId} — read back by
+   TransactionController.SaveCustomFieldValues. *@
+@{
+    var txn = ViewData["SlotTransaction"] as Foundation.Web.Models.Transaction;
+}
+@if (Model.Field is { } f)
+{
+    var cfValues = ViewBag.CustomValues as Dictionary<int, string> ?? new Dictionary<int, string>();
+    var val = cfValues.TryGetValue(f.Id, out var v) ? v : "";
+    <div class="mb-3">
+        <label class="form-label">
+            @f.Name
+            @if (f.Required)
+            {
+                <span class="text-danger" title="Required">*</span>
+            }
+        </label>
+        @if (f.FieldType == "Integer")
+        {
+            <input type="number" step="1" name="cf_@f.Id" class="form-control custom-field-input"
+                   min="@(f.MinValue?.ToString() ?? "")" max="@(f.MaxValue?.ToString() ?? "")"
+                   value="@val" required="@(f.Required ? "required" : null)" />
+        }
+        else if (f.FieldType == "Real")
+        {
+            var step = f.Precision.HasValue ? Math.Pow(10, -f.Precision.Value).ToString("0.######") : "any";
+            <input type="number" step="@step" name="cf_@f.Id" class="form-control custom-field-input"
+                   min="@(f.MinValue?.ToString() ?? "")" max="@(f.MaxValue?.ToString() ?? "")"
+                   value="@val" required="@(f.Required ? "required" : null)" />
+        }
+        else if (f.GetListValues().Count > 0)
+        {
+            @* List-backed text field: dropdown of admin-defined choices. A
+               historical value no longer in the list is kept selectable so
+               editing an old ticket doesn't silently lose it. *@
+            var choices = f.GetListValues();
+            <select name="cf_@f.Id" class="form-select custom-field-input"
+                    required="@(f.Required ? "required" : null)">
+                <option value=""></option>
+                @if (!string.IsNullOrEmpty(val) && !choices.Contains(val))
+                {
+                    <option value="@val" selected>@val (retired)</option>
+                }
+                @foreach (var choice in choices)
+                {
+                    <option value="@choice" selected="@(choice == val ? "selected" : null)">@choice</option>
+                }
+            </select>
+        }
+        else
+        {
+            <input type="text" maxlength="200" name="cf_@f.Id" class="form-control custom-field-input"
+                   value="@val" required="@(f.Required ? "required" : null)" />
+        }
+    </div>
+}
+else if (Model.Key == "Commodity")
+{
+    <div class="mb-3">
+        <label class="form-label">Commodity</label>
+        <select name="Commodity" class="form-select">
+            <option value="">-- Select --</option>
+            @foreach (var c in (List<Foundation.Web.Models.Commodity>)ViewBag.Commodities)
+            {
+                <option value="@c.CommodityName" selected="@(txn?.Commodity == c.CommodityName ? "selected" : null)">@c.CommodityName</option>
+            }
+        </select>
+    </div>
+}
+else if (Model.Key == "Customer")
+{
+    <div class="mb-3">
+        <label class="form-label">Customer</label>
+        <select name="Customer" class="form-select">
+            <option value="">-- Select --</option>
+            @foreach (var c in (List<Foundation.Web.Models.Customer>)ViewBag.Customers)
+            {
+                <option value="@c.CustomerName" selected="@(txn?.Customer == c.CustomerName ? "selected" : null)">@c.CustomerName</option>
+            }
+        </select>
+    </div>
+}
+else if (Model.Key == "Carrier")
+{
+    <div class="mb-3">
+        <label class="form-label">Carrier</label>
+        <select name="Carrier" class="form-select">
+            <option value="">-- Select --</option>
+            @foreach (var name in (List<string>)ViewBag.CarrierOptions)
+            {
+                <option value="@name" selected="@(txn?.Carrier == name ? "selected" : null)">@name</option>
+            }
+        </select>
+    </div>
+}
+else if (Model.Key == "TruckId")
+{
+    <div class="mb-3">
+        <label class="form-label">Truck ID</label>
+        <div class="input-group">
+            <select name="TruckId" id="truckSelect" class="form-select" disabled>
+                <option value="">-- Select Carrier First --</option>
+            </select>
+            <button type="button" class="btn btn-outline-primary" id="addTruckBtn" disabled title="Add New Truck">+</button>
+        </div>
+    </div>
+}
+else if (Model.Key == "Location")
+{
+    <div class="mb-3">
+        <label class="form-label">Location</label>
+        <select name="Location" class="form-select">
+            <option value="">-- Select --</option>
+            @foreach (var l in (List<Foundation.Web.Models.Location>)ViewBag.Locations)
+            {
+                <option value="@l.LocationName" selected="@(txn?.Location == l.LocationName ? "selected" : null)">@l.LocationName</option>
+            }
+        </select>
+    </div>
+}
+else if (Model.Key == "Destination")
+{
+    <div class="mb-3">
+        <label class="form-label">Destination</label>
+        <select name="Destination" class="form-select">
+            <option value="">-- Select --</option>
+            @foreach (var d in (List<Foundation.Web.Models.Destination>)ViewBag.Destinations)
+            {
+                <option value="@d.DestinationName" selected="@(txn?.Destination == d.DestinationName ? "selected" : null)">@d.DestinationName</option>
+            }
+        </select>
+    </div>
+}
+else if (Model.Key == "Notes")
+{
+    <div class="mb-3">
+        <label class="form-label">Notes</label>
+        <textarea name="Notes" class="form-control" rows="2">@txn?.Notes</textarea>
+    </div>
+}

@@ -94,6 +94,14 @@ public class SetupController : Controller
         existing.HideDestination = setup.HideDestination;
         existing.HideNotes = setup.HideNotes;
 
+        existing.FieldOrderCommodity = setup.FieldOrderCommodity;
+        existing.FieldOrderCustomer = setup.FieldOrderCustomer;
+        existing.FieldOrderCarrier = setup.FieldOrderCarrier;
+        existing.FieldOrderTruckId = setup.FieldOrderTruckId;
+        existing.FieldOrderLocation = setup.FieldOrderLocation;
+        existing.FieldOrderDestination = setup.FieldOrderDestination;
+        existing.FieldOrderNotes = setup.FieldOrderNotes;
+
         // Field-visibility rules:
         // - Trucks are selected per carrier, so a visible Truck ID without a
         //   Carrier is unusable — hiding Carrier hides Truck ID too.
@@ -172,6 +180,11 @@ public class SetupController : Controller
 
         _db.SaveChanges();
         _setupCache.Invalidate();
+
+        // Auto-save posts (fetch) get JSON back; a plain form post (no-JS
+        // fallback) keeps the classic redirect + banner.
+        if (Request.Headers.XRequestedWith == "XMLHttpRequest")
+            return Json(new { success = true });
 
         TempData["Message"] = "Settings saved successfully.";
         return RedirectToAction("Index");

@@ -279,10 +279,14 @@ public class TransactionController : Controller
             .OrderBy(f => f.SortOrder).ThenBy(f => f.Name)
             .ToList();
 
-    /// <summary>ViewBags consumed by Views/Shared/_CustomFields.cshtml.</summary>
+    /// <summary>ViewBags consumed by the weigh forms: FieldSlots is the unified
+    /// standard + custom field order (rendered via _TicketFieldSlot), CustomFields
+    /// and CustomValues feed the custom-field inputs.</summary>
     private void SetCustomFieldViewBags(string? ticket)
     {
-        ViewBag.CustomFields = GetActiveCustomFields();
+        var fields = GetActiveCustomFields();
+        ViewBag.CustomFields = fields;
+        ViewBag.FieldSlots = FieldOrdering.GetFormSlots(_setupCache.Get(), fields);
         ViewBag.CustomValues = string.IsNullOrEmpty(ticket)
             ? new Dictionary<int, string>()
             : _db.TransactionCustomValues

@@ -88,6 +88,83 @@ public class CustomFieldsController : Controller
         return Json(new { success = true, deletedValues = valueCount });
     }
 
+    // ===== Dropdown list values (Edit Tables → per-field tab) =====
+    // The choices live as newline-separated text on CustomField.ListValues;
+    // these endpoints let the Edit Tables grids manage them like master data.
+
+    public record ListValueEdit(string? OldValue, string? NewValue);
+
+    [HttpGet("api/customfields/{id}/values")]
+    public IActionResult GetValues(int id)
+    {
+        var field = _db.CustomFields.Find(id);
+        if (field == null) return NotFound();
+        return Json(field.GetListValues().Select(v => new { value = v }));
+    }
+
+    /// <summary>Add (OldValue null), rename, or delete (NewValue null) one
+    /// choice. Order of the remaining choices is preserved.</summary>
+    [HttpPost("api/customfields/{id}/values")]
+    public IActionResult EditValue(int id, [FromBody] ListValueEdit edit)
+    {
+        var field = _db.CustomFields.Find(id);
+        if (field == null) return NotFound();
+        if (field.FieldType != "Text") return BadRequest(new { error = "Only text fields have dropdown values." });
+
+        var values = field.GetListValues();
+        var newVal = edit.NewValue?.Trim();
+        if (newVal is { Length: > 200 }) return BadRequest(new { error = "Values must be 200 characters or fewer." });
+
+        if (edit.OldValue == null)
+        {
+            if (string.IsNullOrEmpty(newVal)) return BadRequest(new { error = "Value is required." });
+            if (values.Contains(newVal)) return BadRequest(new { error = "That value already exists." });
+            values.Add(newVal);
+        }
+        else
+        {
+            var idx = values.IndexOf(edit.OldValue);
+            if (idx < 0) return NotFound(new { error = "Value not found." });
+            if (string.IsNullOrEmpty(newVal))
+            {
+                values.RemoveAt(idx);
+            }
+            else
+            {
+                if (newVal != edit.OldValue && values.Contains(newVal))
+                    return BadRequest(new { error = "That value already exists." });
+                values[idx] = newVal;
+            }
+        }
+
+        return SaveValues(field, values);
+    }
+
+    /// <summary>Replace the full choice list (drag-reorder posts the new order).</summary>
+    [HttpPut("api/customfields/{id}/values")]
+    public IActionResult ReorderValues(int id, [FromBody] List<string> values)
+    {
+        var field = _db.CustomFields.Find(id);
+        if (field == null) return NotFound();
+        if (field.FieldType != "Text") return BadRequest(new { error = "Only text fields have dropdown values." });
+
+        var clean = values.Select(v => v.Trim()).Where(v => v.Length > 0).Distinct().ToList();
+        if (clean.Any(v => v.Length > 200)) return BadRequest(new { error = "Values must be 200 characters or fewer." });
+        return SaveValues(field, clean);
+    }
+
+    private IActionResult SaveValues(CustomField field, List<string> values)
+    {
+        var joined = string.Join("\n", values);
+        if (joined.Length > 4000) return BadRequest(new { error = "Dropdown list is too long (4000 characters max)." });
+        field.ListValues = values.Count > 0 ? joined : null;
+        // A field that loses its last choice becomes free text — no longer
+        // kiosk-eligible.
+        if (!field.IsKioskEligible()) field.PromptAtKiosk = false;
+        _db.SaveChanges();
+        return Json(new { success = true, count = values.Count });
+    }
+
     private static string? Validate(CustomField field)
     {
         if (string.IsNullOrWhiteSpace(field.Name)) return "Field name is required.";

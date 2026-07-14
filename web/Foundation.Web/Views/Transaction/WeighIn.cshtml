@@ -7,6 +7,11 @@
     var cachedSetup = SetupCache.Get();
     var isDemoMode = cachedSetup.DemoMode;
     bool hasInPhoto = ViewBag.HasInPhoto == true;
+    var slots = ViewBag.FieldSlots as List<Foundation.Web.Models.FieldSlot> ?? new List<Foundation.Web.Models.FieldSlot>();
+    // Balance the two columns: ticket number is fixed on the left, the
+    // weight/date row on the right.
+    var leftCount = Foundation.Web.Models.FieldOrdering.LeftColumnCount(slots.Count, leftFixed: 1, rightFixed: 1);
+    ViewData["SlotTransaction"] = Model;
 }
 
 <style>
@@ -88,59 +93,9 @@
                         </div>
                     </div>
 
-                    @if (!cachedSetup.HideCommodity)
+                    @foreach (var slot in slots.Take(leftCount))
                     {
-                        <div class="mb-3">
-                            <label class="form-label">Commodity</label>
-                            <select name="Commodity" class="form-select">
-                                <option value="">-- Select --</option>
-                                @foreach (var c in (List<Foundation.Web.Models.Commodity>)ViewBag.Commodities)
-                                {
-                                    <option value="@c.CommodityName" selected="@(Model.Commodity == c.CommodityName ? "selected" : null)">@c.CommodityName</option>
-                                }
-                            </select>
-                        </div>
-                    }
-
-                    @if (!cachedSetup.HideCustomer)
-                    {
-                        <div class="mb-3">
-                            <label class="form-label">Customer</label>
-                            <select name="Customer" class="form-select">
-                                <option value="">-- Select --</option>
-                                @foreach (var c in (List<Foundation.Web.Models.Customer>)ViewBag.Customers)
-                                {
-                                    <option value="@c.CustomerName" selected="@(Model.Customer == c.CustomerName ? "selected" : null)">@c.CustomerName</option>
-                                }
-                            </select>
-                        </div>
-                    }
-
-                    @if (!cachedSetup.HideCarrier)
-                    {
-                        <div class="mb-3">
-                            <label class="form-label">Carrier</label>
-                            <select name="Carrier" class="form-select">
-                                <option value="">-- Select --</option>
-                                @foreach (var name in (List<string>)ViewBag.CarrierOptions)
-                                {
-                                    <option value="@name" selected="@(Model.Carrier == name ? "selected" : null)">@name</option>
-                                }
-                            </select>
-                        </div>
-                    }
-
-                    @if (!cachedSetup.HideTruckId)
-                    {
-                        <div class="mb-3">
-                            <label class="form-label">Truck ID</label>
-                            <div class="input-group">
-                                <select name="TruckId" id="truckSelect" class="form-select" disabled>
-                                    <option value="">-- Select Carrier First --</option>
-                                </select>
-                                <button type="button" class="btn btn-outline-primary" id="addTruckBtn" disabled title="Add New Truck">+</button>
-                            </div>
-                        </div>
+                        <partial name="_TicketFieldSlot" model="slot" />
                     }
 
                     <div id="retainedTareBanner" class="alert alert-warning py-2 mb-2" style="display:none;" role="alert">
@@ -156,43 +111,10 @@
         <div class="col-md-6">
             <div class="card">
                 <div class="card-body">
-                    @if (!cachedSetup.HideLocation)
+                    @foreach (var slot in slots.Skip(leftCount))
                     {
-                        <div class="mb-3">
-                            <label class="form-label">Location</label>
-                            <select name="Location" class="form-select">
-                                <option value="">-- Select --</option>
-                                @foreach (var l in (List<Foundation.Web.Models.Location>)ViewBag.Locations)
-                                {
-                                    <option value="@l.LocationName" selected="@(Model.Location == l.LocationName ? "selected" : null)">@l.LocationName</option>
-                                }
-                            </select>
-                        </div>
+                        <partial name="_TicketFieldSlot" model="slot" />
                     }
-
-                    @if (!cachedSetup.HideDestination)
-                    {
-                        <div class="mb-3">
-                            <label class="form-label">Destination</label>
-                            <select name="Destination" class="form-select">
-                                <option value="">-- Select --</option>
-                                @foreach (var d in (List<Foundation.Web.Models.Destination>)ViewBag.Destinations)
-                                {
-                                    <option value="@d.DestinationName" selected="@(Model.Destination == d.DestinationName ? "selected" : null)">@d.DestinationName</option>
-                                }
-                            </select>
-                        </div>
-                    }
-
-                    @if (!cachedSetup.HideNotes)
-                    {
-                        <div class="mb-3">
-                            <label class="form-label">Notes</label>
-                            <textarea name="Notes" class="form-control" rows="2">@Model.Notes</textarea>
-                        </div>
-                    }
-
-                    <partial name="_CustomFields" />
 
                     <div class="row mb-3">
                         <div class="col-7">

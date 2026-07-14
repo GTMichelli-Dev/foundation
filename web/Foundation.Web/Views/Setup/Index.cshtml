@@ -13,11 +13,9 @@
     </div>
 }
 
-<!-- Unsaved changes alert (hidden by default) -->
-<div class="alert alert-warning alert-dismissible fade py-1 mb-2" role="alert" id="unsavedAlert" style="display:none;">
-    <strong>Unsaved changes!</strong> You have unsaved changes. Click <strong>Save Settings</strong> to keep them.
-    <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
-</div>
+<!-- Auto-save status (Setup saves on every change; no Save button) -->
+<div id="saveStatus" class="position-fixed bottom-0 end-0 me-3 mb-3 px-3 py-1 rounded small shadow-sm"
+     style="display:none; z-index:1080; background: var(--bw-surface-alt); color: var(--bw-text);"></div>
 
 <form asp-action="Index" method="post" enctype="multipart/form-data" id="setupForm">
     @Html.AntiForgeryToken()
@@ -397,22 +395,22 @@
                             </p>
                             <table class="table table-sm align-middle mb-2">
                                 <thead>
-                                    <tr class="small text-muted"><th>Field</th><th style="width:45%;">Visibility</th></tr>
+                                    <tr class="small text-muted"><th>Field</th><th style="width:38%;">Visibility</th><th style="width:22%;">Order</th></tr>
                                 </thead>
                                 <tbody>
                                     @{
-                                        var visibilityRows = new (string Label, string Prop, bool Hidden)[]
+                                        var visibilityRows = new (string Label, string Prop, bool Hidden, string OrderProp, int Order)[]
                                         {
-                                            ("Customer", "HideCustomer", Model.HideCustomer),
-                                            ("Carrier", "HideCarrier", Model.HideCarrier),
-                                            ("Truck ID", "HideTruckId", Model.HideTruckId),
-                                            ("Commodity", "HideCommodity", Model.HideCommodity),
-                                            ("Location", "HideLocation", Model.HideLocation),
-                                            ("Destination", "HideDestination", Model.HideDestination),
-                                            ("Notes", "HideNotes", Model.HideNotes),
+                                            ("Customer", "HideCustomer", Model.HideCustomer, "FieldOrderCustomer", Model.FieldOrderCustomer),
+                                            ("Carrier", "HideCarrier", Model.HideCarrier, "FieldOrderCarrier", Model.FieldOrderCarrier),
+                                            ("Truck ID", "HideTruckId", Model.HideTruckId, "FieldOrderTruckId", Model.FieldOrderTruckId),
+                                            ("Commodity", "HideCommodity", Model.HideCommodity, "FieldOrderCommodity", Model.FieldOrderCommodity),
+                                            ("Location", "HideLocation", Model.HideLocation, "FieldOrderLocation", Model.FieldOrderLocation),
+                                            ("Destination", "HideDestination", Model.HideDestination, "FieldOrderDestination", Model.FieldOrderDestination),
+                                            ("Notes", "HideNotes", Model.HideNotes, "FieldOrderNotes", Model.FieldOrderNotes),
                                         };
                                     }
-                                    @foreach (var (label, prop, hidden) in visibilityRows)
+                                    @foreach (var (label, prop, hidden, orderProp, order) in visibilityRows)
                                     {
                                         <tr>
                                             <td class="fw-bold">@label</td>
@@ -422,6 +420,10 @@
                                                     <option value="true" selected="@(hidden ? "selected" : null)">Hidden</option>
                                                 </select>
                                             </td>
+                                            <td>
+                                                <input type="number" name="@orderProp" id="@orderProp" value="@order" step="1"
+                                                       class="form-control form-control-sm" />
+                                            </td>
                                         </tr>
                                     }
                                 </tbody>
@@ -430,6 +432,10 @@
                                 Hiding <strong>Carrier</strong> also hides <strong>Truck ID</strong>
                                 (trucks belong to carriers). While <strong>Retained Tare</strong>
                                 is enabled, Carrier and Truck ID stay visible.
+                                <strong>Order</strong> sorts fields on the weigh forms — standard
+                                and custom fields share one scale, so a custom field can slot
+                                between the built-ins. Printed-ticket layout is controlled by the
+                                Ticket Designers.
                             </div>
                         </div>
                     </div>
@@ -444,8 +450,9 @@
                         <div class="card-body py-2">
                             <p class="small mb-2" style="color: var(--bw-text-muted);">
                                 Custom fields appear on the Weigh In / Weigh Out / Edit / Basic
-                                Ticket forms, as grid columns, and on printed tickets. Changes
-                                here save immediately (no Save Settings needed).
+                                Ticket forms, as grid columns, and on printed tickets. Dropdown
+                                fields also get their own tab on Edit Tables. Order shares one
+                                scale with the standard fields.
                             </p>
                             <table class="table table-sm align-middle mb-0" id="customFieldsTable">
                                 <thead>
@@ -760,9 +767,7 @@
         }
     </div>
 
-    <div class="mt-3">
-        <button type="submit" class="btn btn-primary" id="saveBtn">Save Settings</button>
-    </div>
+    @* No Save button — every change auto-saves (see the auto-save script). *@
 </form>
 
 <!-- Setup-wide notice modal (replaces native alert() calls) -->
@@ -796,24 +801,6 @@
 <form asp-action="ClearDatabase" method="post" id="clearDatabaseForm" style="display:none;">
     @Html.AntiForgeryToken()
 </form>
-
-<!-- Confirm Operation Modal -->
-<div class="modal fade" id="unsavedModal" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content">
-            <div class="modal-header py-2 bg-warning">
-                <h6 class="modal-title">Unsaved Changes</h6>
-            </div>
-            <div class="modal-body py-3">
-                You have unsaved changes. Are you sure you want to leave this page?
-            </div>
-            <div class="modal-footer py-2">
-                <button type="button" class="btn btn-secondary btn-sm" onclick="unsavedStay()">Stay</button>
-                <button type="button" class="btn btn-danger btn-sm" onclick="unsavedLeave()">Leave</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <div class="modal fade" id="confirmModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -936,65 +923,57 @@
         });
     })();
 
-    // --- Unsaved changes tracking ---
-    var formDirty = false;
+    // --- Auto-save: every change posts the whole form (no Save button) ---
+    // Saves fire on 'change' (blur for text inputs, immediate for selects,
+    // checkboxes, and radios) so a half-typed Ticket Number or PIN is never
+    // saved mid-keystroke. A short debounce coalesces the cascades from the
+    // rule-sync scripts (e.g. Retained Tare forcing several controls at once).
     var setupForm = document.getElementById('setupForm');
-    var unsavedAlert = document.getElementById('unsavedAlert');
+    var saveStatus = document.getElementById('saveStatus');
+    var saveTimer = null;
+    var savePending = false;
+    var saveStatusTimer = null;
 
-    function markDirty() {
-        if (!formDirty) {
-            formDirty = true;
-            unsavedAlert.style.display = 'block';
-            unsavedAlert.classList.add('show');
+    function showSaveStatus(text, isError) {
+        clearTimeout(saveStatusTimer);
+        saveStatus.textContent = text;
+        saveStatus.style.display = 'block';
+        saveStatus.style.color = isError ? '#dc3545' : 'var(--bw-text)';
+        if (!isError && text !== 'Saving…') {
+            saveStatusTimer = setTimeout(function () { saveStatus.style.display = 'none'; }, 2000);
         }
     }
 
-    // Track all form changes
-    setupForm.querySelectorAll('input, select, textarea').forEach(function (el) {
-        el.addEventListener('change', markDirty);
-        el.addEventListener('input', markDirty);
-    });
-
-    // Warn on page leave — native dialog for browser close/refresh
-    window.addEventListener('beforeunload', function (e) {
-        if (formDirty) {
-            e.preventDefault();
-            e.returnValue = '';
-        }
-    });
-
-    // Intercept nav link clicks with Bootstrap modal
-    var _pendingUrl = null;
-    document.querySelectorAll('a[href]').forEach(function (link) {
-        link.addEventListener('click', function (e) {
-            if (!formDirty) return;
-            var href = link.getAttribute('href');
-            if (!href || href === '#' || href.startsWith('javascript:')) return;
-            e.preventDefault();
-            _pendingUrl = href;
-            var modal = document.getElementById('unsavedModal');
-            if (!modal) return;
-            new bootstrap.Modal(modal).show();
+    function autoSave() {
+        if (savePending) { scheduleAutoSave(); return; } // serialize overlapping saves
+        savePending = true;
+        showSaveStatus('Saving…', false);
+        var hadIconFile = document.getElementById('iconFileInput').files.length > 0;
+        var removeCbEl = document.getElementById('removeIconCb');
+        fetch(setupForm.action || window.location.pathname, {
+            method: 'POST',
+            body: new FormData(setupForm),
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            showSaveStatus('All changes saved ✓', false);
+            // Don't re-send one-shot icon operations on the next save.
+            if (hadIconFile) document.getElementById('iconFileInput').value = '';
+            if (removeCbEl && removeCbEl.checked) removeCbEl.checked = false;
+        }).catch(function () {
+            showSaveStatus('Save failed — check connection and change a setting to retry', true);
+        }).finally(function () {
+            savePending = false;
         });
-    });
+    }
 
-    window.unsavedLeave = function () {
-        formDirty = false;
-        if (_pendingUrl) window.location.href = _pendingUrl;
-    };
-    window.unsavedStay = function () {
-        _pendingUrl = null;
-        bootstrap.Modal.getInstance(document.getElementById('unsavedModal'))?.hide();
-    };
+    function scheduleAutoSave() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(autoSave, 400);
+    }
 
-    // Clear dirty flag on form submit
-    setupForm.addEventListener('submit', function () {
-        formDirty = false;
-    });
-
-    // Also clear dirty flag when submitting other forms (reset/database)
-    document.querySelectorAll('#resetTicketForm, #resetKioskTicketForm, #loadTestDataForm, #clearDatabaseForm').forEach(function (f) {
-        f.addEventListener('submit', function () { formDirty = false; });
+    setupForm.addEventListener('change', function (e) {
+        if (e.target && (e.target.matches('input, select, textarea'))) scheduleAutoSave();
     });
 
     // --- Icon preview ---
@@ -1076,6 +1055,19 @@
     // --- Custom Fields CRUD (saves immediately via /api/customfields) ---
     (function () {
         var editingId = null;
+        var loadedFields = [];
+
+        // Default a NEW field's order to the end of the shared scale: after
+        // every existing custom field and after the standard fields' orders.
+        function nextSortOrder() {
+            var max = 0;
+            loadedFields.forEach(function (f) { if (f.sortOrder > max) max = f.sortOrder; });
+            document.querySelectorAll('input[name^="FieldOrder"]').forEach(function (el) {
+                var v = parseInt(el.value) || 0;
+                if (v > max) max = v;
+            });
+            return max + 10;
+        }
 
         function esc(s) {
             return String(s ?? '').replace(/[&<>"']/g, function (c) {
@@ -1107,6 +1099,7 @@
 
         function loadCustomFields() {
             fetch('/api/customfields').then(function (r) { return r.json(); }).then(function (fields) {
+                loadedFields = fields;
                 var tbody = document.querySelector('#customFieldsTable tbody');
                 tbody.innerHTML = '';
                 document.getElementById('customFieldsEmpty').style.display = fields.length ? 'none' : 'block';
@@ -1136,7 +1129,7 @@
             document.getElementById('cfName').value = field ? field.name : '';
             document.getElementById('cfType').value = field ? field.fieldType : 'Text';
             document.getElementById('cfRequired').value = field && field.required ? 'true' : 'false';
-            document.getElementById('cfSortOrder').value = field ? field.sortOrder : 0;
+            document.getElementById('cfSortOrder').value = field ? field.sortOrder : nextSortOrder();
             document.getElementById('cfShowOnTicket').checked = field ? field.showOnTicket : true;
             document.getElementById('cfActive').checked = field ? field.active : true;
             document.getElementById('cfListValues').value = field && field.listValues ? field.listValues : '';

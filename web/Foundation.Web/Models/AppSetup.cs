@@ -239,4 +239,32 @@ public class AppSetup
 
     [Display(Name = "Hide Notes")]
     public bool HideNotes { get; set; }
+
+    // Standard-field sort order (Setup → Fields). Shared ordering scale with
+    // CustomField.SortOrder so admin-defined fields can interleave with the
+    // built-ins. Controls the weigh forms (Weigh In / Weigh Out / Edit / Basic
+    // Ticket) and the order of auto-appended custom rows on printed tickets;
+    // the printed position of standard fields stays with the Ticket Designer.
+    // Defaults mirror the historical form layout (Commodity first … Notes last,
+    // custom fields after, which the migration rebases to 100+).
+    [Display(Name = "Commodity Order")]
+    public int FieldOrderCommodity { get; set; } = 10;
+
+    [Display(Name = "Customer Order")]
+    public int FieldOrderCustomer { get; set; } = 20;
+
+    [Display(Name = "Carrier Order")]
+    public int FieldOrderCarrier { get; set; } = 30;
+
+    [Display(Name = "Truck ID Order")]
+    public int FieldOrderTruckId { get; set; } = 40;
+
+    [Display(Name = "Location Order")]
+    public int FieldOrderLocation { get; set; } = 50;
+
+    [Display(Name = "Destination Order")]
+    public int FieldOrderDestination { get; set; } = 60;
+
+    [Display(Name = "Notes Order")]
+    public int FieldOrderNotes { get; set; } = 70;
 }
