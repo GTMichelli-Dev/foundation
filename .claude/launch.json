@@ -8,6 +8,12 @@
       "port": 5110
     },
     {
+      "name": "foundation-alt",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "web/Foundation.Web", "--no-launch-profile", "--urls", "http://localhost:5111"],
+      "port": 5111
+    },
+    {
       "name": "foundation-https",
       "runtimeExecutable": "dotnet",
       "runtimeArgs": ["run", "--project", "web/Foundation.Web", "--launch-profile", "https"],

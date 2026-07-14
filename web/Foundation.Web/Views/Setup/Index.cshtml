@@ -909,6 +909,13 @@
 
     // --- Tab persistence: remember which tab is active and re-activate after save ---
     (function () {
+        // A ?tab= query wins (used by the theme-change reload); otherwise the
+        // server-provided value (TempData after a classic post) or the default.
+        var queryTab = new URLSearchParams(window.location.search).get('tab');
+        if (queryTab && !/^[A-Za-z0-9_-]+$/.test(queryTab)) queryTab = null;
+        if (queryTab && document.querySelector('[data-bs-target="#' + queryTab + '"]')) {
+            document.getElementById('activeTabField').value = queryTab;
+        }
         var initial = document.getElementById('activeTabField').value || 'tabCompany';
         var btn = document.querySelector('[data-bs-target="#' + initial + '"]');
         if (btn && !btn.classList.contains('active')) {
@@ -933,6 +940,9 @@
     var saveTimer = null;
     var savePending = false;
     var saveStatusTimer = null;
+    // Theme only takes effect when the page re-renders, so a theme change
+    // reloads the page after its save lands (back onto the same tab).
+    var reloadAfterSave = false;
 
     function showSaveStatus(text, isError) {
         clearTimeout(saveStatusTimer);
@@ -956,10 +966,16 @@
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         }).then(function (r) {
             if (!r.ok) throw new Error('HTTP ' + r.status);
-            showSaveStatus('All changes saved ✓', false);
             // Don't re-send one-shot icon operations on the next save.
             if (hadIconFile) document.getElementById('iconFileInput').value = '';
             if (removeCbEl && removeCbEl.checked) removeCbEl.checked = false;
+            if (reloadAfterSave) {
+                showSaveStatus('Saved — applying theme…', false);
+                var tab = document.getElementById('activeTabField').value || 'tabCompany';
+                window.location.replace(window.location.pathname + '?tab=' + encodeURIComponent(tab));
+                return;
+            }
+            showSaveStatus('All changes saved ✓', false);
         }).catch(function () {
             showSaveStatus('Save failed — check connection and change a setting to retry', true);
         }).finally(function () {
@@ -973,7 +989,9 @@
     }
 
     setupForm.addEventListener('change', function (e) {
-        if (e.target && (e.target.matches('input, select, textarea'))) scheduleAutoSave();
+        if (!e.target || !e.target.matches('input, select, textarea')) return;
+        if (e.target.id === 'Theme') reloadAfterSave = true;
+        scheduleAutoSave();
     });
 
     // --- Icon preview ---
