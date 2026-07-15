@@ -345,6 +345,9 @@
                 isDirty = true;
                 $('#unsavedAlert').fadeIn().addClass('show');
             }
+            // A signature certifies the record as it was when signed — any
+            // change after signing discards it and requires a re-sign.
+            clearSignature();
         });
 
         $('form').on('submit', function () { isSaving = true; });
@@ -357,9 +360,19 @@
             if (isDirty && !isSaving) return 'You have unsaved changes.';
         });
 
+        // Leaving without saving abandons the weigh-out — a captured signature
+        // must not linger on the still-inbound ticket. keepalive lets the
+        // DELETE finish even though the page is navigating away.
+        function discardSignatureOnLeave() {
+            if (!hasSignature) return;
+            hasSignature = false;
+            fetch('/api/signature/' + encodeURIComponent(ticketId), { method: 'DELETE', keepalive: true });
+        }
+
         var pendingHref = null;
         $('a').on('click', function (e) {
-            if (!isDirty || isSaving) return;
+            if (isSaving) return;
+            if (!isDirty) { discardSignatureOnLeave(); return; }
             e.preventDefault();
             pendingHref = $(this).attr('href');
             new bootstrap.Modal('#confirmLeaveModal').show();
@@ -367,6 +380,7 @@
 
         $('#confirmLeaveBtn').on('click', function () {
             isSaving = true; // suppresses beforeunload on the upcoming navigation
+            discardSignatureOnLeave();
             bootstrap.Modal.getInstance(document.getElementById('confirmLeaveModal')).hide();
             if (pendingHref) window.location.href = pendingHref;
         });
@@ -541,6 +555,9 @@
         updateCalcWeights();
 
         $('#gwSaveBtn').on('click', function () {
+            // Recapturing a weight changes what the signature certified.
+            clearSignature();
+
             var weightVal, isManual;
             if (isManualMode) {
                 weightVal = parseInt($('#manualWeightInput').val()) || 0;
@@ -618,6 +635,19 @@
             $('#sigWaiting').hide();
             $('#captureSignatureBtn').prop('disabled', false);
         }
+
+        // Invalidate a captured signature when the record changes: delete the
+        // stored PNG and put the capture UI back to its unsigned state.
+        function clearSignature() {
+            if (!hasSignature) return;
+            hasSignature = false;
+            $.ajax({ url: '/api/signature/' + encodeURIComponent(ticketId), method: 'DELETE' });
+            $('#sigThumb').hide();
+            $('#sigStatusBadge').hide();
+            $('#captureSignatureBtn').text('Capture Signature').prop('disabled', false);
+            showSigError('The ticket changed after signing — the signature was cleared. Please capture a new one.');
+        }
+
         if (hasSignature) markSigned();
 
         if (signatureMode === 'Operator') {

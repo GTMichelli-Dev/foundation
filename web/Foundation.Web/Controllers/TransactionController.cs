@@ -646,6 +646,11 @@ public class TransactionController : Controller
             return RedirectToAction("Edit", new { id });
         }
 
+        // A weight change invalidates the driver signature — it certified the
+        // weights shown when the driver signed.
+        if (existing.InWeight != transaction.InWeight || existing.OutWeight != transaction.OutWeight)
+            DeleteSignatureFile(id);
+
         existing.InWeight = transaction.InWeight;
         existing.OutWeight = transaction.OutWeight;
         existing.DateIn = transaction.DateIn;
@@ -811,6 +816,10 @@ public class TransactionController : Controller
         var existing = _db.Transactions.Find(transaction.Ticket);
         if (existing == null) return NotFound();
 
+        // A weight change invalidates the driver signature (see Edit POST).
+        if (existing.InWeight != transaction.InWeight || existing.OutWeight != transaction.OutWeight)
+            DeleteSignatureFile(existing.Ticket);
+
         existing.InWeight = transaction.InWeight;
         existing.OutWeight = transaction.OutWeight;
         existing.DateIn = transaction.DateIn;
@@ -934,5 +943,31 @@ public class TransactionController : Controller
             return NotFound();
 
         return PhysicalFile(filePath, "image/png");
+    }
+
+    /// <summary>
+    /// Discard a captured signature. Called when the weigh-out is cancelled or
+    /// the record changes after signing — the signature certified what was on
+    /// screen when the driver signed, so it can't survive either.
+    /// </summary>
+    [HttpDelete("api/signature/{id}")]
+    public IActionResult DeleteSignature(string id)
+    {
+        var transaction = _db.Transactions.Find(id);
+        if (transaction == null) return NotFound();
+
+        DeleteSignatureFile(id);
+        return Ok(new { success = true });
+    }
+
+    /// <summary>Remove the stored signature PNG for a ticket, if any.</summary>
+    private static void DeleteSignatureFile(string ticketId)
+    {
+        var filePath = Path.Combine(TicketsImageDir, $"{ticketId}_Signature.png");
+        if (System.IO.File.Exists(filePath))
+        {
+            System.IO.File.Delete(filePath);
+            Console.WriteLine($"[Signature] cleared for ticket {ticketId}");
+        }
     }
 }

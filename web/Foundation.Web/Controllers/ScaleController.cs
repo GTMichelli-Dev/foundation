@@ -52,9 +52,14 @@ public class ScaleController : Controller
         Json(_db.Scales.Where(s => s.Active).OrderBy(s => s.SortOrder).ThenBy(s => s.Name)
             .Select(s => new { s.Id, s.Name, simulated = s.HardwareId == null || s.HardwareId == "" }).ToList());
 
+    public const int MaxScales = 4;
+
     [HttpPost("api/scales")]
     public IActionResult AddScale([FromBody] Models.Scale scale)
     {
+        if (_db.Scales.Count() >= MaxScales)
+            return BadRequest(new { error = $"Maximum of {MaxScales} scales. Delete or rename one instead." });
+
         var error = ValidateScale(scale, null);
         if (error != null) return BadRequest(new { error });
 

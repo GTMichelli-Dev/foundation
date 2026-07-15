@@ -503,10 +503,19 @@
         if (!isError) siteScaleStatusTimer = setTimeout(function () { el.innerHTML = '&nbsp;'; }, 2000);
     }
 
+    var MAX_SCALES = 4;
+
     function loadSiteScales() {
         fetch('/api/scales').then(function (r) { return r.json(); }).then(function (list) {
             siteScales = list;
             renderSiteScales();
+            // Hard cap of 4 scales — hide Add when full (server enforces too).
+            var addBtn = document.querySelector('#siteScalesTable') ?
+                document.querySelector('.card-header button[onclick="addSiteScale()"]') : null;
+            if (addBtn) {
+                addBtn.disabled = siteScales.length >= MAX_SCALES;
+                addBtn.title = siteScales.length >= MAX_SCALES ? 'Maximum of ' + MAX_SCALES + ' scales' : '';
+            }
         });
     }
 
