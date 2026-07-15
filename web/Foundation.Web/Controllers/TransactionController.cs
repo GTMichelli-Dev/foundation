@@ -16,10 +16,11 @@ public class TransactionController : Controller
     private readonly IHubContext<ScaleHub> _hub;
     private readonly AppSetupCache _setupCache;
     private readonly ILogger<TransactionController> _log;
+    private readonly SiteScales _siteScales;
 
     public TransactionController(ScaleDbContext db, IScaleService scaleService,
         PrintQueueService printQueue, IHubContext<ScaleHub> hub, AppSetupCache setupCache,
-        ILogger<TransactionController> log)
+        ILogger<TransactionController> log, SiteScales siteScales)
     {
         _db = db;
         _scaleService = scaleService;
@@ -27,10 +28,19 @@ public class TransactionController : Controller
         _hub = hub;
         _setupCache = setupCache;
         _log = log;
+        _siteScales = siteScales;
     }
+
+    /// <summary>Default-scale weight for form prefills (Basic Ticket).</summary>
+    private int GetDefaultScaleWeight() =>
+        _siteScales.Read(SiteScales.Resolve(_db, null), _setupCache.Get().DemoMode).Weight;
 
     private void PopulateDropdowns()
     {
+        // Scale picker on the weigh forms (shown when more than one is active)
+        ViewBag.Scales = _db.Scales.Where(s => s.Active)
+            .OrderBy(s => s.SortOrder).ThenBy(s => s.Name).ToList();
+
         ViewBag.Customers = _db.Customers.Where(c => c.Active).OrderBy(c => c.CustomerName).ToList();
 
         // Carrier dropdown — only entries explicitly marked as Carriers in
@@ -54,7 +64,7 @@ public class TransactionController : Controller
     public IActionResult WeighIn(string? id)
     {
         PopulateDropdowns();
-        ViewBag.CurrentWeight = _scaleService.GetCurrentWeight();
+        ViewBag.CurrentWeight = GetDefaultScaleWeight();
         SetCustomFieldViewBags(id);
 
         var setup = _setupCache.Get();
@@ -99,7 +109,7 @@ public class TransactionController : Controller
     // POST: Transaction/WeighIn
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> WeighIn(Transaction transaction, bool isEdit, bool goToWeighOut, bool manualWeight, bool completeWithRetainedTare = false)
+    public async Task<IActionResult> WeighIn(Transaction transaction, bool isEdit, bool goToWeighOut, bool manualWeight, bool completeWithRetainedTare = false, string? inScaleUsed = null)
     {
         var customFields = GetActiveCustomFields();
         var cfErrors = ValidateCustomFieldValues(customFields);
@@ -119,6 +129,7 @@ public class TransactionController : Controller
 
             existing.InWeight = transaction.InWeight;
             existing.ManualInbound = manualWeight;
+            existing.InScale = manualWeight ? null : inScaleUsed;
             existing.DateIn = transaction.DateIn;
             ApplyVisibleFields(existing, transaction, visibility);
             SaveCustomFieldValues(transaction.Ticket, customFields);
@@ -139,6 +150,7 @@ public class TransactionController : Controller
             transaction.DateIn = transaction.DateIn == default ? DateTime.UtcNow : transaction.DateIn;
             transaction.Void = false;
             transaction.ManualInbound = manualWeight;
+            transaction.InScale = manualWeight ? null : inScaleUsed;
 
             // Complete-with-retained-tare path. Look up the truck server-side
             // (don't trust the client) and, if the feature is on and a tare is
@@ -265,7 +277,7 @@ public class TransactionController : Controller
         var transaction = _db.Transactions.Find(id);
         if (transaction == null) return NotFound();
 
-        ViewBag.CurrentWeight = _scaleService.GetCurrentWeight();
+        ViewBag.CurrentWeight = GetDefaultScaleWeight();
         PopulateDropdowns();
         SetSignatureViewBags(id);
         SetCustomFieldViewBags(id);
@@ -417,7 +429,7 @@ public class TransactionController : Controller
     // POST: Transaction/WeighOut/5
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> WeighOut(string id, Transaction transaction, bool manualOutWeight, bool manualInWeight)
+    public async Task<IActionResult> WeighOut(string id, Transaction transaction, bool manualOutWeight, bool manualInWeight, string? inScaleUsed = null, string? outScaleUsed = null)
     {
         var existing = _db.Transactions.Find(id);
         if (existing == null) return NotFound();
@@ -427,8 +439,10 @@ public class TransactionController : Controller
 
         existing.InWeight = transaction.InWeight;
         existing.ManualInbound = manualInWeight;
+        existing.InScale = manualInWeight ? null : inScaleUsed;
         existing.OutWeight = transaction.OutWeight;
         existing.ManualOutbound = manualOutWeight;
+        existing.OutScale = manualOutWeight ? null : outScaleUsed;
         existing.DateOut = transaction.DateOut ?? DateTime.UtcNow;
         existing.DateIn = transaction.DateIn;
         ApplyVisibleFields(existing, transaction, setup);
@@ -444,7 +458,7 @@ public class TransactionController : Controller
         }
         if (!ModelState.IsValid)
         {
-            ViewBag.CurrentWeight = _scaleService.GetCurrentWeight();
+            ViewBag.CurrentWeight = GetDefaultScaleWeight();
             PopulateDropdowns();
             SetSignatureViewBags(id);
             SetCustomFieldViewBags(id);
@@ -524,7 +538,7 @@ public class TransactionController : Controller
     {
         var setup = _setupCache.Get();
         ViewBag.NextTicket = setup.TicketNumber.ToString();
-        ViewBag.CurrentWeight = _scaleService.GetCurrentWeight();
+        ViewBag.CurrentWeight = GetDefaultScaleWeight();
         PopulateDropdowns();
         SetCustomFieldViewBags(null);
         return View();
@@ -533,7 +547,7 @@ public class TransactionController : Controller
     // POST: Transaction/BasicTicket
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult BasicTicket(Transaction transaction)
+    public IActionResult BasicTicket(Transaction transaction, string? scaleUsed = null)
     {
         var customFields = GetActiveCustomFields();
         var cfErrors = ValidateCustomFieldValues(customFields);
@@ -542,6 +556,10 @@ public class TransactionController : Controller
             TempData["Error"] = string.Join(" ", cfErrors);
             return RedirectToAction("BasicTicket");
         }
+
+        // Single-weigh ticket: the one scale captured both weights.
+        transaction.InScale = scaleUsed;
+        transaction.OutScale = scaleUsed;
 
         var setup = _db.AppSetup.First();
         while (_db.Transactions.Any(t => t.Ticket == setup.TicketNumber.ToString()))

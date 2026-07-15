@@ -1,0 +1,41 @@
+@* Scale picker for the weigh forms (multi-scale sites). Renders a dropdown
+   when more than one scale is active, a hidden carrier of the single scale
+   otherwise. Exposes window.bwScale() -> { id, name } for the form scripts;
+   the choice persists per browser via localStorage so each workstation keeps
+   its scale. Controllers populate ViewBag.Scales (active scales). *@
+@{
+    var pickerScales = ViewBag.Scales as List<Foundation.Web.Models.Scale> ?? new List<Foundation.Web.Models.Scale>();
+}
+@if (pickerScales.Count > 1)
+{
+    <div class="mb-2">
+        <label class="form-label mb-0 small" for="scaleSelect">Scale</label>
+        <select id="scaleSelect" class="form-select form-select-sm" style="max-width: 200px;">
+            @foreach (var s in pickerScales)
+            {
+                <option value="@s.Id" data-name="@s.Name">@s.Name</option>
+            }
+        </select>
+    </div>
+}
+else if (pickerScales.Count == 1)
+{
+    <input type="hidden" id="scaleSelect" value="@pickerScales[0].Id" data-name="@pickerScales[0].Name" />
+}
+<script>
+    window.bwScale = (function () {
+        var el = document.getElementById('scaleSelect');
+        if (el && el.tagName === 'SELECT') {
+            var saved = localStorage.getItem('bw.selectedScale');
+            if (saved && el.querySelector('option[value="' + saved + '"]')) el.value = saved;
+            el.addEventListener('change', function () {
+                localStorage.setItem('bw.selectedScale', el.value);
+            });
+        }
+        return function () {
+            if (!el) return { id: null, name: '' };
+            var opt = el.tagName === 'SELECT' ? el.options[el.selectedIndex] : el;
+            return { id: el.value, name: opt ? (opt.dataset ? (opt.dataset.name || '') : '') : '' };
+        };
+    })();
+</script>

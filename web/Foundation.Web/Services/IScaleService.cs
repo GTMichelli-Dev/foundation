@@ -53,8 +53,10 @@ public class ScaleWeightStore
 
     /// <summary>
     /// Update or add a scale reading. Called by POST api/scale/weight or SignalR ScaleWeight.
+    /// Simulator entries (demo mode) pass noTimeout: their state is set by UI
+    /// interactions, not a continuous feed, so staleness means nothing.
     /// </summary>
-    public void Update(string scaleId, string serviceId, int weight, bool motion, bool ok, string? status = null)
+    public void Update(string scaleId, string serviceId, int weight, bool motion, bool ok, string? status = null, bool noTimeout = false)
     {
         var key = $"{serviceId}:{scaleId}";
         _readings[key] = new ScaleReading
@@ -65,7 +67,8 @@ public class ScaleWeightStore
             Motion = motion,
             Ok = ok,
             Status = status ?? (ok ? (motion ? "Motion" : "Ok") : "Error"),
-            LastUpdate = DateTime.UtcNow
+            LastUpdate = DateTime.UtcNow,
+            NoTimeout = noTimeout
         };
     }
 
@@ -97,7 +100,7 @@ public class ScaleWeightStore
 
     private static ScaleReading CheckTimeout(ScaleReading reading)
     {
-        if (DateTime.UtcNow - reading.LastUpdate > ComTimeout)
+        if (!reading.NoTimeout && DateTime.UtcNow - reading.LastUpdate > ComTimeout)
         {
             return new ScaleReading
             {
@@ -124,5 +127,6 @@ public class ScaleWeightStore
         public bool ComError { get; set; }
         public string Status { get; set; } = "Unknown";
         public DateTime LastUpdate { get; set; }
+        public bool NoTimeout { get; set; }
     }
 }

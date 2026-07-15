@@ -19,6 +19,7 @@ public class ScaleDbContext : DbContext
     public DbSet<CameraConfig> CameraConfigs => Set<CameraConfig>();
     public DbSet<CustomField> CustomFields => Set<CustomField>();
     public DbSet<TransactionCustomValue> TransactionCustomValues => Set<TransactionCustomValue>();
+    public DbSet<Scale> Scales => Set<Scale>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -99,6 +100,12 @@ public class ScaleDbContext : DbContext
         {
             e.ToTable("CustomFields");
             e.HasIndex(f => f.Name).IsUnique();
+        });
+
+        modelBuilder.Entity<Scale>(e =>
+        {
+            e.ToTable("Scales");
+            e.HasIndex(s => s.Name).IsUnique();
         });
 
         modelBuilder.Entity<TransactionCustomValue>(e =>

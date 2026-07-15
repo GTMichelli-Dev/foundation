@@ -66,6 +66,8 @@
 <form asp-action="WeighOut" asp-route-id="@Model.Ticket" method="post">
     @Html.AntiForgeryToken()
     <input type="hidden" name="manualOutWeight" id="manualWeightFlag" value="false" />
+    <input type="hidden" name="inScaleUsed" id="inScaleUsed" value="@Model.InScale" />
+    <input type="hidden" name="outScaleUsed" id="outScaleUsed" value="@Model.OutScale" />
 
     <div class="row">
         <div class="col-md-6">
@@ -93,6 +95,8 @@
                     {
                         <partial name="_TicketFieldSlot" model="slot" />
                     }
+
+                    <partial name="_ScalePicker" />
 
                     <div class="row mb-3">
                         <div class="col-7">
@@ -383,8 +387,13 @@
         var lastScaleData = { weight: 0, motion: false, error: false };
         var weightTarget = 'out'; // 'in' or 'out'
 
+        function scaleWeightUrl() {
+            var s = window.bwScale ? bwScale() : { id: null };
+            return '/api/scale/weight' + (s.id ? '?scale=' + encodeURIComponent(s.id) : '');
+        }
+
         function pollScaleWeight() {
-            $.getJSON('/api/scale/weight', function (data) {
+            $.getJSON(scaleWeightUrl(), function (data) {
                 lastScaleData = data;
                 var display = $('#gwDisplay');
                 var val = $('#gwValue');
@@ -424,11 +433,12 @@
             var motion = $('#gwSimMotion').is(':checked');
             var error = $('#gwSimError').is(':checked');
             gwSimLabel.text(weight.toLocaleString());
+            var s = window.bwScale ? bwScale() : { id: null };
             $.ajax({
                 url: '/api/scale/simulate',
                 method: 'POST',
                 contentType: 'application/json',
-                data: JSON.stringify({ weight: weight, motion: motion, error: error })
+                data: JSON.stringify({ weight: weight, motion: motion, error: error, scaleDbId: s.id ? parseInt(s.id) : null })
             });
         }
 
@@ -458,11 +468,11 @@
             gwModal = new bootstrap.Modal('#getWeightModal');
             gwModal.show();
             // Load current weight into simulator slider
-            $.getJSON('/api/scale/weight', function (data) { syncGwSim(data); });
+            $.getJSON(scaleWeightUrl(), function (data) { syncGwSim(data); });
             pollScaleWeight();
             gwPollTimer = setInterval(function () {
                 pollScaleWeight();
-                $.getJSON('/api/scale/weight', function (data) { syncGwSim(data); });
+                $.getJSON(scaleWeightUrl(), function (data) { syncGwSim(data); });
             }, 500);
         }
 
@@ -519,14 +529,17 @@
                 isManual = false;
             }
 
+            var scaleName = isManual ? '' : (window.bwScale ? bwScale().name : '');
             if (weightTarget === 'in') {
                 inWeightInput.val(weightVal);
                 manualInFlag.val(isManual ? 'true' : 'false');
+                $('#inScaleUsed').val(scaleName);
                 if (isManual) { $('#manualInBadge').show(); } else { $('#manualInBadge').hide(); }
                 $('#dateInInput').val(nowDateTimeLocal());
             } else {
                 outWeightInput.val(weightVal);
                 manualFlag.val(isManual ? 'true' : 'false');
+                $('#outScaleUsed').val(scaleName);
                 if (isManual) { $('#manualBadge').show(); } else { $('#manualBadge').hide(); }
                 $('#dateOutInput').val(nowDateTimeLocal());
             }

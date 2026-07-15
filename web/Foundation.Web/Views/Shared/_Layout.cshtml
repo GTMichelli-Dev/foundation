@@ -112,6 +112,9 @@
                     <span class="fw-bold text-warning">SCALE SIMULATOR</span>
                 </div>
                 <div class="col-auto">
+                    <select id="simScaleSelect" class="form-select form-select-sm" style="min-width: 130px; display: none;"></select>
+                </div>
+                <div class="col-auto">
                     <div class="weight-display" id="simWeightDisplay" style="font-size: 2rem; padding: 8px 20px; margin: 0; width: 280px;">
                         0 <span class="unit">lb</span>
                     </div>
@@ -201,6 +204,27 @@
         var status = $('#simStatus');
         var userDragging = false;
 
+        // Per-scale simulation: the panel drives one scale at a time. The
+        // picker appears when the site has more than one active scale and
+        // shares the weigh forms' selection (localStorage bw.selectedScale).
+        var simScaleSel = $('#simScaleSelect');
+        var simScaleId = null;
+        $.getJSON('/api/scales/active', function (scales) {
+            if (!scales || scales.length === 0) return;
+            var saved = localStorage.getItem('bw.selectedScale');
+            scales.forEach(function (s) {
+                simScaleSel.append($('<option>').val(s.id).text(s.name));
+            });
+            if (saved && simScaleSel.find('option[value="' + saved + '"]').length) simScaleSel.val(saved);
+            simScaleId = parseInt(simScaleSel.val());
+            if (scales.length > 1) simScaleSel.show();
+            simScaleSel.on('change', function () {
+                simScaleId = parseInt(simScaleSel.val());
+                localStorage.setItem('bw.selectedScale', simScaleSel.val());
+                pollSimSync(); // show the newly selected scale's state
+            });
+        });
+
         function renderSimDisplay(weight, motion, error) {
             label.text(weight.toLocaleString());
             display.html(weight.toLocaleString() + ' <span class="unit">lb</span>');
@@ -225,7 +249,7 @@
                 url: '/api/scale/simulate',
                 method: 'POST',
                 contentType: 'application/json',
-                data: JSON.stringify({ weight: weight, motion: motion, error: error })
+                data: JSON.stringify({ weight: weight, motion: motion, error: error, scaleDbId: simScaleId })
             });
         }
 
@@ -240,7 +264,8 @@
         // Poll server to sync with other sessions
         function pollSimSync() {
             if (userDragging) return;
-            $.getJSON('/api/scale/weight', function (data) {
+            var url = '/api/scale/weight' + (simScaleId ? '?scale=' + simScaleId : '');
+            $.getJSON(url, function (data) {
                 if (userDragging) return;
                 var serverWeight = data.weight || 0;
                 var serverMotion = !!data.motion;
@@ -278,7 +303,7 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header py-2">
-                    <h5 class="modal-title">Select Kiosk Printer</h5>
+                    <h5 class="modal-title">Launch Kiosk</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -288,6 +313,11 @@
                     </select>
                     <div id="kioskPrinterPickerLoading" class="text-center text-muted small mt-2" style="display:none;">
                         <i class="fa fa-spinner fa-spin"></i> Loading printers...
+                    </div>
+                    <div id="kioskScalePickerWrap" class="mt-2" style="display:none;">
+                        <label class="form-label mb-0 small fw-bold" for="kioskScalePickerSelect">Scale for this kiosk</label>
+                        <select id="kioskScalePickerSelect" class="form-select"></select>
+                        <div class="form-text small">This kiosk reads and records weights from the selected scale.</div>
                     </div>
                 </div>
                 <div class="modal-footer py-1">
@@ -301,9 +331,31 @@
     var _kioskPrinterConnection = null;
     var _kioskPrintersLoaded = false;
 
+    var _kioskScalesLoaded = false;
+
     function showKioskPrinterPicker() {
         var modal = new bootstrap.Modal(document.getElementById('kioskPrinterPickerModal'));
         modal.show();
+
+        // Scale mapping for this kiosk device (multi-scale sites). The picker
+        // only appears when more than one scale is active; the choice rides
+        // the kiosk URL and is remembered per device via localStorage.
+        if (!_kioskScalesLoaded) {
+            _kioskScalesLoaded = true;
+            fetch('/api/scales/active').then(function (r) { return r.json(); }).then(function (scales) {
+                if (!scales || scales.length < 2) return;
+                var sel = document.getElementById('kioskScalePickerSelect');
+                scales.forEach(function (s) {
+                    var opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.textContent = s.name;
+                    sel.appendChild(opt);
+                });
+                var saved = localStorage.getItem('bw.kioskScale');
+                if (saved && sel.querySelector('option[value="' + saved + '"]')) sel.value = saved;
+                document.getElementById('kioskScalePickerWrap').style.display = 'block';
+            }).catch(function () {});
+        }
 
         if (!_kioskPrintersLoaded) {
             document.getElementById('kioskPrinterPickerLoading').style.display = 'block';
@@ -362,6 +414,14 @@
         var pin = '@(appSetup?.UseLogin == true ? appSetup?.KioskCode ?? "" : "")';
         var url = '/Kiosk?service-id=' + serviceId + '&printer-id=' + printerId;
         if (pin) url += '&pin=' + encodeURIComponent(pin);
+        var scaleWrap = document.getElementById('kioskScalePickerWrap');
+        if (scaleWrap && scaleWrap.style.display !== 'none') {
+            var scaleVal = document.getElementById('kioskScalePickerSelect').value;
+            if (scaleVal) {
+                url += '&scale-id=' + encodeURIComponent(scaleVal);
+                localStorage.setItem('bw.kioskScale', scaleVal);
+            }
+        }
         window.open(url, '_blank');
         bootstrap.Modal.getInstance(document.getElementById('kioskPrinterPickerModal')).hide();
     }

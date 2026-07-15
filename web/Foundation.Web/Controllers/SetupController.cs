@@ -159,11 +159,11 @@ public class SetupController : Controller
             existing.PromptKioskDestinationOnInbound = false;
             existing.PromptKioskDestinationOnOutbound = false;
         }
-        // Camera assignments are managed on the Camera page, not the Setup form,
-        // so the posted AppSetup never carries these fields. Don't overwrite the
-        // saved values with the null that comes back from model binding —
-        // doing so silently reset both cameras every time the user clicked Save.
-        existing.ScaleId = setup.ScaleId;
+        // Camera assignments are managed on the Camera page and scales on the
+        // Scales page (named site scales), so the posted AppSetup never carries
+        // those fields — don't overwrite the saved values with the nulls that
+        // come back from model binding. (ScaleId itself is legacy: the
+        // AddMultiScale migration converted it into the first Scales row.)
 
         if (removeIcon)
         {
@@ -188,6 +188,21 @@ public class SetupController : Controller
 
         TempData["Message"] = "Settings saved successfully.";
         return RedirectToAction("Index");
+    }
+
+    /// <summary>
+    /// QR code (PNG) for the signature-pad URL so the tablet can scan instead
+    /// of typing. Only same-app URLs are encoded — padId is the pad-id query
+    /// value; the URL is built server-side from the current request host.
+    /// </summary>
+    [HttpGet("api/setup/signature-pad-qr")]
+    public IActionResult SignaturePadQr(string? padId = null)
+    {
+        var url = $"{Request.Scheme}://{Request.Host}/SignaturePad?pad-id={Uri.EscapeDataString(string.IsNullOrWhiteSpace(padId) ? "default" : padId)}";
+        using var generator = new QRCoder.QRCodeGenerator();
+        using var data = generator.CreateQrCode(url, QRCoder.QRCodeGenerator.ECCLevel.M);
+        var png = new QRCoder.PngByteQRCode(data).GetGraphic(pixelsPerModule: 5);
+        return File(png, "image/png");
     }
 
     [HttpPost]

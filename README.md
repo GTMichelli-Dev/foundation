@@ -22,6 +22,8 @@ Foundation is a web-based truck scale management application for weighing inboun
 - [Configuration](#configuration)
   - [Application Settings](#application-settings)
   - [Setup Page](#setup-page)
+  - [Scales (multi-scale)](#scales-multi-scale)
+  - [Custom Fields & Ticket Printing](#custom-fields--ticket-printing)
   - [User Login System](#user-login-system)
   - [Updating Device Definitions](#updating-device-definitions)
   - [Rebuilding the Database](#rebuilding-the-database)
@@ -35,16 +37,20 @@ Foundation is a web-based truck scale management application for weighing inboun
 ## Features
 
 - **Real-Time Scale Display** — Live weight readings from connected scales with motion/error status
+- **Multiple Scales** — Named site scales (grain-management style): operators pick the scale on the weigh forms, each kiosk is mapped to a scale, and every ticket records which scale captured each weighment
 - **Weigh In / Weigh Out** — Record inbound and outbound truck weights with automatic net weight calculation
 - **Inbound & Completed Trucks** — Track trucks currently on-site and view completed transactions
 - **Reports** — Date-range filtering, group by (Customer, Carrier, Commodity, etc.), export to Excel and PDF
-- **Master Data Tables** — Manage Customers, Carriers, Trucks, Commodities, Locations, and Destinations
+- **Master Data Tables** — Manage Customers, Carriers, Trucks, Commodities, Locations, and Destinations (tabs follow field visibility; dropdown custom fields get their own tab)
+- **Custom Fields** — Admin-defined ticket fields (text, dropdown, integer, decimal with min/max) that appear on the weigh forms, grids, kiosk prompts, and printed tickets — placeable anywhere in the ticket designer
+- **Field Ordering** — Standard and custom fields share one sort order that drives the weigh forms, with the two form columns kept balanced automatically
 - **Kiosk Mode** — Touchscreen-optimized interface for unattended scale houses (1280x800 resolution)
 - **Remote Printing** — Print tickets to thermal printers via Raspberry Pi print agents over SignalR
 - **Ticket Designer** — Edit ticket layouts with the built-in DevExpress Report Designer
+- **Driver Signature Capture** — Operator-device overlay or a remote signature-pad tablet (opened by scanning a QR code on the Setup page)
 - **User Login & Roles** — Optional login with User, Manager, and Admin roles
-- **Customizable** — Themes, custom icons, configurable kiosk prompts, and editable ticket templates
-- **Demo Mode** — Built-in scale simulator for testing without hardware
+- **Customizable** — Themes, custom icons, configurable kiosk prompts, and editable ticket templates; Setup changes auto-save
+- **Demo Mode** — Built-in scale simulator for testing without hardware, one independent simulator per defined scale
 
 ---
 
@@ -364,12 +370,32 @@ sudo systemctl restart foundation
 
 ### Setup Page
 
-Navigate to **Setup** in the web interface to configure:
+Navigate to **Setup** in the web interface to configure. **Changes auto-save** — there is no Save button; a "Saved ✓" indicator confirms each change (text fields save when you leave them). Changing the theme reloads the page so it applies immediately.
 
 - **Company & Ticket** — Header lines (company name, address, phone), ticket numbering
-- **System** — Demo mode, kiosk count (0/1/2), login mode, theme, custom icon
+- **System** — Demo mode, kiosk count (0/1/2), login mode, theme, custom icon, driver signature capture (the Remote Signature Pad option shows a **QR code** — scan it with the tablet to open the pad, no typing)
+- **Fields** — Show/hide the standard fields, set the **sort order** for standard and custom fields (one shared scale, so a custom field can slot between built-ins), and manage **custom fields** (text, dropdown, integer/decimal with min/max/precision, required, show-on-ticket, kiosk prompting)
 - **Kiosk Prompts** — Which fields to show on the kiosk touchscreen
 - **Ticket Designers** — Edit the layout of printed tickets
+
+### Scales (multi-scale)
+
+The **Scales** page (System → Options → Scales) manages the named site scales:
+
+- Each scale has a **name** (what operators see and what tickets record), a **hardware feed** (a scale reported by a connected Scale Reader Service), an order, and an active flag. A scale with no hardware feed is driven by the per-scale simulator in Demo Mode.
+- The **weigh forms** show a scale picker when more than one scale is active; the choice is remembered per browser. The dashboard's live weight display follows the same selection.
+- **Kiosks are mapped to a scale** in the Launch Kiosk dialog (or via `?scale-id=<id>` in the kiosk URL); each kiosk reads and records weights from its mapped scale.
+- Every ticket stores the scale name per weighment (**In Scale** / **Out Scale**). Manually entered weights record no scale.
+- In **Demo Mode** each scale has its own independent simulator — the simulator panels (header bar, Get Weight dialog, kiosk) drive whichever scale is selected.
+
+### Custom Fields & Ticket Printing
+
+Custom fields marked **Show on printed ticket** print in one of two ways:
+
+- **Auto-append (default):** a `Name: value` row is added near the bottom of the ticket for every field with a value.
+- **Designer placement:** every ticket-eligible custom field appears in the Ticket Designer's Field List as a parameter named `cf_<FieldName>` (non-alphanumerics become underscores). Drag it into the layout and save — the value then prints at that exact spot and the auto-appended row for that field is suppressed. Fields you don't place keep auto-appending, so existing layouts never change behavior.
+
+Dropdown-type custom fields also get their own tab on **Edit Tables** for managing the choice list (add, rename, delete, drag to reorder) without opening Setup.
 
 ### User Login System
 
@@ -402,14 +428,15 @@ https://your-server/Kiosk?pin=12345
 
 The default PIN is `12345`. Change it on the Setup page. The PIN is stored as a browser cookie so subsequent requests don't need it.
 
-Two other optional query parameters select which print/camera service handles tickets from this kiosk:
+Three other optional query parameters select which print service and scale handle this kiosk:
 
 ```
-https://your-server/Kiosk?service-id=office-1&printer-id=BIXOLON_BK3&pin=12345
+https://your-server/Kiosk?service-id=office-1&printer-id=BIXOLON_BK3&scale-id=2&pin=12345
 ```
 
 - **`service-id`** — name of the Print/Camera Service instance (matches what's shown in the Setup page). `Browser` or blank means browser-print.
 - **`printer-id`** — physical printer the service drives (e.g. `Zebra_LP2844`). `Browser` for browser-print.
+- **`scale-id`** — the site scale this kiosk reads and records (the id from the Scales page). Omitted = the default (first active) scale. The Launch Kiosk dialog fills this in automatically on multi-scale sites.
 
 If you're deploying a Pi-driven kiosk display, [`RaspberryPiKiosk/install.sh`](RaspberryPiKiosk/README.md) prompts for all three values and assembles the full URL — no need to hand-edit it into the boot config.
 

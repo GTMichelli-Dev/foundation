@@ -16,8 +16,9 @@ public class HomeController : Controller
     private readonly AppSetupCache _setupCache;
     private readonly IHubContext<ScaleHub> _hub;
     private readonly ScaleWeightStore _weightStore;
+    private readonly SiteScales _siteScales;
 
-    public HomeController(IScaleService scaleService, ScaleDbContext db, PrintQueueService printQueue, AppSetupCache setupCache, IHubContext<ScaleHub> hub, ScaleWeightStore weightStore)
+    public HomeController(IScaleService scaleService, ScaleDbContext db, PrintQueueService printQueue, AppSetupCache setupCache, IHubContext<ScaleHub> hub, ScaleWeightStore weightStore, SiteScales siteScales)
     {
         _scaleService = scaleService;
         _db = db;
@@ -25,6 +26,7 @@ public class HomeController : Controller
         _setupCache = setupCache;
         _hub = hub;
         _weightStore = weightStore;
+        _siteScales = siteScales;
     }
 
     public IActionResult Index()
@@ -33,62 +35,47 @@ public class HomeController : Controller
     }
 
     /// <summary>
-    /// Get weight from the configured scale (Setup > ScaleId).
-    /// Or pass serviceId and scaleId to get a specific scale.
+    /// Get weight from a site scale: ?scale={Scale.Id}, defaulting to the
+    /// first active scale. Live mode reads the scale's hardware feed; demo
+    /// mode reads its per-scale simulator. Passing serviceId/scaleId instead
+    /// queries a raw hardware feed directly (Scale page live view).
     /// </summary>
     [HttpGet("api/scale/weight")]
-    public IActionResult GetWeight([FromQuery] string? serviceId = null, [FromQuery] string? scaleId = null)
+    public IActionResult GetWeight([FromQuery] int? scale = null, [FromQuery] string? serviceId = null, [FromQuery] string? scaleId = null)
     {
         var setup = _setupCache.Get();
 
-        // In demo mode, use the simulated service
-        if (setup.DemoMode)
+        // Raw hardware query (bypasses the named-scale list)
+        if (!string.IsNullOrEmpty(scaleId))
         {
+            var lookupId = string.IsNullOrEmpty(serviceId) ? scaleId : $"{serviceId}:{scaleId}";
+            var raw = _weightStore.Get(lookupId);
+            if (raw == null)
+                return Json(new { weight = 0, motion = false, ok = false, error = true, comError = true });
             return Json(new
             {
-                weight = _scaleService.GetCurrentWeight(),
-                motion = _scaleService.IsInMotion(),
-                ok = _scaleService.IsConnected(),
-                error = _scaleService.HasError(),
-                comError = (_scaleService is SimulatedScaleService sim2) && sim2.HasComError()
+                weight = raw.Weight,
+                motion = raw.Motion,
+                ok = raw.Ok,
+                error = !raw.Ok,
+                comError = raw.ComError,
+                scaleId = raw.ScaleId,
+                serviceId = raw.ServiceId
             });
         }
 
-        // Determine which scale to query
-        string lookupId;
-        if (!string.IsNullOrEmpty(serviceId) && !string.IsNullOrEmpty(scaleId))
-        {
-            lookupId = $"{serviceId}:{scaleId}";
-        }
-        else if (!string.IsNullOrEmpty(scaleId))
-        {
-            lookupId = scaleId;
-        }
-        else
-        {
-            lookupId = setup.ScaleId ?? "";
-        }
-
-        if (string.IsNullOrEmpty(lookupId))
-        {
-            return Json(new { weight = 0, motion = false, ok = false, error = true, comError = true });
-        }
-
-        var reading = _weightStore.Get(lookupId);
-        if (reading == null)
-        {
-            return Json(new { weight = 0, motion = false, ok = false, error = true, comError = true });
-        }
-
+        var site = SiteScales.Resolve(_db, scale);
+        var r = _siteScales.Read(site, setup.DemoMode);
         return Json(new
         {
-            weight = reading.Weight,
-            motion = reading.Motion,
-            ok = reading.Ok,
-            error = !reading.Ok,
-            comError = reading.ComError,
-            scaleId = reading.ScaleId,
-            serviceId = reading.ServiceId
+            weight = r.Weight,
+            motion = r.Motion,
+            ok = r.Ok,
+            error = r.Error,
+            comError = r.ComError,
+            status = r.Status,
+            scaleDbId = r.ScaleDbId,
+            scaleName = r.ScaleName
         });
     }
 
@@ -99,14 +86,21 @@ public class HomeController : Controller
         if (!setup.DemoMode)
             return BadRequest(new { success = false, message = "Not in demo mode. Enable Demo Mode in Setup to use the simulator." });
 
+        var site = SiteScales.Resolve(_db, request.ScaleDbId);
+        if (site == null)
+            return BadRequest(new { success = false, message = "No scale configured. Add one on the Scales page." });
+
+        _siteScales.Simulate(site, request.Weight, request.Motion, request.Error);
+
+        // Keep the legacy single simulator in step so anything still reading
+        // IScaleService (e.g. ScaleBroadcastService) sees the default scale.
         if (_scaleService is SimulatedScaleService sim)
         {
             sim.SetWeight(request.Weight);
             sim.SetMotion(request.Motion);
             sim.SetError(request.Error);
-            return Json(new { success = true });
         }
-        return BadRequest(new { success = false, message = "Scale service is not a simulator." });
+        return Json(new { success = true, scaleDbId = site.Id, scaleName = site.Name });
     }
 
     /// <summary>
@@ -155,6 +149,8 @@ public class HomeController : Controller
         public int Weight { get; set; }
         public bool Motion { get; set; }
         public bool Error { get; set; }
+        /// <summary>Site scale to simulate (Scale.Id); null = default scale.</summary>
+        public int? ScaleDbId { get; set; }
     }
 
     /// <summary>
@@ -165,11 +161,10 @@ public class HomeController : Controller
     /// Zero the scale via SignalR. Pass serviceId/scaleId or uses the configured scale from Setup.
     /// </summary>
     [HttpPost("api/scale/zero")]
-    public async Task<IActionResult> ZeroScale([FromQuery] string? serviceId = null, [FromQuery] string? scaleId = null)
+    public async Task<IActionResult> ZeroScale([FromQuery] int? scale = null, [FromQuery] string? serviceId = null, [FromQuery] string? scaleId = null)
     {
-        var setup = _setupCache.Get();
-
-        // Determine target scale
+        // Determine target hardware feed: explicit serviceId/scaleId, or the
+        // named site scale (?scale={Scale.Id}, default = first active).
         string targetScaleId;
         string targetServiceId;
 
@@ -178,15 +173,14 @@ public class HomeController : Controller
             targetServiceId = serviceId;
             targetScaleId = scaleId;
         }
-        else if (!string.IsNullOrEmpty(setup.ScaleId) && setup.ScaleId.Contains(':'))
-        {
-            var parts = setup.ScaleId.Split(':', 2);
-            targetServiceId = parts[0];
-            targetScaleId = parts[1];
-        }
         else
         {
-            return Json(new { success = false, message = "No scale configured. Set the scale in Setup > Scales." });
+            var site = SiteScales.Resolve(_db, scale);
+            if (site?.HardwareId == null || !site.HardwareId.Contains(':'))
+                return Json(new { success = false, message = "No hardware scale configured. Link a hardware feed on the Scales page." });
+            var parts = site.HardwareId.Split(':', 2);
+            targetServiceId = parts[0];
+            targetScaleId = parts[1];
         }
 
         // Send to the specific scale service group

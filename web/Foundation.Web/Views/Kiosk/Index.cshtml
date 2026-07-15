@@ -968,7 +968,9 @@
         .withAutomaticReconnect()
         .build();
 
-    var configuredScaleId = '@(ViewBag.ScaleId ?? "")';
+    var configuredScaleId = '@(ViewBag.ScaleId ?? "")';        // hardware feed id (SignalR filter)
+    var kioskScaleDbId = parseInt('@ViewBag.KioskScaleDbId') || null; // site scale this kiosk is mapped to
+    var kioskScaleName = '@(ViewBag.KioskScaleName ?? "")';    // recorded on tickets
 
     var lastScaleUpdate = null;
     var pageLoadedAt = Date.now();
@@ -1011,7 +1013,7 @@
         console.error('SignalR error:', err);
         // Fallback to polling if SignalR fails
         setInterval(function () {
-            $.getJSON('/api/scale/weight', function (data) {
+            $.getJSON('/api/scale/weight' + (kioskScaleDbId ? '?scale=' + kioskScaleDbId : ''), function (data) {
                 scaleData = data;
                 lastScaleUpdate = Date.now();
                 updateWeightDisplay();
@@ -1670,7 +1672,8 @@
                 location: weighinData.location || null,
                 destination: weighinData.destination || null,
                 printerId: kioskHasPrinter ? (kioskServiceId + ':' + kioskPrinterId) : null,
-                customFields: buildCustomFieldPayload()
+                customFields: buildCustomFieldPayload(),
+                scaleName: kioskScaleName || null
             }),
             success: function (result) {
                 // Server may suppress the inbound-leg print when Retained Tare
@@ -1713,7 +1716,8 @@
                 commodity:   weighinData.commodity   || null,
                 customer:    weighinData.customer    || null,
                 location:    weighinData.location    || null,
-                printerId: kioskHasPrinter ? (kioskServiceId + ':' + kioskPrinterId) : null
+                printerId: kioskHasPrinter ? (kioskServiceId + ':' + kioskPrinterId) : null,
+                scaleName: kioskScaleName || null
             }),
             success: function (result) {
                 showComplete('Weigh Out', result.ticket, weighoutTicket.inWeight, weight);
@@ -2057,7 +2061,8 @@
                     data: JSON.stringify({
                         weight: parseInt($simSlider.val()),
                         motion: $simMotion.is(':checked'),
-                        error: $simError.is(':checked')
+                        error: $simError.is(':checked'),
+                        scaleDbId: kioskScaleDbId
                     })
                 });
             }, 50);

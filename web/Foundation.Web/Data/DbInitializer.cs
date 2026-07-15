@@ -45,6 +45,23 @@ public static class DbInitializer
             context.SaveChanges();
         }
 
+        // Always ensure at least one site scale exists — the weigh forms and
+        // kiosk resolve their default scale from this list. The migration
+        // seeds one from the legacy AppSetup.ScaleId on existing databases;
+        // this covers brand-new databases.
+        if (!context.Scales.Any())
+        {
+            var legacyHardwareId = context.AppSetup.FirstOrDefault()?.ScaleId;
+            context.Scales.Add(new Scale
+            {
+                Name = "Scale 1",
+                HardwareId = string.IsNullOrWhiteSpace(legacyHardwareId) ? null : legacyHardwareId,
+                SortOrder = 10,
+                Active = true
+            });
+            context.SaveChanges();
+        }
+
         if (!seedDemoData)
             return; // Demo seeding disabled (SeedDemoData=false) — users only.
 

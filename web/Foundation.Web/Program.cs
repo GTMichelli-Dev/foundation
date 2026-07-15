@@ -45,6 +45,7 @@ builder.Services.AddSingleton<SimulatedScaleService>();
 builder.Services.AddSingleton<IScaleService>(sp => sp.GetRequiredService<SimulatedScaleService>());
 // Multi-scale weight store (tracks all scales with timeout detection)
 builder.Services.AddSingleton<ScaleWeightStore>();
+builder.Services.AddSingleton<Foundation.Web.Services.SiteScales>();
 
 builder.Services.AddSingleton<PrintQueueService>();
 builder.Services.AddSignalR(options =>

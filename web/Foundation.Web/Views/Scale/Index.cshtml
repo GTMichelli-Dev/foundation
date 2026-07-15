@@ -29,21 +29,32 @@
     </div>
 </div>
 
-<!-- Scale Assignment -->
+<!-- Site Scales (named scales, grain-management style) -->
 <div class="card mb-3">
-    <div class="card-header py-2"><strong>Scale Assignment</strong></div>
+    <div class="card-header py-2 d-flex justify-content-between align-items-center">
+        <strong>Site Scales</strong>
+        <button type="button" class="btn btn-outline-primary btn-sm py-0" onclick="addSiteScale()"><i class="fa fa-plus"></i> Add Scale</button>
+    </div>
     <div class="card-body py-2">
-        <div class="row g-3 align-items-end">
-            <div class="col-md-5">
-                <label class="form-label mb-0 small fw-bold">Active Scale</label>
-                <select id="scaleSelect" class="form-select form-select-sm" style="max-width:200px;" onchange="saveAssignment()">
-                    <option value="">-- None --</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <span id="assignmentStatus" class="small"></span>
-            </div>
-        </div>
+        <p class="small text-muted mb-2">
+            Named scales the operators pick on the weigh forms and kiosks;
+            tickets record the scale name with each weighment. Link each scale
+            to a hardware feed from a connected reader service below — a scale
+            with no feed is driven by the simulator in Demo Mode. Changes save
+            immediately.
+        </p>
+        <table class="table table-sm align-middle mb-0" id="siteScalesTable">
+            <thead>
+                <tr class="small text-muted">
+                    <th>Name</th><th>Hardware Feed</th>
+                    <th style="width:90px;">Order</th>
+                    <th style="width:70px;" class="text-center">Active</th>
+                    <th style="width:70px;"></th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        <div id="siteScaleStatus" class="small mt-1">&nbsp;</div>
     </div>
 </div>
 
@@ -467,47 +478,112 @@
         container.innerHTML = html;
     }
 
-    // ===== SCALE ASSIGNMENT =====
-    function updateAssignmentDropdown() {
-        var sel = document.getElementById('scaleSelect');
-        var currentVal = sel.value || savedScaleId;
-        var options = '<option value="">-- None --</option>';
+    // ===== SITE SCALES (named scales the forms and kiosks pick from) =====
+    var siteScales = [];
+    var siteScaleStatusTimer = null;
 
-        Object.keys(connectedServices).forEach(function (sid) {
-            var scales = connectedServices[sid].scales || [];
-            scales.forEach(function (s) {
-                if (!s.active) return;
-                var val = sid + ':' + s.scaleId;
-                var label = s.displayName || s.scaleId;
-                if (Object.keys(connectedServices).length > 1) label += ' (' + sid + ')';
-                options += '<option value="' + escAttr(val) + '">' + escHtml(label) + '</option>';
-            });
-        });
-
-        sel.innerHTML = options;
-        sel.value = currentVal;
+    function siteScaleStatus(msg, isError) {
+        var el = document.getElementById('siteScaleStatus');
+        clearTimeout(siteScaleStatusTimer);
+        el.innerHTML = '<span class="' + (isError ? 'text-danger' : 'text-success') + '">' + escHtml(msg) + '</span>';
+        if (!isError) siteScaleStatusTimer = setTimeout(function () { el.innerHTML = '&nbsp;'; }, 2000);
     }
 
-    function saveAssignment() {
-        var val = document.getElementById('scaleSelect').value;
-        var status = document.getElementById('assignmentStatus');
-        status.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
+    function loadSiteScales() {
+        fetch('/api/scales').then(function (r) { return r.json(); }).then(function (list) {
+            siteScales = list;
+            renderSiteScales();
+        });
+    }
 
-        fetch('/api/scales/assignment', {
+    function hardwareOptionsHtml(current) {
+        var options = '<option value="">— Simulator / none —</option>';
+        var found = false;
+        Object.keys(connectedServices).forEach(function (sid) {
+            (connectedServices[sid].scales || []).forEach(function (s) {
+                if (!s.active) return;
+                var val = sid + ':' + s.scaleId;
+                if (val === current) found = true;
+                var label = s.displayName || s.scaleId;
+                if (Object.keys(connectedServices).length > 1) label += ' (' + sid + ')';
+                options += '<option value="' + escAttr(val) + '"' + (val === current ? ' selected' : '') + '>' + escHtml(label) + '</option>';
+            });
+        });
+        // Keep an assignment visible even while its reader service is offline.
+        if (current && !found)
+            options += '<option value="' + escAttr(current) + '" selected>' + escHtml(current) + ' (offline)</option>';
+        return options;
+    }
+
+    function renderSiteScales() {
+        var tbody = document.querySelector('#siteScalesTable tbody');
+        var html = '';
+        siteScales.forEach(function (s) {
+            html += '<tr data-id="' + s.id + '">'
+                + '<td><input class="form-control form-control-sm ss-name" maxlength="50" value="' + escHtml(s.name) + '"></td>'
+                + '<td><select class="form-select form-select-sm ss-hw">' + hardwareOptionsHtml(s.hardwareId || '') + '</select></td>'
+                + '<td><input type="number" step="1" class="form-control form-control-sm ss-order" value="' + s.sortOrder + '"></td>'
+                + '<td class="text-center"><input type="checkbox" class="form-check-input ss-active"' + (s.active ? ' checked' : '') + '></td>'
+                + '<td class="text-end"><button type="button" class="btn btn-outline-danger btn-sm py-0" onclick="deleteSiteScale(' + s.id + ')">Delete</button></td>'
+                + '</tr>';
+        });
+        tbody.innerHTML = html;
+        tbody.querySelectorAll('input, select').forEach(function (el) {
+            el.addEventListener('change', function () { saveSiteScaleRow(el.closest('tr')); });
+        });
+    }
+
+    function saveSiteScaleRow(tr) {
+        var id = parseInt(tr.dataset.id);
+        var body = {
+            id: id,
+            name: tr.querySelector('.ss-name').value.trim(),
+            hardwareId: tr.querySelector('.ss-hw').value || null,
+            sortOrder: parseInt(tr.querySelector('.ss-order').value) || 0,
+            active: tr.querySelector('.ss-active').checked
+        };
+        fetch('/api/scales/' + id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        }).then(function (r) {
+            if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'Save failed.'); });
+            siteScaleStatus('Saved ✓', false);
+            loadSiteScales();
+        }).catch(function (e) {
+            siteScaleStatus(e.message, true);
+            loadSiteScales(); // revert the row to server state
+        });
+    }
+
+    function addSiteScale() {
+        var n = siteScales.length + 1;
+        var name = 'Scale ' + n;
+        while (siteScales.some(function (s) { return s.name === name; })) { n++; name = 'Scale ' + n; }
+        var maxOrder = siteScales.reduce(function (m, s) { return Math.max(m, s.sortOrder); }, 0);
+        fetch('/api/scales', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ scaleId: val })
+            body: JSON.stringify({ name: name, hardwareId: null, sortOrder: maxOrder + 10, active: true })
         }).then(function (r) {
-            if (r.ok) {
-                savedScaleId = val;
-                status.innerHTML = '<span class="text-success">&#10003; Saved</span>';
-                setTimeout(function () { status.innerHTML = ''; }, 2000);
-            } else {
-                status.innerHTML = '<span class="text-danger">Failed</span>';
-            }
-        }).catch(function () {
-            status.innerHTML = '<span class="text-danger">Failed</span>';
-        });
+            if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'Add failed.'); });
+            loadSiteScales();
+        }).catch(function (e) { siteScaleStatus(e.message, true); });
+    }
+
+    function deleteSiteScale(id) {
+        if (!confirm('Delete this scale? Existing tickets keep the recorded scale name.')) return;
+        fetch('/api/scales/' + id, { method: 'DELETE' }).then(function (r) {
+            if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'Delete failed.'); });
+            loadSiteScales();
+        }).catch(function (e) { siteScaleStatus(e.message, true); });
+    }
+
+    loadSiteScales();
+
+    // Reader-service lists changed — refresh the hardware-feed dropdowns.
+    function updateAssignmentDropdown() {
+        renderSiteScales();
     }
 
     // ===== BRAND DROPDOWN =====

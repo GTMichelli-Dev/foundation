@@ -27,9 +27,15 @@
                         <input type="text" class="form-control" value="@ViewBag.NextTicket" readonly />
                     </div>
 
+                    <partial name="_ScalePicker" />
+                    <input type="hidden" name="scaleUsed" id="scaleUsed" value="" />
+
                     <div class="mb-3">
                         <label class="form-label">Weight (lb)</label>
-                        <input type="number" name="InWeight" class="form-control" value="@ViewBag.CurrentWeight" required />
+                        <div class="input-group">
+                            <input type="number" name="InWeight" id="basicWeightInput" class="form-control" value="@ViewBag.CurrentWeight" required />
+                            <button type="button" class="btn btn-primary" id="basicGetWeightBtn">Get Weight</button>
+                        </div>
                     </div>
 
                     <div class="mb-3">
@@ -81,6 +87,26 @@
 @section Scripts {
 <script>
     $(function () {
+        // --- Scale selection: refresh the weight from the chosen scale and
+        // record its name on the ticket. Typing a weight by hand clears the
+        // scale name (it wasn't a scale reading).
+        function refreshBasicWeight() {
+            var s = window.bwScale ? bwScale() : { id: null, name: '' };
+            var url = '/api/scale/weight' + (s.id ? '?scale=' + encodeURIComponent(s.id) : '');
+            $.getJSON(url, function (data) {
+                if (!data.error) {
+                    $('#basicWeightInput').val(data.weight);
+                    $('#scaleUsed').val(s.name);
+                }
+            });
+        }
+        $('#basicGetWeightBtn').on('click', refreshBasicWeight);
+        $('#scaleSelect').on('change', refreshBasicWeight);
+        $('#basicWeightInput').on('input', function () { $('#scaleUsed').val(''); });
+        // The server prefilled the weight from the default scale; stamp the
+        // selected scale's name (and re-read if a different scale is stored).
+        refreshBasicWeight();
+
         var customerSelect = $('select[name="Customer"]');
         var carrierSelect = $('select[name="Carrier"]');
         var truckSelect = $('#truckSelect');

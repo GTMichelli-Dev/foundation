@@ -26,13 +26,22 @@ public class KioskController : Controller
     }
 
     public IActionResult Index([FromQuery(Name = "service-id")] string? serviceId = null,
-                               [FromQuery(Name = "printer-id")] string? printerId = null)
+                               [FromQuery(Name = "printer-id")] string? printerId = null,
+                               [FromQuery(Name = "scale-id")] int? scaleId = null)
     {
         var setup = _setupCache.Get();
         ViewBag.ServiceId = serviceId ?? "";
         ViewBag.PrinterId = printerId ?? "";
         ViewBag.HasPrinter = !string.IsNullOrEmpty(serviceId) && !string.IsNullOrEmpty(printerId);
-        ViewBag.ScaleId = setup.ScaleId ?? "";
+
+        // Each kiosk device is mapped to one site scale, chosen in the Launch
+        // Kiosk dialog (?scale-id=). Falls back to the default (first active)
+        // scale so a bare /Kiosk URL still works on single-scale sites.
+        var scale = SiteScales.Resolve(_db, scaleId);
+        ViewBag.KioskScaleDbId = scale?.Id ?? 0;
+        ViewBag.KioskScaleName = scale?.Name ?? "";
+        // Hardware feed id, used to filter SignalR ScaleWeight pushes.
+        ViewBag.ScaleId = scale?.HardwareId ?? "";
         return View(setup);
     }
 
@@ -227,6 +236,7 @@ public class KioskController : Controller
         {
             Ticket = ticketNumber,
             InWeight = request.Weight,
+            InScale = request.ScaleName,
             DateIn = dateIn,
             Commodity = request.Commodity,
             Customer = request.Customer,
@@ -243,6 +253,8 @@ public class KioskController : Controller
             transaction.OutWeight = truck!.RetainedTare;
             transaction.DateOut = now;
             transaction.ManualOutbound = false;
+            // The retained tare came from a stored value, not this visit's
+            // scale — only the live (gross) weighment records the kiosk scale.
         }
 
         setup.TicketNumber++;
@@ -309,6 +321,7 @@ public class KioskController : Controller
             return NotFound(new { message = "Ticket not found" });
 
         transaction.OutWeight = request.Weight;
+        transaction.OutScale = request.ScaleName;
         transaction.DateOut = DateTime.UtcNow;
         transaction.ManualOutbound = false;
 
@@ -554,6 +567,8 @@ public class KioskController : Controller
         public string? Destination { get; set; }
         /// <summary>Custom field values keyed by field id ("3" -> "12.5").</summary>
         public Dictionary<string, string>? CustomFields { get; set; }
+        /// <summary>Name of the site scale this kiosk is mapped to.</summary>
+        public string? ScaleName { get; set; }
         /// <summary>
         /// Optional printer in "serviceId:printerId" format.
         /// If not set: demo mode uses "demo:KioskPrinter", normal mode uses inbound printer from Setup.
@@ -565,6 +580,8 @@ public class KioskController : Controller
     {
         public string Ticket { get; set; } = string.Empty;
         public int Weight { get; set; }
+        /// <summary>Name of the site scale this kiosk is mapped to.</summary>
+        public string? ScaleName { get; set; }
         public string? Destination { get; set; }
         // Outbound-only prompt values. Each is optional — empty means the
         // operator wasn't prompted, or skipped, and the existing transaction

@@ -113,6 +113,9 @@
             <div class="scale-status" id="scaleStatus">&nbsp;</div>
             <button class="zero-btn" onclick="zeroScale()" title="Zero the scale">ZERO</button>
         </div>
+        <div class="d-flex justify-content-center mt-1" id="dashScaleWrap" style="display:none !important;">
+            <select id="dashScaleSelect" class="form-select form-select-sm" style="max-width: 220px;"></select>
+        </div>
     </div>
 </div>
 
@@ -170,14 +173,33 @@
 
 @section Scripts {
 <script>
+    var dashScaleId = null;
+
     $(function () {
         var display = $('#weightDisplay');
         var weightVal = $('#weightValue');
         var weightUnit = $('#weightUnit');
         var statusEl = $('#scaleStatus');
 
+        // Multi-scale: the dashboard shows one scale at a time, sharing the
+        // weigh forms' selection (localStorage bw.selectedScale).
+        var dashSel = $('#dashScaleSelect');
+        $.getJSON('/api/scales/active', function (scales) {
+            if (!scales || scales.length === 0) return;
+            var saved = localStorage.getItem('bw.selectedScale');
+            scales.forEach(function (s) { dashSel.append($('<option>').val(s.id).text(s.name)); });
+            if (saved && dashSel.find('option[value="' + saved + '"]').length) dashSel.val(saved);
+            dashScaleId = parseInt(dashSel.val());
+            if (scales.length > 1) $('#dashScaleWrap').attr('style', '');
+            dashSel.on('change', function () {
+                dashScaleId = parseInt(dashSel.val());
+                localStorage.setItem('bw.selectedScale', dashSel.val());
+            });
+        });
+
         function pollWeight() {
-            $.getJSON('/api/scale/weight', function (data) {
+            var url = '/api/scale/weight' + (dashScaleId ? '?scale=' + dashScaleId : '');
+            $.getJSON(url, function (data) {
                 var zeroBtn = $('.zero-btn');
                 if (data.error) {
                     weightVal.text('------');
@@ -209,7 +231,7 @@
         var origText = btn.textContent;
         btn.textContent = '...';
         btn.disabled = true;
-        $.post('/api/scale/zero').done(function (data) {
+        $.post('/api/scale/zero' + (dashScaleId ? '?scale=' + dashScaleId : '')).done(function (data) {
             btn.textContent = data.success ? 'OK' : 'FAIL';
             btn.style.color = data.success ? '#0f0' : '#f00';
             setTimeout(function () {

@@ -45,6 +45,17 @@ public class Transaction
     [StringLength(500)]
     public string? Notes { get; set; }
 
+    /// <summary>Name of the site scale that captured the in-weight (multi-scale
+    /// sites). Stored as text so history survives scale renames/deletes.</summary>
+    [StringLength(50)]
+    [Display(Name = "In Scale")]
+    public string? InScale { get; set; }
+
+    /// <summary>Name of the site scale that captured the out-weight.</summary>
+    [StringLength(50)]
+    [Display(Name = "Out Scale")]
+    public string? OutScale { get; set; }
+
     [Display(Name = "Manual Inbound")]
     public bool ManualInbound { get; set; }
 

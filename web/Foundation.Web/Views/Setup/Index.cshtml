@@ -296,10 +296,8 @@
                             </div>
                             <div class="row g-2 mb-2">
                                 <div class="col-4">
-                                    <label asp-for="ScaleId" class="form-label mb-0 small"></label>
-                                    <select asp-for="ScaleId" class="form-select form-select-sm" id="ScaleId">
-                                        <option value="">-- None --</option>
-                                    </select>
+                                    <label class="form-label mb-0 small">Scales</label>
+                                    <div class="form-text small mt-0">Named scales, hardware feeds, and kiosk pickers are managed on the Scales page.</div>
                                 </div>
                                 <div class="col-2 d-flex align-items-end">
                                     <a href="/Scale" class="btn btn-outline-secondary btn-sm w-100">
@@ -366,8 +364,11 @@
                                     <label asp-for="SignaturePadId" class="form-label mb-0 small"></label>
                                     <input asp-for="SignaturePadId" class="form-control form-control-sm" placeholder="default" />
                                 </div>
-                                <div class="col-6 d-flex align-items-end">
-                                    <span class="small text-muted">Open on the tablet:<br />
+                                <div class="col-6 d-flex align-items-center gap-2">
+                                    <img id="signaturePadQr" src="" alt="Scan to open the signature pad"
+                                         title="Scan with the tablet to open the signature pad"
+                                         style="width: 96px; height: 96px; background: #fff; border-radius: 4px;" />
+                                    <span class="small text-muted">Scan with the tablet, or open:<br />
                                         <a id="signaturePadLink" href="#" target="_blank" rel="noopener"><code id="signaturePadUrl"></code></a>
                                     </span>
                                 </div>
@@ -1043,6 +1044,9 @@
         var padUrl = window.location.origin + '/SignaturePad?pad-id=' + encodeURIComponent(padId);
         document.getElementById('signaturePadUrl').textContent = padUrl;
         document.getElementById('signaturePadLink').href = padUrl;
+        // QR of the same URL so the tablet can scan instead of typing.
+        document.getElementById('signaturePadQr').src =
+            '/api/setup/signature-pad-qr?padId=' + encodeURIComponent(padId);
     }
     document.getElementById('SignatureMode').addEventListener('change', syncSignatureSections);
     document.getElementById('SignaturePadId').addEventListener('input', syncSignatureSections);
@@ -1339,39 +1343,7 @@
         });
     }
 
-    // --- Populate Scale dropdown via SignalR ---
-    (function () {
-        var savedScaleId = '@(Model.ScaleId ?? "")';
-        var scaleSelect = document.getElementById('ScaleId');
-        var scaleConn = new signalR.HubConnectionBuilder().withUrl('/scaleHub').build();
-
-        scaleConn.on('ScaleServiceReady', function (data) {
-            populateScales(data);
-        });
-
-        scaleConn.on('ScaleListReceived', function (data) {
-            populateScales(data);
-        });
-
-        function populateScales(data) {
-            var currentVal = scaleSelect.value || savedScaleId;
-            var options = '<option value="">-- None --</option>';
-            var scales = data.scales || [];
-            scales.forEach(function (s) {
-                var val = (data.serviceId || 'default') + ':' + s.scaleId;
-                var label = s.displayName || s.scaleId;
-                options += '<option value="' + val + '">' + label + '</option>';
-            });
-            scaleSelect.innerHTML = options;
-            scaleSelect.value = currentVal;
-        }
-
-        scaleConn.start().then(function () {
-            return scaleConn.invoke('RequestScaleList');
-        }).catch(function (err) {
-            console.log('Scale SignalR error:', err);
-        });
-    })();
+    // (Scale assignment moved to the Scales page — named site scales.)
 
     // --- Dynamic visibility toggles ---
     document.getElementById('UseLogin').addEventListener('change', function () {
