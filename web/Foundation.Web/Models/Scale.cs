@@ -30,4 +30,17 @@ public class Scale
     /// <summary>Inactive scales disappear from pickers but stay on old tickets.</summary>
     [Display(Name = "Active")]
     public bool Active { get; set; } = true;
+
+    /// <summary>
+    /// Optional per-scale ticket printers ("serviceId:printerId", or
+    /// "Browser:Browser"). Null falls back to the site-wide defaults
+    /// (AppSetup.InboundPrinterId / OutboundPrinterId).
+    /// </summary>
+    [StringLength(100)]
+    [Display(Name = "Inbound Printer")]
+    public string? InboundPrinterId { get; set; }
+
+    [StringLength(100)]
+    [Display(Name = "Outbound Printer")]
+    public string? OutboundPrinterId { get; set; }
 }

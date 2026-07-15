@@ -295,7 +295,7 @@ public class KioskController : Controller
         bool suppressInboundPrint = setup.UseRetainedTare && !tareApplied;
         if (!suppressInboundPrint)
         {
-            await SendPrintCommand(ticketNumber, tareApplied ? "weighout" : "weighin", request.PrinterId);
+            await SendPrintCommand(ticketNumber, tareApplied ? "weighout" : "weighin", request.PrinterId, request.ScaleName);
         }
 
         return Json(new
@@ -357,7 +357,7 @@ public class KioskController : Controller
         }
 
         // Print the ticket
-        await SendPrintCommand(transaction.Ticket.ToString(), "weighout", request.PrinterId);
+        await SendPrintCommand(transaction.Ticket.ToString(), "weighout", request.PrinterId, request.ScaleName);
 
         return Json(new { ticket = transaction.Ticket });
     }
@@ -445,7 +445,8 @@ public class KioskController : Controller
 
         var type = transaction.DateOut != null ? "weighout" : "weighin";
 
-        await SendPrintCommand(ticketId, type, printerId);
+        await SendPrintCommand(ticketId, type, printerId,
+            type == "weighout" ? (transaction.OutScale ?? transaction.InScale) : transaction.InScale);
 
         return Ok(new { message = "Reprint requested" });
     }
@@ -454,9 +455,10 @@ public class KioskController : Controller
     /// Sends a print command to the correct print service.
     /// printerId format: "serviceId:printerId" (e.g., "office-1:BIXOLON BK3-3")
     /// If not set and demo mode: uses "KioskPrinter"
-    /// If not set and not demo: returns without printing (kiosk should prompt)
+    /// If not set and not demo: the capturing scale's printer assignment,
+    /// falling back to the site-wide Setup defaults.
     /// </summary>
-    private async Task SendPrintCommand(string ticketId, string type, string? printerId)
+    private async Task SendPrintCommand(string ticketId, string type, string? printerId, string? scaleName = null)
     {
         var setup = _setupCache.Get();
 
@@ -470,10 +472,8 @@ public class KioskController : Controller
             }
             else
             {
-                // Use the inbound/outbound printer assignment from setup
-                printerId = type == "weighout"
-                    ? setup.OutboundPrinterId
-                    : setup.InboundPrinterId;
+                // Per-scale printer assignment, else the Setup default
+                printerId = SiteScales.ResolvePrinter(_db, scaleName, type == "weighout", setup);
             }
         }
 

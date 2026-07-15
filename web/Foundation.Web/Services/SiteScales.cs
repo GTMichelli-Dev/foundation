@@ -62,4 +62,20 @@ public class SiteScales
         _store.Update(scale.Id.ToString(), SimServiceId, weight, motion, !error,
             error ? "Error" : (motion ? "Motion" : "Ok"), noTimeout: true);
     }
+
+    /// <summary>
+    /// Ticket printer for a weighment: the capturing scale's own printer when
+    /// one is assigned (looked up by the scale name recorded on the ticket),
+    /// otherwise the site-wide default from Setup.
+    /// </summary>
+    public static string? ResolvePrinter(ScaleDbContext db, string? scaleName, bool outbound, AppSetup setup)
+    {
+        if (!string.IsNullOrEmpty(scaleName))
+        {
+            var scale = db.Scales.FirstOrDefault(s => s.Name == scaleName);
+            var assigned = outbound ? scale?.OutboundPrinterId : scale?.InboundPrinterId;
+            if (!string.IsNullOrEmpty(assigned)) return assigned;
+        }
+        return outbound ? setup.OutboundPrinterId : setup.InboundPrinterId;
+    }
 }

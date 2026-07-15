@@ -44,7 +44,7 @@ public class ScaleController : Controller
     [HttpGet("api/scales")]
     public IActionResult GetScales() =>
         Json(_db.Scales.OrderBy(s => s.SortOrder).ThenBy(s => s.Name)
-            .Select(s => new { s.Id, s.Name, s.HardwareId, s.SortOrder, s.Active }).ToList());
+            .Select(s => new { s.Id, s.Name, s.HardwareId, s.SortOrder, s.Active, s.InboundPrinterId, s.OutboundPrinterId }).ToList());
 
     /// <summary>Active scales for the weigh-form / kiosk / simulator pickers.</summary>
     [HttpGet("api/scales/active")]
@@ -81,6 +81,8 @@ public class ScaleController : Controller
         existing.HardwareId = string.IsNullOrWhiteSpace(scale.HardwareId) ? null : scale.HardwareId;
         existing.SortOrder = scale.SortOrder;
         existing.Active = scale.Active;
+        existing.InboundPrinterId = string.IsNullOrWhiteSpace(scale.InboundPrinterId) ? null : scale.InboundPrinterId;
+        existing.OutboundPrinterId = string.IsNullOrWhiteSpace(scale.OutboundPrinterId) ? null : scale.OutboundPrinterId;
         _db.SaveChanges();
         return Json(existing);
     }

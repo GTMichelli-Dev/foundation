@@ -212,7 +212,9 @@ public class TransactionController : Controller
                         new { ticket = transaction.Ticket, direction = "out", cameraId });
                 }
 
-                var outboundPrinter = setup.OutboundPrinterId;
+                // Retained-tare completion: the truck is physically on the
+                // in-scale, so its printer (or the site default) gets the ticket.
+                var outboundPrinter = SiteScales.ResolvePrinter(_db, transaction.InScale, outbound: true, setup);
                 if (!string.IsNullOrEmpty(outboundPrinter))
                 {
                     if (outboundPrinter.Equals("Browser:Browser", StringComparison.OrdinalIgnoreCase))
@@ -247,8 +249,8 @@ public class TransactionController : Controller
                     new { ticket = transaction.Ticket, direction = "in", cameraId });
             }
 
-            // Auto-print to configured inbound printer
-            var inboundPrinter = setup.InboundPrinterId;
+            // Auto-print: the capturing scale's inbound printer, else the site default
+            var inboundPrinter = SiteScales.ResolvePrinter(_db, transaction.InScale, outbound: false, setup);
             if (!string.IsNullOrEmpty(inboundPrinter))
             {
                 if (inboundPrinter.Equals("Browser:Browser", StringComparison.OrdinalIgnoreCase))
@@ -487,8 +489,8 @@ public class TransactionController : Controller
                 new { ticket = id, direction = "out", cameraId });
         }
 
-        // Auto-print to configured outbound printer
-        var outboundPrinter = setup.OutboundPrinterId;
+        // Auto-print: the out-weighing scale's printer, else the site default
+        var outboundPrinter = SiteScales.ResolvePrinter(_db, existing.OutScale ?? existing.InScale, outbound: true, setup);
         if (!string.IsNullOrEmpty(outboundPrinter))
         {
             if (outboundPrinter.Equals("Browser:Browser", StringComparison.OrdinalIgnoreCase))

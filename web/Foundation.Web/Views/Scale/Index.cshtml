@@ -40,16 +40,19 @@
             Named scales the operators pick on the weigh forms and kiosks;
             tickets record the scale name with each weighment. Link each scale
             to a hardware feed from a connected reader service below — a scale
-            with no feed is driven by the simulator in Demo Mode. Changes save
-            immediately.
+            with no feed is driven by the simulator in Demo Mode. The optional
+            per-scale printers receive that scale's tickets; "Default" uses the
+            site-wide printers from the Printers page. Changes save immediately.
         </p>
         <table class="table table-sm align-middle mb-0" id="siteScalesTable">
             <thead>
                 <tr class="small text-muted">
                     <th>Name</th><th>Hardware Feed</th>
-                    <th style="width:130px;" class="text-end">Live Weight</th>
-                    <th style="width:90px;">Order</th>
-                    <th style="width:70px;" class="text-center">Active</th>
+                    <th style="width:120px;" class="text-end">Live Weight</th>
+                    <th>Inbound Printer</th>
+                    <th>Outbound Printer</th>
+                    <th style="width:80px;">Order</th>
+                    <th style="width:60px;" class="text-center">Active</th>
                     <th style="width:70px;"></th>
                 </tr>
             </thead>
@@ -418,9 +421,19 @@
         });
     };
 
+    // Printer lists feed the per-scale printer dropdowns in Site Scales.
+    var connectedPrinters = {};
+    function handlePrinterList(data) {
+        connectedPrinters[data.serviceId || 'default'] = data.printers || [];
+        renderSiteScales();
+    }
+    connection.on('PrintServiceReady', handlePrinterList);
+    connection.on('PrinterListReceived', handlePrinterList);
+
     connection.start().then(function () {
         connection.invoke('RequestScaleList').catch(function () {});
         connection.invoke('RequestScaleBrands').catch(function () {});
+        connection.invoke('RequestPrinterList').catch(function () {});
     });
 
     // ===== STATUS BAR =====
@@ -497,6 +510,27 @@
         });
     }
 
+    function printerOptionsHtml(current) {
+        var options = '<option value="">— Default (Setup) —</option>'
+            + '<option value="Browser:Browser"' + (current === 'Browser:Browser' ? ' selected' : '') + '>Send to Browser</option>';
+        var found = current === '' || current === 'Browser:Browser';
+        Object.keys(connectedPrinters).forEach(function (sid) {
+            connectedPrinters[sid].forEach(function (p) {
+                var pid = p.printerId || p.PrinterId;
+                if (!pid || p.enabled === false) return;
+                var val = sid + ':' + pid;
+                if (val === current) found = true;
+                var label = (p.displayName || p.DisplayName || pid);
+                if (Object.keys(connectedPrinters).length > 1) label += ' (' + sid + ')';
+                options += '<option value="' + escAttr(val) + '"' + (val === current ? ' selected' : '') + '>' + escHtml(label) + '</option>';
+            });
+        });
+        // Keep an assignment visible even while its print service is offline.
+        if (current && !found)
+            options += '<option value="' + escAttr(current) + '" selected>' + escHtml(current) + ' (offline)</option>';
+        return options;
+    }
+
     function hardwareOptionsHtml(current) {
         var options = '<option value="">— Simulator / none —</option>';
         var found = false;
@@ -524,6 +558,8 @@
                 + '<td><input class="form-control form-control-sm ss-name" maxlength="50" value="' + escHtml(s.name) + '"></td>'
                 + '<td><select class="form-select form-select-sm ss-hw">' + hardwareOptionsHtml(s.hardwareId || '') + '</select></td>'
                 + '<td class="ss-live text-end text-muted small">—</td>'
+                + '<td><select class="form-select form-select-sm ss-pin">' + printerOptionsHtml(s.inboundPrinterId || '') + '</select></td>'
+                + '<td><select class="form-select form-select-sm ss-pout">' + printerOptionsHtml(s.outboundPrinterId || '') + '</select></td>'
                 + '<td><input type="number" step="1" class="form-control form-control-sm ss-order" value="' + s.sortOrder + '"></td>'
                 + '<td class="text-center"><input type="checkbox" class="form-check-input ss-active"' + (s.active ? ' checked' : '') + '></td>'
                 + '<td class="text-end"><button type="button" class="btn btn-outline-danger btn-sm py-0" onclick="deleteSiteScale(' + s.id + ')">Delete</button></td>'
@@ -542,7 +578,9 @@
             name: tr.querySelector('.ss-name').value.trim(),
             hardwareId: tr.querySelector('.ss-hw').value || null,
             sortOrder: parseInt(tr.querySelector('.ss-order').value) || 0,
-            active: tr.querySelector('.ss-active').checked
+            active: tr.querySelector('.ss-active').checked,
+            inboundPrinterId: tr.querySelector('.ss-pin').value || null,
+            outboundPrinterId: tr.querySelector('.ss-pout').value || null
         };
         fetch('/api/scales/' + id, {
             method: 'PUT',

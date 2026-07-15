@@ -386,6 +386,7 @@ The **Scales** page (System → Options → Scales) manages the named site scale
 - The **weigh forms** show a scale picker when more than one scale is active; the choice is remembered per browser. The dashboard's live weight display follows the same selection.
 - **Kiosks are mapped to a scale** in the Launch Kiosk dialog (or via `?scale-id=<id>` in the kiosk URL); each kiosk reads and records weights from its mapped scale.
 - Every ticket stores the scale name per weighment (**In Scale** / **Out Scale**). Manually entered weights record no scale.
+- Each scale can have its own **inbound and outbound ticket printers** (optional). Auto-printed tickets go to the capturing scale's printer; scales without one use the site-wide defaults from the Printers page. Explicit kiosk printer choices (Launch Kiosk dialog) still take precedence.
 - In **Demo Mode** each scale has its own independent simulator — the simulator panels (header bar, Get Weight dialog, kiosk) drive whichever scale is selected.
 
 ### Custom Fields & Ticket Printing
