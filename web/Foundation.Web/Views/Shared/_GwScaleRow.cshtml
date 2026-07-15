@@ -1,0 +1,19 @@
+@* Scale selector inside the Get Weight dialog (multi-scale sites). Mirrors
+   the form-level picker (_ScalePicker): changing it here updates the form's
+   selection (and localStorage) so the reading, the simulator, and the
+   recorded scale name all follow. Hidden on single-scale sites. *@
+@{
+    var gwScales = ViewBag.Scales as List<Foundation.Web.Models.Scale> ?? new List<Foundation.Web.Models.Scale>();
+}
+@if (gwScales.Count > 1)
+{
+    <div class="d-flex align-items-center gap-2 mb-2 justify-content-center">
+        <label class="form-label mb-0 fw-bold" for="gwScaleSelect">Scale</label>
+        <select id="gwScaleSelect" class="form-select" style="max-width: 220px;">
+            @foreach (var s in gwScales)
+            {
+                <option value="@s.Id">@s.Name</option>
+            }
+        </select>
+    </div>
+}

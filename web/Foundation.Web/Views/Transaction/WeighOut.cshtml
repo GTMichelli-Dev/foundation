@@ -198,6 +198,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+                <partial name="_GwScaleRow" />
                 <div id="scaleWeightView">
                     <div class="get-weight-display" id="gwDisplay">
                         <span id="gwValue">0</span>
@@ -209,7 +210,7 @@
                 {
                 <div id="gwSimPanel" class="mt-3 p-2 rounded" style="background: var(--bw-sim-bg); border: 1px solid var(--bw-sim-border);">
                     <div class="d-flex align-items-center gap-2 mb-1">
-                        <span class="fw-bold text-warning" style="font-size: 0.8rem;">SIMULATOR</span>
+                        <span class="fw-bold text-warning" style="font-size: 0.8rem;">SIMULATOR<span id="gwSimScaleName"></span></span>
                     </div>
                     <div class="mb-1">
                         <label class="form-label mb-0 small fw-bold">Weight: <span id="gwSimLabel">0</span> lb</label>
@@ -392,6 +393,25 @@
             return '/api/scale/weight' + (s.id ? '?scale=' + encodeURIComponent(s.id) : '');
         }
 
+        // In-dialog scale selector mirrors the form picker: changing either
+        // updates the reading, the simulator target, and the recorded name.
+        function syncGwScaleUi() {
+            var s = window.bwScale ? bwScale() : { id: null, name: '' };
+            var gwSel = $('#gwScaleSelect');
+            if (gwSel.length && s.id) gwSel.val(s.id);
+            $('#gwSimScaleName').text(s.name ? ' — ' + s.name : '');
+        }
+        $('#gwScaleSelect').on('change', function () {
+            var main = document.getElementById('scaleSelect');
+            if (main && main.tagName === 'SELECT') {
+                main.value = this.value;
+                main.dispatchEvent(new Event('change')); // persists localStorage
+            }
+            syncGwScaleUi();
+            pollScaleWeight();
+            $.getJSON(scaleWeightUrl(), function (data) { syncGwSim(data); });
+        });
+
         function pollScaleWeight() {
             $.getJSON(scaleWeightUrl(), function (data) {
                 lastScaleData = data;
@@ -464,6 +484,7 @@
             $('#gwSimPanel').show();
             $('#gwManualBtn').show();
             $('#gwSaveBtn').prop('disabled', true);
+            syncGwScaleUi();
             $('#getWeightModal .modal-title').text('Get ' + (target === 'in' ? 'In' : 'Out') + ' Weight from Scale');
             gwModal = new bootstrap.Modal('#getWeightModal');
             gwModal.show();

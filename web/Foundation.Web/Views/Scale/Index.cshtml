@@ -47,6 +47,7 @@
             <thead>
                 <tr class="small text-muted">
                     <th>Name</th><th>Hardware Feed</th>
+                    <th style="width:130px;" class="text-end">Live Weight</th>
                     <th style="width:90px;">Order</th>
                     <th style="width:70px;" class="text-center">Active</th>
                     <th style="width:70px;"></th>
@@ -522,6 +523,7 @@
             html += '<tr data-id="' + s.id + '">'
                 + '<td><input class="form-control form-control-sm ss-name" maxlength="50" value="' + escHtml(s.name) + '"></td>'
                 + '<td><select class="form-select form-select-sm ss-hw">' + hardwareOptionsHtml(s.hardwareId || '') + '</select></td>'
+                + '<td class="ss-live text-end text-muted small">—</td>'
                 + '<td><input type="number" step="1" class="form-control form-control-sm ss-order" value="' + s.sortOrder + '"></td>'
                 + '<td class="text-center"><input type="checkbox" class="form-check-input ss-active"' + (s.active ? ' checked' : '') + '></td>'
                 + '<td class="text-end"><button type="button" class="btn btn-outline-danger btn-sm py-0" onclick="deleteSiteScale(' + s.id + ')">Delete</button></td>'
@@ -580,6 +582,25 @@
     }
 
     loadSiteScales();
+
+    // Live weight per site scale (simulator value in demo mode, hardware feed
+    // otherwise) so it's obvious which scale is reading what.
+    setInterval(function () {
+        document.querySelectorAll('#siteScalesTable tbody tr').forEach(function (tr) {
+            var id = tr.dataset.id;
+            $.getJSON('/api/scale/weight?scale=' + id, function (d) {
+                var cell = tr.querySelector('.ss-live');
+                if (!cell) return;
+                if (d.error) {
+                    cell.innerHTML = '<span class="fw-bold text-danger">' + escHtml(d.status || 'ERROR') + '</span>';
+                } else if (d.motion) {
+                    cell.innerHTML = '<span class="fw-bold text-warning">' + d.weight.toLocaleString() + ' lb</span>';
+                } else {
+                    cell.innerHTML = '<span class="fw-bold text-success">' + d.weight.toLocaleString() + ' lb</span>';
+                }
+            });
+        });
+    }, 1000);
 
     // Reader-service lists changed — refresh the hardware-feed dropdowns.
     function updateAssignmentDropdown() {
