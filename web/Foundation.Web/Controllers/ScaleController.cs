@@ -11,19 +11,25 @@ public class ScaleController : Controller
     private readonly ScaleDbContext _db;
     private readonly IHubContext<ScaleHub> _hub;
     private readonly AppSetupCache _setupCache;
+    private readonly IConfiguration _config;
 
-    public ScaleController(ScaleDbContext db, IHubContext<ScaleHub> hub, AppSetupCache setupCache)
+    public ScaleController(ScaleDbContext db, IHubContext<ScaleHub> hub, AppSetupCache setupCache, IConfiguration config)
     {
         _db = db;
         _hub = hub;
         _setupCache = setupCache;
+        _config = config;
     }
+
+    /// <summary>Site scale cap, configurable via appsettings "MaxScales" (default 4).</summary>
+    private int MaxScales => Math.Max(1, _config.GetValue<int>("MaxScales", 4));
 
     // MVC view for Scale Management — all data loads via SignalR
     public IActionResult Index()
     {
         var setup = _setupCache.Get();
         ViewBag.ScaleId = setup.ScaleId ?? "";
+        ViewBag.MaxScales = MaxScales;
         return View();
     }
 
@@ -52,13 +58,11 @@ public class ScaleController : Controller
         Json(_db.Scales.Where(s => s.Active).OrderBy(s => s.SortOrder).ThenBy(s => s.Name)
             .Select(s => new { s.Id, s.Name, simulated = s.HardwareId == null || s.HardwareId == "" }).ToList());
 
-    public const int MaxScales = 4;
-
     [HttpPost("api/scales")]
     public IActionResult AddScale([FromBody] Models.Scale scale)
     {
         if (_db.Scales.Count() >= MaxScales)
-            return BadRequest(new { error = $"Maximum of {MaxScales} scales. Delete or rename one instead." });
+            return BadRequest(new { error = $"Maximum of {MaxScales} scales (MaxScales in appsettings.json). Delete or rename one instead." });
 
         var error = ValidateScale(scale, null);
         if (error != null) return BadRequest(new { error });

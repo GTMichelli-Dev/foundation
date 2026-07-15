@@ -503,7 +503,7 @@
         if (!isError) siteScaleStatusTimer = setTimeout(function () { el.innerHTML = '&nbsp;'; }, 2000);
     }
 
-    var MAX_SCALES = 4;
+    var MAX_SCALES = parseInt('@(ViewBag.MaxScales ?? 4)') || 4;
 
     function loadSiteScales() {
         fetch('/api/scales').then(function (r) { return r.json(); }).then(function (list) {

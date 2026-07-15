@@ -361,6 +361,7 @@ Edit `/opt/foundation/appsettings.json` on the server:
 |---------|-------------|
 | `ShowResetDatabase` | Show/hide the database reset buttons on the Setup page (`true` for testing, `false` for production) |
 | `DatabaseProvider` | `SQLite` (default) or `MariaDB` |
+| `MaxScales` | Maximum number of site scales that can be defined on the Scale page (default `4`) |
 
 After editing, restart the service:
 
