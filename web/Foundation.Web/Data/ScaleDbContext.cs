@@ -23,6 +23,7 @@ public class ScaleDbContext : DbContext
     public DbSet<CustomFieldListValue> CustomFieldListValues => Set<CustomFieldListValue>();
     public DbSet<TransactionCustomValue> TransactionCustomValues => Set<TransactionCustomValue>();
     public DbSet<Scale> Scales => Set<Scale>();
+    public DbSet<Site> Sites => Set<Site>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -131,6 +132,12 @@ public class ScaleDbContext : DbContext
         modelBuilder.Entity<Scale>(e =>
         {
             e.ToTable("Scales");
+            e.HasIndex(s => s.Name).IsUnique();
+        });
+
+        modelBuilder.Entity<Site>(e =>
+        {
+            e.ToTable("Sites");
             e.HasIndex(s => s.Name).IsUnique();
         });
 

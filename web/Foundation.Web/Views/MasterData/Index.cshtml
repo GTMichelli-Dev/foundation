@@ -401,7 +401,7 @@
             });
         }
 
-        function initNameActiveGrid(selector, endpoint, nameField, nameCaption, qbManaged, addCarrierAction) {
+        function initNameActiveGrid(selector, endpoint, nameField, nameCaption, qbManaged, addCarrierAction, siteLookup) {
             if (!$(selector).length) return; // tab hidden with its field (Setup → Fields)
             var lockName = useQuickBooks && qbManaged;
             var cols = [
@@ -411,6 +411,21 @@
             ];
             if (showKiosk) {
                 cols.push(boolToggleHeaderCol('useAtKiosk', 'Use At Kiosk', endpoint, 200));
+            }
+            // Optional per-location availability (bins/commodities): blank =
+            // offered at every location.
+            if (siteLookup && siteLookup.length) {
+                cols.push({
+                    dataField: 'siteId',
+                    caption: 'Location',
+                    width: 180,
+                    lookup: {
+                        dataSource: [{ id: null, name: '— All locations —' }].concat(siteLookup),
+                        valueExpr: 'id',
+                        displayExpr: 'name',
+                        allowClearing: true
+                    }
+                });
             }
             if (addCarrierAction) {
                 cols.push({
@@ -478,8 +493,18 @@
         initNameActiveGrid('#customersGrid', 'customers', 'customerName', 'Customer Name', true, true);
         initNameActiveGrid('#locationsGrid', 'locations', 'locationName', 'Location Name', false);
         initNameActiveGrid('#destinationsGrid', 'destinations', 'destinationName', 'Destination Name', false);
-        initNameActiveGrid('#binsGrid', 'bins', 'binName', 'Bin Name', false);
-        initNameActiveGrid('#commoditiesGrid', 'commodities', 'commodityName', 'Commodity Name', true);
+
+        // Bins and commodities can be limited to a physical location (Scales
+        // page → Locations); the column only appears once locations exist.
+        $.getJSON('/api/sites').done(function (data) {
+            var siteLookup = (data || []).filter(function (s) { return s.active; })
+                .map(function (s) { return { id: s.id, name: s.name }; });
+            initNameActiveGrid('#binsGrid', 'bins', 'binName', 'Bin Name', false, false, siteLookup);
+            initNameActiveGrid('#commoditiesGrid', 'commodities', 'commodityName', 'Commodity Name', true, false, siteLookup);
+        }).fail(function () {
+            initNameActiveGrid('#binsGrid', 'bins', 'binName', 'Bin Name', false);
+            initNameActiveGrid('#commoditiesGrid', 'commodities', 'commodityName', 'Commodity Name', true);
+        });
 
         // Dropdown-value grids for list-backed custom fields (one tab each).
         // The choices are a small ordered list, so edits save immediately

@@ -24,6 +24,11 @@ public class Scale
     [Display(Name = "Hardware Feed")]
     public string? HardwareId { get; set; }
 
+    /// <summary>Physical location (Site) this scale belongs to; null = shown
+    /// at every location.</summary>
+    [Display(Name = "Location")]
+    public int? SiteId { get; set; }
+
     [Display(Name = "Sort Order")]
     public int SortOrder { get; set; }
 

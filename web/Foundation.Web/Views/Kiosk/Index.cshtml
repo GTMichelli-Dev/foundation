@@ -1024,7 +1024,10 @@
     // edits made while the kiosk page is open (new carriers, commodities, etc.)
     // show up on the next operation without a page refresh. Returns a Promise.
     function loadKioskLists() {
-        return $.getJSON('/api/kiosk/lists').done(function (data) {
+        // Pass this kiosk's scale so location-limited commodities/bins filter
+        // to the scale's location.
+        var qs = kioskScaleDbId ? '?scaleId=' + kioskScaleDbId : '';
+        return $.getJSON('/api/kiosk/lists' + qs).done(function (data) {
             lists = data;
         });
     }

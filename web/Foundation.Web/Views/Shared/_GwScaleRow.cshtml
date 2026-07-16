@@ -1,19 +1,146 @@
-@* Scale selector inside the Get Weight dialog (multi-scale sites). Mirrors
-   the form-level picker (_ScalePicker): changing it here updates the form's
-   selection (and localStorage) so the reading, the simulator, and the
-   recorded scale name all follow. Hidden on single-scale sites. *@
+@* Scale tiles inside the Get Weight dialog (multi-scale sites). Every active
+   scale at the operator's location shows as a live tile — name, weight, and
+   status color — polled from /api/scale/weights while the dialog is open.
+   Clicking a tile selects that scale: the form-level picker (_ScalePicker's
+   #scaleSelect) follows, which persists per browser and drives the page's
+   own reading, simulator target, and the scale name recorded on the ticket.
+   Hidden on single-scale sites. *@
 @{
     var gwScales = ViewBag.Scales as List<Foundation.Web.Models.Scale> ?? new List<Foundation.Web.Models.Scale>();
 }
 @if (gwScales.Count > 1)
 {
-    <div class="d-flex align-items-center gap-2 mb-2 justify-content-center">
-        <label class="form-label mb-0 fw-bold" for="gwScaleSelect">Scale</label>
-        <select id="gwScaleSelect" class="form-select" style="max-width: 220px;">
-            @foreach (var s in gwScales)
-            {
-                <option value="@s.Id">@s.Name</option>
+    <style>
+        #gwScaleTiles {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+        .gw-scale-tile {
+            flex: 1 1 160px;
+            max-width: 220px;
+            background: #000;
+            border: 3px solid #333;
+            border-radius: 12px;
+            padding: 8px 14px;
+            cursor: pointer;
+            text-align: center;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            user-select: none;
+        }
+        .gw-scale-tile:hover { border-color: #666; }
+        .gw-scale-tile.selected {
+            border-color: #0d6efd;
+            box-shadow: 0 0 10px rgba(13, 110, 253, 0.5);
+        }
+        .gw-scale-tile .gw-tile-name {
+            color: #ccc;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .gw-scale-tile.selected .gw-tile-name { color: #fff; }
+        .gw-scale-tile .gw-tile-weight {
+            font-family: 'Courier New', monospace;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #00ff41;
+            letter-spacing: 2px;
+            white-space: nowrap;
+        }
+        .gw-scale-tile .gw-tile-status {
+            font-size: 0.7rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            min-height: 1em;
+            color: #888;
+        }
+    </style>
+    <div id="gwScaleTiles"></div>
+    <script>
+        // Self-contained: renders/polls the tiles whenever the Get Weight
+        // dialog is open. Selection goes through #scaleSelect (form picker),
+        // so the page's own reading + simulator follow within one poll tick.
+        (function () {
+            var tilesEl = document.getElementById('gwScaleTiles');
+            var modalEl = document.getElementById('getWeightModal');
+            if (!tilesEl || !modalEl) return;
+            var pollTimer = null;
+
+            function selectedScaleId() {
+                return window.bwScale ? String(bwScale().id || '') : '';
             }
-        </select>
-    </div>
+
+            function selectScale(id) {
+                var main = document.getElementById('scaleSelect');
+                if (main && main.tagName === 'SELECT' && main.value !== String(id)) {
+                    main.value = String(id);
+                    main.dispatchEvent(new Event('change')); // persists localStorage
+                }
+                tilesEl.querySelectorAll('.gw-scale-tile').forEach(function (t) {
+                    t.classList.toggle('selected', t.dataset.id === String(id));
+                });
+            }
+
+            function render(scales) {
+                var current = selectedScaleId();
+                var known = {};
+                tilesEl.querySelectorAll('.gw-scale-tile').forEach(function (t) { known[t.dataset.id] = t; });
+
+                scales.forEach(function (s) {
+                    var tile = known[String(s.id)];
+                    if (!tile) {
+                        tile = document.createElement('div');
+                        tile.className = 'gw-scale-tile';
+                        tile.dataset.id = String(s.id);
+                        tile.innerHTML = '<div class="gw-tile-name"></div>'
+                            + '<div class="gw-tile-weight"></div>'
+                            + '<div class="gw-tile-status"></div>';
+                        tile.addEventListener('click', function () { selectScale(s.id); });
+                        tilesEl.appendChild(tile);
+                    }
+                    tile.querySelector('.gw-tile-name').textContent = s.name;
+                    var w = tile.querySelector('.gw-tile-weight');
+                    var st = tile.querySelector('.gw-tile-status');
+                    if (s.error) {
+                        w.textContent = '------';
+                        w.style.color = '#ff0000';
+                        st.textContent = (s.status || 'ERROR').toUpperCase();
+                        st.style.color = '#ff0000';
+                    } else if (s.motion) {
+                        w.textContent = s.weight.toLocaleString() + ' lb';
+                        w.style.color = '#ffff00';
+                        st.textContent = 'MOTION';
+                        st.style.color = '#ffff00';
+                    } else {
+                        w.textContent = s.weight.toLocaleString() + ' lb';
+                        w.style.color = '#00ff41';
+                        st.innerHTML = '&nbsp;';
+                    }
+                    tile.classList.toggle('selected', String(s.id) === current);
+                });
+            }
+
+            function poll() {
+                fetch('/api/scale/weights')
+                    .then(function (r) { return r.json(); })
+                    .then(render)
+                    .catch(function () { /* transient — next tick retries */ });
+            }
+
+            modalEl.addEventListener('shown.bs.modal', function () {
+                poll();
+                if (!pollTimer) pollTimer = setInterval(poll, 500);
+            });
+            modalEl.addEventListener('hidden.bs.modal', function () {
+                if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+            });
+        })();
+    </script>
 }

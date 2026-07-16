@@ -21,4 +21,9 @@ public class Bin
 
     [Display(Name = "Use at Kiosk")]
     public bool UseAtKiosk { get; set; } = true;
+
+    /// <summary>Optional physical location (Site) this bin sits at; null =
+    /// offered at every location.</summary>
+    [Display(Name = "Location")]
+    public int? SiteId { get; set; }
 }

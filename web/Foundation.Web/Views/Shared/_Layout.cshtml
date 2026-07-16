@@ -10,6 +10,16 @@
     var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "";
     var isAdmin = !useLogin || userRole == "Admin";
     var isManagerOrAbove = !useLogin || userRole == "Manager" || userRole == "Admin";
+
+    // Location picker (multi-site): shown when 2+ active locations exist. The
+    // choice is per browser (cookie) — each workstation sits at one location
+    // and only sees that location's scales/bins/commodities.
+    var navSites = Db.Sites.Where(s => s.Active)
+        .OrderBy(s => s.SortOrder).ThenBy(s => s.Name)
+        .Select(s => new { s.Id, s.Name }).ToList();
+    int currentSiteId = 0;
+    int.TryParse(Context.Request.Cookies[Foundation.Web.Services.SiteContext.CookieName], out currentSiteId);
+    if (!navSites.Any(s => s.Id == currentSiteId)) currentSiteId = 0;
 }
 <!DOCTYPE html>
 <html lang="en" data-theme="@theme">
@@ -81,6 +91,27 @@
                         }
                     </ul>
                     <div class="d-flex align-items-center gap-2">
+                        @if (navSites.Count >= 2)
+                        {
+                        <div class="d-flex align-items-center gap-1" title="Your physical location — filters which scales (and location-limited bins/commodities) you see">
+                            <i class="fa fa-location-dot" style="color: var(--bw-text-muted);"></i>
+                            <select id="navSiteSelect" class="form-select form-select-sm" style="min-width: 150px; max-width: 220px;">
+                                <option value="0" selected="@(currentSiteId == 0 ? "selected" : null)">All Locations</option>
+                                @foreach (var s in navSites)
+                                {
+                                    <option value="@s.Id" selected="@(currentSiteId == s.Id ? "selected" : null)">@s.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <script>
+                            document.getElementById('navSiteSelect').addEventListener('change', function () {
+                                // 400-day cookie: the workstation keeps its location.
+                                document.cookie = '@Foundation.Web.Services.SiteContext.CookieName=' + this.value
+                                    + ';path=/;max-age=' + (400 * 24 * 60 * 60) + ';samesite=lax';
+                                window.location.reload();
+                            });
+                        </script>
+                        }
                         @if (appSetup?.DemoMode == true)
                         {
                         <button class="btn btn-sm btn-outline-warning fw-bold" id="simToggleBtn" type="button" data-bs-toggle="collapse" data-bs-target="#simPanel">

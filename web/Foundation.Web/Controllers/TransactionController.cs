@@ -31,14 +31,25 @@ public class TransactionController : Controller
         _siteScales = siteScales;
     }
 
-    /// <summary>Default-scale weight for form prefills (Basic Ticket).</summary>
-    private int GetDefaultScaleWeight() =>
-        _siteScales.Read(SiteScales.Resolve(_db, null), _setupCache.Get().DemoMode).Weight;
+    /// <summary>The operator's current location (navbar picker cookie).</summary>
+    private int? CurrentSiteId => SiteContext.CurrentSiteId(HttpContext, _db);
+
+    /// <summary>Default-scale weight for form prefills (Basic Ticket) — the
+    /// first active scale at the operator's location.</summary>
+    private int GetDefaultScaleWeight()
+    {
+        var scale = _db.Scales.Where(s => s.Active).ForSite(CurrentSiteId)
+            .OrderBy(s => s.SortOrder).ThenBy(s => s.Name).FirstOrDefault();
+        return _siteScales.Read(scale, _setupCache.Get().DemoMode).Weight;
+    }
 
     private void PopulateDropdowns()
     {
-        // Scale picker on the weigh forms (shown when more than one is active)
-        ViewBag.Scales = _db.Scales.Where(s => s.Active)
+        var siteId = CurrentSiteId;
+
+        // Scale picker on the weigh forms (shown when more than one is active),
+        // limited to the operator's location.
+        ViewBag.Scales = _db.Scales.Where(s => s.Active).ForSite(siteId)
             .OrderBy(s => s.SortOrder).ThenBy(s => s.Name).ToList();
 
         ViewBag.Customers = _db.Customers.Where(c => c.Active).OrderBy(c => c.CustomerName).ToList();
@@ -53,11 +64,13 @@ public class TransactionController : Controller
             .Select(c => c.CarrierName)
             .ToList();
 
-        // Trucks loaded via AJAX based on selected carrier
-        ViewBag.Commodities = _db.Commodities.Where(c => c.Active).OrderBy(c => c.CommodityName).ToList();
+        // Trucks loaded via AJAX based on selected carrier. Commodities and
+        // bins can be limited to a location (Edit Tables); unassigned ones
+        // show everywhere.
+        ViewBag.Commodities = _db.Commodities.Where(c => c.Active).ForSite(siteId).OrderBy(c => c.CommodityName).ToList();
         ViewBag.Locations = _db.Locations.Where(l => l.Active).OrderBy(l => l.LocationName).ToList();
         ViewBag.Destinations = _db.Destinations.Where(d => d.Active).OrderBy(d => d.DestinationName).ToList();
-        ViewBag.Bins = _db.Bins.Where(b => b.Active).OrderBy(b => b.BinName).ToList();
+        ViewBag.Bins = _db.Bins.Where(b => b.Active).ForSite(siteId).OrderBy(b => b.BinName).ToList();
 
         var setup = _setupCache.Get();
         ViewBag.BinRequired = setup.UseBinInventory && setup.BinRequired;

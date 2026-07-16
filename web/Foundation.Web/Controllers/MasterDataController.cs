@@ -300,6 +300,8 @@ public class MasterDataController : Controller
             if (!existing.Active) existing.UseAtKiosk = false;
         }
         if (body.TryGetProperty("useAtKiosk", out var kiosk)) existing.UseAtKiosk = kiosk.GetBoolean();
+        if (body.TryGetProperty("siteId", out var site))
+            existing.SiteId = site.ValueKind == JsonValueKind.Number ? site.GetInt32() : null;
         _db.SaveChanges();
         return Json(existing);
     }
@@ -621,6 +623,8 @@ public class MasterDataController : Controller
             if (!existing.Active) existing.UseAtKiosk = false;
         }
         if (body.TryGetProperty("useAtKiosk", out var kiosk)) existing.UseAtKiosk = kiosk.GetBoolean();
+        if (body.TryGetProperty("siteId", out var site))
+            existing.SiteId = site.ValueKind == JsonValueKind.Number ? site.GetInt32() : null;
         _db.SaveChanges();
         return Json(existing);
     }

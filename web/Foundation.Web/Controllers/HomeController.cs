@@ -79,6 +79,35 @@ public class HomeController : Controller
         });
     }
 
+    /// <summary>
+    /// Live readings for every active scale at the operator's current location
+    /// (navbar picker). Drives the click-to-select scale tiles in the Get
+    /// Weight dialog on multi-scale sites.
+    /// </summary>
+    [HttpGet("api/scale/weights")]
+    public IActionResult GetWeights()
+    {
+        var setup = _setupCache.Get();
+        var siteId = SiteContext.CurrentSiteId(HttpContext, _db);
+        var scales = _db.Scales.Where(s => s.Active).ForSite(siteId)
+            .OrderBy(s => s.SortOrder).ThenBy(s => s.Name)
+            .ToList();
+
+        return Json(scales.Select(s =>
+        {
+            var r = _siteScales.Read(s, setup.DemoMode);
+            return new
+            {
+                id = s.Id,
+                name = s.Name,
+                weight = r.Weight,
+                motion = r.Motion,
+                error = r.Error,
+                status = r.Status
+            };
+        }).ToList());
+    }
+
     [HttpPost("api/scale/simulate")]
     public IActionResult Simulate([FromBody] SimulateRequest request)
     {

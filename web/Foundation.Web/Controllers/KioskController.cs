@@ -46,10 +46,14 @@ public class KioskController : Controller
     }
 
     [HttpGet("api/kiosk/lists")]
-    public IActionResult GetLists()
+    public IActionResult GetLists(int? scaleId = null)
     {
+        // A kiosk is mapped to one scale; commodities and bins limited to a
+        // location (Edit Tables) only show on kiosks whose scale is there.
+        var siteId = scaleId.HasValue ? _db.Scales.Find(scaleId.Value)?.SiteId : null;
+
         var commodities = _db.Commodities
-            .Where(c => c.Active && c.UseAtKiosk)
+            .Where(c => c.Active && c.UseAtKiosk).ForSite(siteId)
             .OrderBy(c => c.CommodityName)
             .Select(c => c.CommodityName)
             .ToList();
@@ -86,7 +90,7 @@ public class KioskController : Controller
         // empty list when off so a stale kiosk page auto-skips the prompt.
         var bins = _setupCache.Get().UseBinInventory
             ? _db.Bins
-                .Where(b => b.Active && b.UseAtKiosk)
+                .Where(b => b.Active && b.UseAtKiosk).ForSite(siteId)
                 .OrderBy(b => b.BinName)
                 .Select(b => b.BinName)
                 .ToList()
