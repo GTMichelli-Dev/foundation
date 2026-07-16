@@ -309,11 +309,62 @@
         body.kiosk-hide-buttons #prompt-cancel,
         body.kiosk-hide-buttons #prompt-skip,
         body.kiosk-hide-buttons #prompt-select,
+        body.kiosk-hide-buttons #confirm-cancel,
+        body.kiosk-hide-buttons #confirm-accept,
         body.kiosk-hide-buttons #btn-reprint,
         body.kiosk-hide-buttons #btn-complete-done,
         body.kiosk-hide-buttons #state-ready .btn-row {
             display: none !important;
         }
+
+        /* ===== CONFIRMATION SCREEN ===== */
+        /* Review of the prompt answers before the truck is weighed and the
+            ticket stored. Reuses the list-selector chrome. */
+        #state-confirm.active {
+            justify-content: flex-start;
+            padding: 24px 40px 16px;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+        .confirm-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 24px;
+            padding: 20px 40px;
+            font-size: 2.1rem;
+            border-bottom: 2px solid #444;
+        }
+        .confirm-row:last-child { border-bottom: none; }
+        .confirm-row .confirm-label {
+            color: #aaa;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .confirm-row .confirm-value {
+            font-weight: 700;
+            text-align: right;
+        }
+        .confirm-row .confirm-value.confirm-skipped {
+            color: #888;
+            font-style: italic;
+            font-weight: 400;
+        }
+        body.kiosk-light .confirm-row { border-bottom-color: #e0e0e0; }
+        body.kiosk-light .confirm-row .confirm-label { color: #555; }
+        body.kiosk-light .confirm-row .confirm-value { color: #222; }
+        .kiosk-confirm-label {
+            display: none;
+            margin-top: 16px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: #000;
+            background: #ffffff;
+            padding: 14px 24px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        body.kiosk-hide-buttons .kiosk-confirm-label { display: block; }
 
         /* Reprint label on the complete screen — small instruction pill. */
         .kiosk-reprint-label {
@@ -811,6 +862,19 @@
             </div>
         </div>
 
+        <!-- CONFIRM: review the prompt answers before weighing/saving -->
+        <div id="state-confirm" class="kiosk-state">
+            <div class="list-selector">
+                <div class="list-title" id="confirm-title">Confirm</div>
+                <div class="list-container" id="confirm-summary"></div>
+                <div class="list-buttons">
+                    <button class="list-btn list-btn-cancel" id="confirm-cancel">Cancel</button>
+                    <button class="list-btn list-btn-select" id="confirm-accept">Confirm &amp; Weigh</button>
+                </div>
+                <div class="kiosk-confirm-label">PRESS ENTER TO CONFIRM &mdash; ESC TO CANCEL</div>
+            </div>
+        </div>
+
         <!-- SAVING -->
         <div id="state-saving" class="kiosk-state">
             <div class="waiting-message">Saving<span class="waiting-dots"></span></div>
@@ -1142,7 +1206,7 @@
     }
 
     function isActiveOperation() {
-        return ['entering-ticket', 'checking-ticket', 'motion-wait', 'prompt', 'saving'].indexOf(currentState) >= 0;
+        return ['entering-ticket', 'checking-ticket', 'motion-wait', 'prompt', 'confirm', 'saving'].indexOf(currentState) >= 0;
     }
 
     function cancelOperation(reason) {
@@ -1328,7 +1392,7 @@
 
     function showNextPrompt() {
         if (promptIndex >= promptQueue.length) {
-            startMotionWait();
+            finishPrompts();
             return;
         }
 
@@ -1359,11 +1423,7 @@
         } else if (prompt.loadFrom === 'carrier' && !weighinData.carrier) {
             // No carrier selected, skip truck prompt
             promptIndex++;
-            if (promptIndex < promptQueue.length) {
-                showNextPrompt();
-            } else {
-                startMotionWait();
-            }
+            showNextPrompt();
         } else {
             renderPrompt(prompt);
         }
@@ -1391,11 +1451,7 @@
         if (rawItems.length === 0) {
             currentListItems = [];
             promptIndex++;
-            if (promptIndex < promptQueue.length) {
-                showNextPrompt();
-            } else {
-                startMotionWait();
-            }
+            showNextPrompt();
             return;
         }
 
@@ -1624,9 +1680,88 @@
         if (outboundPrompts.length > 0) {
             showNextPrompt();
         } else {
-            startMotionWait();
+            // Carrier/Truck were answered on the way in — still confirm.
+            finishPrompts();
         }
     }
+
+    // ===== CONFIRMATION SCREEN =====
+    // After the driver answers prompts, review the answers before the truck
+    // is weighed and the ticket stored. Flows with no questions (e.g. a
+    // ticket-number weigh-out with no outbound prompts) skip straight to
+    // the weighment like before.
+    var STANDARD_PROMPT_LABELS = {
+        carrier: 'Carrier', truck: 'Truck ID', commodity: 'Commodity',
+        customer: 'Customer', location: 'Location', destination: 'Destination',
+        bin: 'Bin'
+    };
+
+    function promptLabelFor(key) {
+        if (STANDARD_PROMPT_LABELS[key]) return STANDARD_PROMPT_LABELS[key];
+        if (key.indexOf('cf') === 0) {
+            var id = parseInt(key.substring(2));
+            var f = (lists.customFields || []).find(function (x) { return x.id === id; });
+            if (f) return f.name;
+        }
+        return key;
+    }
+
+    function finishPrompts() {
+        // Everything asked this flow plus answers carried over from the
+        // inbound leg (mid-flow weigh-out switch keeps carrier/truck).
+        var keys = [];
+        Object.keys(STANDARD_PROMPT_LABELS).forEach(function (k) {
+            if (k in weighinData) keys.push(k);
+        });
+        (lists.customFields || []).forEach(function (f) {
+            if (('cf' + f.id) in weighinData) keys.push('cf' + f.id);
+        });
+        promptQueue.forEach(function (p) {
+            if (keys.indexOf(p.key) < 0) keys.push(p.key);
+        });
+
+        if (keys.length === 0) {
+            startMotionWait();
+            return;
+        }
+
+        $('#confirm-title').text(activeFlow === 'weighout'
+            ? 'Confirm Ticket' + (weighoutTicket ? ' #' + weighoutTicket.ticket : '')
+            : 'Confirm New Load');
+
+        var $summary = $('#confirm-summary').empty().scrollTop(0);
+        keys.forEach(function (key) {
+            var value = weighinData[key];
+            var $row = $('<div class="confirm-row"></div>');
+            $('<span class="confirm-label"></span>').text(promptLabelFor(key)).appendTo($row);
+            if (value === undefined || value === null || value === '') {
+                $('<span class="confirm-value confirm-skipped"></span>').text('— skipped —').appendTo($row);
+            } else {
+                $('<span class="confirm-value"></span>').text(value).appendTo($row);
+            }
+            $summary.append($row);
+        });
+
+        resetOperationTimerIfActive();
+        setState('confirm');
+    }
+
+    function acceptConfirmation() {
+        if (currentState !== 'confirm') return;
+        startMotionWait();
+    }
+
+    function cancelConfirmation() {
+        clearOperationTracking();
+        activeFlow = null;
+        weighoutTicket = null;
+        weighinData = {};
+        promptQueue = [];
+        setState(scaleData.weight >= WEIGHT_THRESHOLD ? 'ready' : 'idle');
+    }
+
+    $('#confirm-accept').on('click', acceptConfirmation);
+    $('#confirm-cancel').on('click', cancelConfirmation);
 
     // ===== WEIGH-OUT FLOW =====
     function startWeighOut(ticket) {
@@ -2023,6 +2158,8 @@
                     submitTicket();
                 } else if (currentState === 'prompt') {
                     selectCurrentPromptItem();
+                } else if (currentState === 'confirm') {
+                    acceptConfirmation();
                 } else if (currentState === 'ready') {
                     // Matches the green "PRESS ENTER TO WEIGH IN" button.
                     startWeighIn();
@@ -2041,6 +2178,8 @@
                 e.preventDefault();
                 if (currentState === 'complete') {
                     exitCompleteState();
+                } else if (currentState === 'confirm') {
+                    cancelConfirmation();
                 } else if (currentState === 'entering-ticket') {
                     clearOperationTracking();
                     ticketInput = '';

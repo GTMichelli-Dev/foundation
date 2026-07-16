@@ -9,6 +9,8 @@ set -euo pipefail
 #   --email <email>      Email for Let's Encrypt notifications
 #   --port <port>        App listen port (default 5110)
 #   --key <ssh-key>      SSH key file
+#   --skip-build         Reuse the existing tarball instead of publishing fresh
+#   --rebuild-db         Delete and recreate the database (CAUTION: destroys data!)
 #
 # Examples:
 #   ./deploy.sh admin@192.168.1.100
@@ -25,6 +27,7 @@ EMAIL=""
 APP_PORT="5110"
 SSH_KEY=""
 SKIP_BUILD="0"
+REBUILD_DB="0"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -32,6 +35,7 @@ while [[ $# -gt 0 ]]; do
     --email)   EMAIL="$2";    shift 2 ;;
     --port)    APP_PORT="$2"; shift 2 ;;
     --skip-build) SKIP_BUILD="1"; shift ;;
+    --rebuild-db) REBUILD_DB="1"; shift ;;
     --key)     SSH_KEY="$2";  shift 2 ;;
     -*)        echo "Unknown option: $1"; exit 1 ;;
     *)         REMOTE="$1";   shift ;;
@@ -98,7 +102,7 @@ INSTALL_CMD="$INSTALL_CMD && mkdir -p /tmp/foundation-install"
 INSTALL_CMD="$INSTALL_CMD && tar -xzf /tmp/foundation-deploy.tar.gz -C /tmp/foundation-install"
 INSTALL_CMD="$INSTALL_CMD && cd /tmp/foundation-install"
 INSTALL_CMD="$INSTALL_CMD && sed -i 's/\r$//' install.sh"
-INSTALL_CMD="$INSTALL_CMD && sudo DOMAIN='$DOMAIN' EMAIL='$EMAIL' PORT='$APP_PORT' bash install.sh"
+INSTALL_CMD="$INSTALL_CMD && sudo DOMAIN='$DOMAIN' EMAIL='$EMAIL' PORT='$APP_PORT' REBUILD_DB='$REBUILD_DB' bash install.sh"
 INSTALL_CMD="$INSTALL_CMD && rm -rf /tmp/foundation-install /tmp/foundation-deploy.tar.gz"
 
 echo "==> Installing on remote server..."

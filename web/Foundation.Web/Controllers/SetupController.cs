@@ -251,6 +251,8 @@ public class SetupController : Controller
         _db.Locations.RemoveRange(_db.Locations);
         _db.Destinations.RemoveRange(_db.Destinations);
         _db.Trucks.RemoveRange(_db.Trucks);
+        _db.Bins.RemoveRange(_db.Bins);
+        _db.BinAdjustments.RemoveRange(_db.BinAdjustments);
 
         // Reset ticket number
         var setup = _db.AppSetup.First();
@@ -264,7 +266,7 @@ public class SetupController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult LoadTestData()
+    public IActionResult LoadTestData(string sampleType = "gravel")
     {
         if (!_config.GetValue<bool>("ShowResetDatabase", false))
             return Forbid();
@@ -277,7 +279,14 @@ public class SetupController : Controller
         _db.Locations.RemoveRange(_db.Locations);
         _db.Destinations.RemoveRange(_db.Destinations);
         _db.Trucks.RemoveRange(_db.Trucks);
+        _db.Bins.RemoveRange(_db.Bins);
+        _db.BinAdjustments.RemoveRange(_db.BinAdjustments);
         _db.SaveChanges();
+
+        if (string.Equals(sampleType, "farming", StringComparison.OrdinalIgnoreCase))
+            return LoadFarmingSample();
+
+        // ===== GRAVEL PIT / QUARRY SAMPLE =====
 
         // --- Master Data (matching QuickBooks sample data) ---
         var customerNames = new[]
@@ -346,6 +355,9 @@ public class SetupController : Controller
         setup.DemoMode = true;
         setup.KioskCount = 1;
         setup.KioskDarkMode = false;
+        // Aggregate yards don't track bins — keep the feature off for this sample.
+        setup.UseBinInventory = false;
+        setup.BinRequired = false;
 
         // --- Build lookup lists for transactions ---
         var customers = customerNames.ToList();
@@ -471,6 +483,216 @@ public class SetupController : Controller
         _setupCache.Invalidate();
 
         TempData["Message"] = $"Test data loaded: {completedCount} completed, 5 in yard, and {voidedCount} voided tickets. Demo mode enabled with 1 kiosk (light).";
+        return RedirectToAction("Index");
+    }
+
+    /// <summary>
+    /// Farm / grain sample: fields haul harvest loads INTO numbered bins
+    /// (truck arrives heavy, leaves light), sales haul OUT of the bins to
+    /// grain buyers (arrives light, leaves heavy), plus a post-harvest
+    /// shrinkage true-up per bin — so the Bin Inventory report demos with
+    /// realistic numbers. Enables Bin Inventory; caller has already cleared
+    /// the database.
+    /// </summary>
+    private IActionResult LoadFarmingSample()
+    {
+        // --- Master data ---
+        var buyerNames = new[]
+        {
+            "ADM Grain - Decatur", "Cargill - Bloomington", "Prairie Central Co-op",
+            "Bunge - Danville", "One Earth Energy (Ethanol)", "Heartland Feed Mill"
+        };
+        foreach (var c in buyerNames)
+            _db.Customers.Add(new Customer { CustomerName = c, Active = true, UseAtKiosk = true });
+
+        var commodityNames = new[] { "Corn", "Soybeans", "Wheat" };
+        foreach (var c in commodityNames)
+            _db.Commodities.Add(new Commodity { CommodityName = c, Active = true, UseAtKiosk = true });
+
+        var carrierNames = new[] { "Farm Trucks", "Johnson Custom Hauling", "B&K Trucking" };
+        foreach (var c in carrierNames)
+            _db.Carriers.Add(new Carrier { CarrierName = c, Active = true, UseAtKiosk = true });
+
+        var truckData = new (string TruckId, string Carrier)[]
+        {
+            ("FT-1", "Farm Trucks"), ("FT-2", "Farm Trucks"), ("FT-3", "Farm Trucks"),
+            ("JH-88", "Johnson Custom Hauling"), ("JH-89", "Johnson Custom Hauling"),
+            ("BK-12", "B&K Trucking")
+        };
+        foreach (var (tid, carrier) in truckData)
+            _db.Trucks.Add(new Truck { TruckId = tid, CarrierName = carrier, UseAtKiosk = true });
+
+        // Fields the grain comes from
+        var fieldNames = new[] { "North 80", "South Quarter", "Home 160", "River Bottom", "Miller Lease", "East 40" };
+        foreach (var f in fieldNames)
+            _db.Locations.Add(new Location { LocationName = f, Active = true, UseAtKiosk = true });
+
+        // Elevators the grain ships to
+        var elevatorNames = new[] { "ADM Decatur", "Cargill Bloomington", "Prairie Central Elevator", "One Earth Energy" };
+        foreach (var d in elevatorNames)
+            _db.Destinations.Add(new Destination { DestinationName = d, Active = true, UseAtKiosk = true });
+
+        // Bins, each dedicated to one commodity
+        var binCommodity = new (string Bin, string Commodity)[]
+        {
+            ("Bin 1", "Corn"), ("Bin 2", "Corn"), ("Bin 3", "Corn"),
+            ("Bin 4", "Soybeans"), ("Bin 5", "Soybeans"), ("Bin 6", "Wheat")
+        };
+        foreach (var (bin, _) in binCommodity)
+            _db.Bins.Add(new Bin { BinName = bin, Active = true, UseAtKiosk = true });
+
+        _db.SaveChanges();
+
+        // --- System settings: Demo mode, 1 kiosk, light mode, Bin Inventory on ---
+        var setup = _db.AppSetup.First();
+        setup.DemoMode = true;
+        setup.KioskCount = 1;
+        setup.KioskDarkMode = false;
+        setup.UseBinInventory = true;
+        setup.PromptKioskBinOnInbound = true;
+
+        var rng = new Random(7);
+        var now = DateTime.UtcNow;
+        int ticketNum = 1000;
+        int harvestLoads = 0, saleLoads = 0;
+
+        // Harvest windows by month/day (any year in the trailing 12 months)
+        static bool InWindow(DateTime d, int fromMonth, int fromDay, int toMonth, int toDay)
+        {
+            var from = new DateTime(d.Year, fromMonth, fromDay);
+            var to = new DateTime(d.Year, toMonth, toDay);
+            return d.Date >= from && d.Date <= to;
+        }
+
+        var binsIn = binCommodity.ToDictionary(b => b.Bin, _ => 0L);   // harvested lbs per bin
+        var binBalance = binCommodity.ToDictionary(b => b.Bin, _ => 0L);
+
+        string PickBin(string commodity)
+        {
+            var candidates = binCommodity.Where(b => b.Commodity == commodity).Select(b => b.Bin).ToList();
+            // Fill bins in order-ish: prefer the least-full so loads spread out.
+            return candidates.OrderBy(b => binBalance[b]).ThenBy(_ => rng.Next()).First();
+        }
+
+        Transaction NewLoad(DateTime dateIn, string commodity, int minutesOnSite)
+        {
+            ticketNum++;
+            var (tid, carrier) = truckData[rng.Next(truckData.Length)];
+            return new Transaction
+            {
+                Ticket = ticketNum.ToString(),
+                DateIn = dateIn,
+                DateOut = dateIn.AddMinutes(minutesOnSite),
+                Commodity = commodity,
+                Carrier = carrier,
+                TruckId = tid,
+                Void = false
+            };
+        }
+
+        // --- Harvest: loads INTO the bins (truck in heavy, out light) ---
+        var startDate = now.AddYears(-1).Date;
+        for (var date = startDate; date <= now.Date; date = date.AddDays(1))
+        {
+            if (date.DayOfWeek == DayOfWeek.Sunday) continue;
+
+            string? commodity = null;
+            if (InWindow(date, 7, 1, 7, 15)) commodity = "Wheat";
+            else if (InWindow(date, 9, 20, 10, 15)) commodity = InWindow(date, 10, 5, 10, 15) && rng.NextDouble() < 0.4 ? "Corn" : "Soybeans";
+            else if (InWindow(date, 10, 5, 11, 15)) commodity = "Corn";
+            if (commodity == null) continue;
+
+            int loadsToday = rng.Next(6, 13);
+            for (int i = 0; i < loadsToday; i++)
+            {
+                var tare = rng.Next(28000, 34001);
+                var net = rng.Next(38000, 52001);
+                var bin = PickBin(commodity);
+
+                var t = NewLoad(date.AddHours(rng.Next(8, 19)).AddMinutes(rng.Next(0, 60)), commodity, rng.Next(6, 18));
+                t.InWeight = tare + net;   // arrives loaded from the field
+                t.OutWeight = tare;        // leaves empty
+                t.Location = fieldNames[rng.Next(fieldNames.Length)];
+                t.Bin = bin;
+                if (rng.NextDouble() < 0.25)
+                    t.Notes = $"Moisture {Math.Round(13 + rng.NextDouble() * 6, 1)}%";
+                _db.Transactions.Add(t);
+
+                binsIn[bin] += net;
+                binBalance[bin] += net;
+                harvestLoads++;
+            }
+        }
+
+        // --- Post-harvest true-up per bin: drying shrink of ~0.5–1.5% ---
+        foreach (var (bin, commodity) in binCommodity)
+        {
+            if (binsIn[bin] == 0) continue;
+            var shrink = -(int)(binsIn[bin] * (0.005 + rng.NextDouble() * 0.01));
+            _db.BinAdjustments.Add(new BinAdjustment
+            {
+                Bin = bin,
+                Commodity = commodity,
+                AmountLbs = shrink,
+                Date = now.AddDays(-rng.Next(30, 120)),
+                Note = "True-up to measured inventory (drying shrink)"
+            });
+            binBalance[bin] += shrink;
+        }
+
+        // --- Sales: loads OUT of the bins (truck in light, out heavy) ---
+        for (var date = startDate.AddDays(30); date <= now.Date; date = date.AddDays(rng.Next(3, 8)))
+        {
+            int loadsToday = rng.Next(1, 4);
+            for (int i = 0; i < loadsToday; i++)
+            {
+                var tare = rng.Next(28000, 34001);
+                var net = rng.Next(40000, 52001);
+                // Only sell out of a bin that can cover the load with margin.
+                var candidates = binCommodity.Where(b => binBalance[b.Bin] > net + 60000).ToList();
+                if (candidates.Count == 0) continue;
+                var (bin, commodity) = candidates[rng.Next(candidates.Count)];
+
+                var t = NewLoad(date.AddHours(rng.Next(8, 17)).AddMinutes(rng.Next(0, 60)), commodity, rng.Next(10, 25));
+                t.InWeight = tare;         // arrives empty
+                t.OutWeight = tare + net;  // leaves loaded for the elevator
+                t.Customer = buyerNames[rng.Next(buyerNames.Length)];
+                t.Destination = elevatorNames[rng.Next(elevatorNames.Length)];
+                t.Bin = bin;
+                _db.Transactions.Add(t);
+
+                binBalance[bin] -= net;
+                saleLoads++;
+            }
+        }
+
+        // --- A few trucks currently in the yard (open harvest tickets) ---
+        for (int i = 0; i < 4; i++)
+        {
+            ticketNum++;
+            var (tid, carrier) = truckData[rng.Next(truckData.Length)];
+            var (bin, commodity) = binCommodity[rng.Next(binCommodity.Length)];
+            _db.Transactions.Add(new Transaction
+            {
+                Ticket = ticketNum.ToString(),
+                DateIn = now.AddMinutes(-rng.Next(10, 180)),
+                InWeight = rng.Next(66000, 86001),
+                Commodity = commodity,
+                Carrier = carrier,
+                TruckId = tid,
+                Location = fieldNames[rng.Next(fieldNames.Length)],
+                Bin = bin,
+                Void = false
+            });
+        }
+
+        ticketNum++;
+        setup.TicketNumber = ticketNum;
+        _db.SaveChanges();
+        _setupCache.Invalidate();
+
+        TempData["Message"] = $"Farming sample loaded: {harvestLoads} harvest loads into 6 bins, {saleLoads} sale loads out, "
+            + "shrinkage true-ups, and 4 trucks in yard. Bin Inventory and demo mode enabled with 1 kiosk (light).";
         return RedirectToAction("Index");
     }
 

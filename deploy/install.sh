@@ -109,13 +109,19 @@ fi
 echo "==> Installing Foundation.Web to $APP_DIR..."
 mkdir -p "$APP_DIR"
 
-# Preserve database and reports if they exist (unless rebuild requested)
+# Preserve database and reports if they exist (unless rebuild requested).
+# The -wal/-shm sidecars ride along: if the service didn't checkpoint
+# cleanly, the newest writes live in the WAL — restoring the .db alone
+# would silently lose them.
 if [[ "$REBUILD_DB" == "1" ]]; then
   echo "  --rebuild-db: Database will be recreated from scratch."
-  rm -f "$APP_DIR/Foundation.db" /tmp/Foundation.db.bak
+  rm -f "$APP_DIR"/Foundation.db* /tmp/Foundation.db.bak /tmp/Foundation.db-wal.bak /tmp/Foundation.db-shm.bak
 else
   if [[ -f "$APP_DIR/Foundation.db" ]]; then
     cp "$APP_DIR/Foundation.db" /tmp/Foundation.db.bak
+    rm -f /tmp/Foundation.db-wal.bak /tmp/Foundation.db-shm.bak
+    if [[ -f "$APP_DIR/Foundation.db-wal" ]]; then cp "$APP_DIR/Foundation.db-wal" /tmp/Foundation.db-wal.bak; fi
+    if [[ -f "$APP_DIR/Foundation.db-shm" ]]; then cp "$APP_DIR/Foundation.db-shm" /tmp/Foundation.db-shm.bak; fi
     echo "  Database backed up to /tmp/Foundation.db.bak"
   fi
 fi
@@ -136,6 +142,8 @@ mkdir -p "$APP_DIR/wwwroot/images/tickets"
 # Restore database and reports
 if [[ "$REBUILD_DB" != "1" ]] && [[ -f /tmp/Foundation.db.bak ]]; then
   cp /tmp/Foundation.db.bak "$APP_DIR/Foundation.db"
+  if [[ -f /tmp/Foundation.db-wal.bak ]]; then cp /tmp/Foundation.db-wal.bak "$APP_DIR/Foundation.db-wal"; fi
+  if [[ -f /tmp/Foundation.db-shm.bak ]]; then cp /tmp/Foundation.db-shm.bak "$APP_DIR/Foundation.db-shm"; fi
   echo "  Database restored."
 fi
 if [[ -d /tmp/Reports.bak ]]; then

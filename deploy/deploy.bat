@@ -9,6 +9,7 @@ REM   --domain <domain>    Domain name for Let's Encrypt SSL
 REM   --email <email>      Email for Let's Encrypt notifications
 REM   --port <port>        App listen port (default 5110)
 REM   --key <ssh-key>      SSH key file
+REM   --skip-build         Reuse the existing tarball instead of publishing fresh
 REM   --rebuild-db         Delete and recreate the database (CAUTION: destroys data!)
 
 set "SCRIPT_DIR=%~dp0"
@@ -20,6 +21,7 @@ set "EMAIL="
 set "APP_PORT=5110"
 set "SSH_KEY="
 set "REBUILD_DB=0"
+set "SKIP_BUILD=0"
 
 REM Parse arguments
 :parse_args
@@ -29,6 +31,7 @@ if "%~1"=="--email"   ( set "EMAIL=%~2" & shift & shift & goto :parse_args )
 if "%~1"=="--port"    ( set "APP_PORT=%~2" & shift & shift & goto :parse_args )
 if "%~1"=="--key"     ( set "SSH_KEY=%~2" & shift & shift & goto :parse_args )
 if "%~1"=="--rebuild-db" ( set "REBUILD_DB=1" & shift & goto :parse_args )
+if "%~1"=="--skip-build" ( set "SKIP_BUILD=1" & shift & goto :parse_args )
 set "REMOTE=%~1"
 shift
 goto :parse_args
@@ -79,12 +82,16 @@ if not "%DOMAIN%"=="" (
     echo   DNS OK: %DOMAIN% resolves.
 )
 
-REM Check if tarball exists, if not run publish first
-if not exist "%TARBALL%" (
-    echo ==^> Tarball not found. Running publish first...
-    call "%SCRIPT_DIR%publish.bat"
-    if errorlevel 1 exit /b 1
+REM Always publish a fresh build — a cached tarball silently deploys stale
+REM code. Pass --skip-build to reuse the existing tarball.
+if "%SKIP_BUILD%"=="1" if exist "%TARBALL%" (
+    echo ==^> Reusing existing tarball ^(--skip-build^).
+    goto :upload
 )
+echo ==^> Publishing fresh build...
+call "%SCRIPT_DIR%publish.bat"
+if errorlevel 1 exit /b 1
+:upload
 
 echo ==^> Uploading to %REMOTE%...
 scp %SCP_OPTS% "%TARBALL%" "%REMOTE%:/tmp/foundation-deploy.tar.gz"
