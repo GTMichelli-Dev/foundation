@@ -67,6 +67,59 @@
             font-size: 0.9rem;
         }
     }
+
+    /* Multi-scale: one live card per scale at the operator's location.
+       Clicking a card selects that scale for the weigh forms. */
+    #dashScaleGrid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 16px;
+        max-width: 920px;
+        margin: 0 auto 30px;
+    }
+    .scale-card {
+        background: #000;
+        border: 3px solid #222;
+        border-radius: 16px;
+        padding: 12px 20px 26px;
+        cursor: pointer;
+        position: relative;
+        transition: border-color 0.15s, box-shadow 0.15s;
+        user-select: none;
+    }
+    .scale-card:hover { border-color: #555; }
+    .scale-card.selected {
+        border-color: #0d6efd;
+        box-shadow: 0 0 12px rgba(13, 110, 253, 0.5);
+    }
+    .scale-card .sc-name {
+        color: #ccc;
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .scale-card.selected .sc-name { color: #fff; }
+    .scale-card .sc-weight {
+        font-family: 'Courier New', monospace;
+        font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+        font-weight: bold;
+        color: #00ff41;
+        text-align: right;
+        letter-spacing: 3px;
+        white-space: nowrap;
+    }
+    .scale-card .sc-weight .weight-unit { font-size: 1.2rem; }
+    .scale-card .sc-status {
+        font-size: 0.85rem;
+        font-weight: bold;
+        text-align: center;
+        letter-spacing: 2px;
+        min-height: 1.1em;
+    }
     .dashboard-btn {
         font-size: 1.15rem;
         font-weight: 600;
@@ -106,16 +159,15 @@
 </style>
 
 <div class="row justify-content-center mb-4">
-    <div class="col-md-8">
+    <div class="col-md-10">
         <div class="weight-display" id="weightDisplay">
             <span id="weightValue">0</span>
             <span class="weight-unit" id="weightUnit">lb</span>
             <div class="scale-status" id="scaleStatus">&nbsp;</div>
-            <button class="zero-btn" onclick="zeroScale()" title="Zero the scale">ZERO</button>
+            <button class="zero-btn" onclick="zeroScale(dashScaleId, this)" title="Zero the scale">ZERO</button>
         </div>
-        <div class="d-flex justify-content-center mt-1" id="dashScaleWrap" style="display:none !important;">
-            <select id="dashScaleSelect" class="form-select form-select-sm" style="max-width: 220px;"></select>
-        </div>
+        <!-- Multi-scale: every scale at this location, live. Click = select. -->
+        <div id="dashScaleGrid" style="display:none;"></div>
     </div>
 </div>
 
@@ -181,57 +233,110 @@
         var weightUnit = $('#weightUnit');
         var statusEl = $('#scaleStatus');
 
-        // Multi-scale: the dashboard shows one scale at a time, sharing the
-        // weigh forms' selection (localStorage bw.selectedScale).
-        var dashSel = $('#dashScaleSelect');
+        // One scale at this location → the classic big display. More than one
+        // → a live card per scale; clicking a card selects that scale for the
+        // weigh forms (shared localStorage bw.selectedScale).
         $.getJSON('/api/scales/active', function (scales) {
-            if (!scales || scales.length === 0) return;
-            var saved = localStorage.getItem('bw.selectedScale');
-            scales.forEach(function (s) { dashSel.append($('<option>').val(s.id).text(s.name)); });
-            if (saved && dashSel.find('option[value="' + saved + '"]').length) dashSel.val(saved);
-            dashScaleId = parseInt(dashSel.val());
-            if (scales.length > 1) $('#dashScaleWrap').attr('style', '');
-            dashSel.on('change', function () {
-                dashScaleId = parseInt(dashSel.val());
-                localStorage.setItem('bw.selectedScale', dashSel.val());
-            });
-        });
+            if (scales && scales.length > 1) initScaleGrid(scales);
+            else initSingleScale(scales && scales[0]);
+        }).fail(function () { initSingleScale(null); });
 
-        function pollWeight() {
-            var url = '/api/scale/weight' + (dashScaleId ? '?scale=' + dashScaleId : '');
-            $.getJSON(url, function (data) {
-                var zeroBtn = $('.zero-btn');
-                if (data.error) {
-                    weightVal.text('------');
-                    weightUnit.text('');
-                    display.css({ color: '#ff0000', textAlign: 'center' });
-                    statusEl.css('color', '#ff0000').text(data.comError ? 'SCALE COM ERROR' : 'SCALE ERROR');
-                    zeroBtn.hide();
-                } else if (data.motion) {
-                    weightVal.text(data.weight.toLocaleString());
-                    weightUnit.text('lb');
-                    display.css({ color: '#ffff00', textAlign: 'right' });
-                    statusEl.css('color', '#ffff00').text('MOTION');
-                    zeroBtn.show();
-                } else {
-                    weightVal.text(data.weight.toLocaleString());
-                    weightUnit.text('lb');
-                    display.css({ color: '#00ff41', textAlign: 'right' });
-                    statusEl.html('&nbsp;');
-                    zeroBtn.show();
-                }
-            });
+        function initSingleScale(scale) {
+            dashScaleId = scale ? scale.id : null;
+            function pollWeight() {
+                var url = '/api/scale/weight' + (dashScaleId ? '?scale=' + dashScaleId : '');
+                $.getJSON(url, function (data) {
+                    var zeroBtn = $('#weightDisplay .zero-btn');
+                    if (data.error) {
+                        weightVal.text('------');
+                        weightUnit.text('');
+                        display.css({ color: '#ff0000', textAlign: 'center' });
+                        statusEl.css('color', '#ff0000').text(data.comError ? 'SCALE COM ERROR' : 'SCALE ERROR');
+                        zeroBtn.hide();
+                    } else if (data.motion) {
+                        weightVal.text(data.weight.toLocaleString());
+                        weightUnit.text('lb');
+                        display.css({ color: '#ffff00', textAlign: 'right' });
+                        statusEl.css('color', '#ffff00').text('MOTION');
+                        zeroBtn.show();
+                    } else {
+                        weightVal.text(data.weight.toLocaleString());
+                        weightUnit.text('lb');
+                        display.css({ color: '#00ff41', textAlign: 'right' });
+                        statusEl.html('&nbsp;');
+                        zeroBtn.show();
+                    }
+                });
+            }
+            setInterval(pollWeight, 500);
+            pollWeight();
         }
-        setInterval(pollWeight, 500);
-        pollWeight();
+
+        function initScaleGrid(scales) {
+            display.hide();
+            var grid = $('#dashScaleGrid').show();
+            var saved = localStorage.getItem('bw.selectedScale');
+            if (!saved || !scales.some(function (s) { return String(s.id) === saved; })) {
+                saved = String(scales[0].id);
+            }
+            dashScaleId = parseInt(saved);
+
+            scales.forEach(function (s) {
+                var card = $('<div class="scale-card"></div>').attr('data-id', s.id)
+                    .toggleClass('selected', String(s.id) === saved);
+                $('<div class="sc-name"></div>').text(s.name).appendTo(card);
+                $('<div class="sc-weight"><span class="sc-val">0</span><span class="weight-unit sc-unit"> lb</span></div>').appendTo(card);
+                $('<div class="sc-status">&nbsp;</div>').appendTo(card);
+                $('<button class="zero-btn" title="Zero this scale">ZERO</button>')
+                    .on('click', function (e) {
+                        e.stopPropagation(); // zeroing shouldn't change the selection
+                        zeroScale(s.id, this);
+                    })
+                    .appendTo(card);
+                card.on('click', function () {
+                    dashScaleId = s.id;
+                    localStorage.setItem('bw.selectedScale', String(s.id));
+                    grid.find('.scale-card').removeClass('selected');
+                    card.addClass('selected');
+                });
+                grid.append(card);
+            });
+
+            function pollWeights() {
+                $.getJSON('/api/scale/weights', function (list) {
+                    (list || []).forEach(function (d) {
+                        var card = grid.find('.scale-card[data-id="' + d.id + '"]');
+                        if (!card.length) return;
+                        var val = card.find('.sc-val');
+                        var unit = card.find('.sc-unit');
+                        var st = card.find('.sc-status');
+                        if (d.error) {
+                            val.text('------').css('color', '#ff0000');
+                            unit.text('');
+                            st.css('color', '#ff0000').text((d.status || 'ERROR').toUpperCase());
+                        } else if (d.motion) {
+                            val.text(d.weight.toLocaleString()).css('color', '#ffff00');
+                            unit.text(' lb');
+                            st.css('color', '#ffff00').text('MOTION');
+                        } else {
+                            val.text(d.weight.toLocaleString()).css('color', '#00ff41');
+                            unit.text(' lb');
+                            st.html('&nbsp;');
+                        }
+                    });
+                });
+            }
+            setInterval(pollWeights, 500);
+            pollWeights();
+        }
     });
 
-    function zeroScale() {
-        var btn = document.querySelector('.zero-btn');
+    function zeroScale(scaleId, btn) {
+        btn = btn || document.querySelector('.zero-btn');
         var origText = btn.textContent;
         btn.textContent = '...';
         btn.disabled = true;
-        $.post('/api/scale/zero' + (dashScaleId ? '?scale=' + dashScaleId : '')).done(function (data) {
+        $.post('/api/scale/zero' + (scaleId ? '?scale=' + scaleId : '')).done(function (data) {
             btn.textContent = data.success ? 'OK' : 'FAIL';
             btn.style.color = data.success ? '#0f0' : '#f00';
             setTimeout(function () {

@@ -104,12 +104,36 @@
                             </select>
                         </div>
                         <script>
-                            document.getElementById('navSiteSelect').addEventListener('change', function () {
-                                // 400-day cookie: the workstation keeps its location.
-                                document.cookie = '@Foundation.Web.Services.SiteContext.CookieName=' + this.value
-                                    + ';path=/;max-age=' + (400 * 24 * 60 * 60) + ';samesite=lax';
-                                window.location.reload();
-                            });
+                            // The location choice must never expire, but browsers cap
+                            // cookie lifetime (~400 days). So: renew the window on every
+                            // page load, and keep a localStorage backup that restores
+                            // the cookie if the browser ever drops it.
+                            (function () {
+                                var NAME = '@Foundation.Web.Services.SiteContext.CookieName';
+                                function writeSite(v) {
+                                    document.cookie = NAME + '=' + v + ';path=/;max-age=' + (400 * 24 * 60 * 60) + ';samesite=lax';
+                                    try { localStorage.setItem(NAME, v); } catch (e) { }
+                                }
+
+                                document.getElementById('navSiteSelect').addEventListener('change', function () {
+                                    writeSite(this.value);
+                                    window.location.reload();
+                                });
+
+                                var m = document.cookie.match(/(?:^|; )bw\.siteId=(\d+)/);
+                                var fromCookie = m ? m[1] : null;
+                                var fromStorage = null;
+                                try { fromStorage = localStorage.getItem(NAME); } catch (e) { }
+                                if (fromCookie) {
+                                    writeSite(fromCookie); // renew the 400-day window each visit
+                                } else if (fromStorage && !sessionStorage.getItem(NAME + '.restored')) {
+                                    // Cookie lost but the backup survives — restore it and
+                                    // re-render once (guarded so blocked cookies can't loop).
+                                    writeSite(fromStorage);
+                                    try { sessionStorage.setItem(NAME + '.restored', '1'); } catch (e) { }
+                                    window.location.reload();
+                                }
+                            })();
                         </script>
                         }
                         @if (appSetup?.DemoMode == true)
