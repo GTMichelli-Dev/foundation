@@ -32,14 +32,24 @@
                    min="@(f.MinValue?.ToString() ?? "")" max="@(f.MaxValue?.ToString() ?? "")"
                    value="@val" required="@(f.Required ? "required" : null)" />
         }
-        else if (f.GetListValues().Count > 0)
+        else if (f.ParentField != null || f.GetListValues().Count > 0)
         {
             @* List-backed text field: dropdown of admin-defined choices. A
                historical value no longer in the list is kept selectable so
-               editing an old ticket doesn't silently lose it. *@
+               editing an old ticket doesn't silently lose it. A sub-field
+               (ParentField set) carries its parent name + per-parent choice
+               map in data attributes; the shared cascade script filters the
+               options by the selected parent value. *@
             var choices = f.GetListValues();
+            var valueMaps = ViewBag.CustomFieldValueMaps as Dictionary<int, Dictionary<string, List<string>>>;
+            var mapJson = f.ParentField != null
+                ? System.Text.Json.JsonSerializer.Serialize(
+                    valueMaps != null && valueMaps.TryGetValue(f.Id, out var m) ? m : new Dictionary<string, List<string>>())
+                : null;
             <select name="cf_@f.Id" class="form-select custom-field-input"
-                    required="@(f.Required ? "required" : null)">
+                    required="@(f.Required ? "required" : null)"
+                    data-parent-field="@f.ParentField"
+                    data-value-map="@mapJson">
                 <option value=""></option>
                 @if (!string.IsNullOrEmpty(val) && !choices.Contains(val))
                 {
@@ -131,6 +141,26 @@ else if (Model.Key == "Destination")
             @foreach (var d in (List<Foundation.Web.Models.Destination>)ViewBag.Destinations)
             {
                 <option value="@d.DestinationName" selected="@(txn?.Destination == d.DestinationName ? "selected" : null)">@d.DestinationName</option>
+            }
+        </select>
+    </div>
+}
+else if (Model.Key == "Bin")
+{
+    var binRequired = (bool)(ViewBag.BinRequired ?? false);
+    <div class="mb-3">
+        <label class="form-label">
+            Bin
+            @if (binRequired)
+            {
+                <span class="text-danger" title="Required">*</span>
+            }
+        </label>
+        <select name="Bin" class="form-select" required="@(binRequired ? "required" : null)">
+            <option value="">-- Select --</option>
+            @foreach (var b in (List<Foundation.Web.Models.Bin>)ViewBag.Bins)
+            {
+                <option value="@b.BinName" selected="@(txn?.Bin == b.BinName ? "selected" : null)">@b.BinName</option>
             }
         </select>
     </div>

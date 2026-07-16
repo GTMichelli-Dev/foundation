@@ -188,6 +188,7 @@
 </div>
 
 @section Scripts {
+<partial name="_CascadeFieldsJs" />
 <script src="~/js/ticket-image-download.js"></script>
 <script>
     var ticketData = {
@@ -198,6 +199,7 @@
         commodity: '@(Model.Commodity?.Replace("'", "\\'") ?? "")',
         location: '@(Model.Location?.Replace("'", "\\'") ?? "")',
         destination: '@(Model.Destination?.Replace("'", "\\'") ?? "")',
+        bin: '@(Model.Bin?.Replace("'", "\\'") ?? "")',
         dateIn: '@Model.DateIn.ToString("o")',
         dateOut: '@(Model.DateOut?.ToString("o") ?? "")',
         inWeight: @Model.InWeight,
@@ -230,6 +232,7 @@
         info += row('Commodity:', d.commodity);
         if (d.location) info += row('Location:', d.location);
         if (d.destination) info += row('Destination:', d.destination);
+        if (d.bin) info += row('Bin:', d.bin);
 
         info += '<div style="border-top:1px dashed #000;border-bottom:1px dashed #000;margin:6px 0;padding:6px 0;">';
         if (direction === 'in') {

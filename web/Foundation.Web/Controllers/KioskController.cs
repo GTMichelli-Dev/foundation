@@ -82,14 +82,40 @@ public class KioskController : Controller
             .Select(d => d.DestinationName)
             .ToList();
 
+        // Bin prompt only exists while Bin Inventory is enabled — return an
+        // empty list when off so a stale kiosk page auto-skips the prompt.
+        var bins = _setupCache.Get().UseBinInventory
+            ? _db.Bins
+                .Where(b => b.Active && b.UseAtKiosk)
+                .OrderBy(b => b.BinName)
+                .Select(b => b.BinName)
+                .ToList()
+            : new List<string>();
+
         // Kiosk-enabled custom fields. Only constrained inputs prompt at the
         // kiosk: numeric fields and list-backed text fields (free text is
-        // filtered out even if the flag was somehow set).
-        var customFields = _db.CustomFields
+        // filtered out even if the flag was somehow set). Cascading sub-fields
+        // also carry their parent name + per-parent choice map so the prompt
+        // can filter by the answer already collected in this flow.
+        var eligibleFields = _db.CustomFields
             .Where(f => f.Active && f.PromptAtKiosk)
             .OrderBy(f => f.SortOrder).ThenBy(f => f.Name)
             .ToList()
             .Where(f => f.IsKioskEligible())
+            .ToList();
+
+        var dependentIds = eligibleFields.Where(f => f.ParentField != null).Select(f => f.Id).ToList();
+        var valueMaps = _db.CustomFieldListValues
+            .Where(v => dependentIds.Contains(v.CustomFieldId))
+            .OrderBy(v => v.SortOrder).ThenBy(v => v.Value)
+            .AsEnumerable()
+            .GroupBy(v => v.CustomFieldId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.GroupBy(v => v.ParentValue)
+                      .ToDictionary(pg => pg.Key, pg => pg.Select(v => v.Value).ToList()));
+
+        var customFields = eligibleFields
             .Select(f => new
             {
                 id = f.Id,
@@ -99,11 +125,13 @@ public class KioskController : Controller
                 listValues = f.GetListValues(),
                 minValue = f.MinValue,
                 maxValue = f.MaxValue,
-                precision = f.Precision
+                precision = f.Precision,
+                parentField = f.ParentField,
+                valueMap = f.ParentField != null ? valueMaps.GetValueOrDefault(f.Id) ?? new Dictionary<string, List<string>>() : null
             })
             .ToList();
 
-        return Json(new { commodities, customers, carriers, locations, destinations, customFields });
+        return Json(new { commodities, customers, carriers, locations, destinations, bins, customFields });
     }
 
     [HttpGet("api/kiosk/trucks/{carrier}")]
@@ -150,7 +178,8 @@ public class KioskController : Controller
             truckId = transaction.TruckId,
             commodity = transaction.Commodity,
             location = transaction.Location,
-            destination = transaction.Destination
+            destination = transaction.Destination,
+            bin = transaction.Bin
         });
     }
 
@@ -179,7 +208,8 @@ public class KioskController : Controller
             truckId = transaction.TruckId,
             commodity = transaction.Commodity,
             location = transaction.Location,
-            destination = transaction.Destination
+            destination = transaction.Destination,
+            bin = transaction.Bin
         });
     }
 
@@ -244,6 +274,7 @@ public class KioskController : Controller
             TruckId = request.TruckId,
             Location = request.Location,
             Destination = request.Destination,
+            Bin = request.Bin,
             Void = false,
             ManualInbound = false
         };
@@ -332,6 +363,7 @@ public class KioskController : Controller
         if (!string.IsNullOrEmpty(request.Commodity))   transaction.Commodity   = request.Commodity;
         if (!string.IsNullOrEmpty(request.Customer))    transaction.Customer    = request.Customer;
         if (!string.IsNullOrEmpty(request.Location))    transaction.Location    = request.Location;
+        if (!string.IsNullOrEmpty(request.Bin))         transaction.Bin         = request.Bin;
 
         // Persist retained tare on the matching truck (feature-gated). Tare = lower of
         // the two weights, matching how Transaction.TareWeight is computed.
@@ -565,6 +597,7 @@ public class KioskController : Controller
         public string? TruckId { get; set; }
         public string? Location { get; set; }
         public string? Destination { get; set; }
+        public string? Bin { get; set; }
         /// <summary>Custom field values keyed by field id ("3" -> "12.5").</summary>
         public Dictionary<string, string>? CustomFields { get; set; }
         /// <summary>Name of the site scale this kiosk is mapped to.</summary>
@@ -589,6 +622,7 @@ public class KioskController : Controller
         public string? Commodity { get; set; }
         public string? Customer { get; set; }
         public string? Location { get; set; }
+        public string? Bin { get; set; }
         /// <summary>
         /// Optional printer in "serviceId:printerId" format.
         /// If not set: demo mode uses "demo:KioskPrinter", normal mode uses outbound printer from Setup.

@@ -909,6 +909,10 @@
         promptDestinationOnInbound: @(Model.PromptKioskDestinationOnInbound.ToString().ToLower()),
         promptDestinationOnOutbound: @(Model.PromptKioskDestinationOnOutbound.ToString().ToLower()),
         allowSkipDestination: @(Model.AllowSkipDestination.ToString().ToLower()),
+        useBinInventory: @(Model.UseBinInventory.ToString().ToLower()),
+        promptBinOnInbound: @(Model.PromptKioskBinOnInbound.ToString().ToLower()),
+        promptBinOnOutbound: @(Model.PromptKioskBinOnOutbound.ToString().ToLower()),
+        allowSkipBin: @(Model.AllowSkipBin.ToString().ToLower()),
         useRetainedTare: @(Model.UseRetainedTare.ToString().ToLower()),
         demoMode: @(Model.DemoMode.ToString().ToLower()),
         header1: '@Html.Raw((Model.Header1 ?? "").Replace("'", "\\'"))',
@@ -935,7 +939,7 @@
     var selectedListIndex = 0;
     var currentListItems = [];
     var motionTimer = null;
-    var lists = { commodities: [], customers: [], carriers: [], locations: [], destinations: [], customFields: [] };
+    var lists = { commodities: [], customers: [], carriers: [], locations: [], destinations: [], bins: [], customFields: [] };
     var completedWeight = null;  // weight at time of completion
     var completedTicket = null;  // ticket number for reprint
     var completedType = null;    // 'Weigh In' or 'Weigh Out'
@@ -1242,6 +1246,14 @@
         return buildPromptsForDirection('inbound');
     }
 
+    /// Map a CustomField.ParentField reference to the weighinData key its
+    /// answer is stored under ("Commodity" -> 'commodity', "cf_5" -> 'cf5').
+    function cascadeParentKey(parentField) {
+        if (!parentField) return null;
+        if (parentField.indexOf('cf_') === 0) return 'cf' + parentField.substring(3);
+        return parentField.toLowerCase();
+    }
+
     /// Build the prompt queue for either an inbound (weigh-in) or outbound (weigh-out)
     /// run. Each entry carries an `allowSkip` flag so renderPrompt can suppress the
     /// "— None —" row + Skip button when the operator must pick a real value.
@@ -1278,15 +1290,27 @@
                            items: lists.destinations,
                            allowSkip: kioskSettings.allowSkipDestination });
         }
+        if (kioskSettings.useBinInventory
+            && (inbound ? kioskSettings.promptBinOnInbound : kioskSettings.promptBinOnOutbound)) {
+            prompts.push({ key: 'bin', title: 'Select Bin',
+                           items: lists.bins || [],
+                           allowSkip: kioskSettings.allowSkipBin });
+        }
         // Kiosk-enabled custom fields (weigh-in only). Only constrained inputs
         // reach the kiosk: list-backed text renders the standard list prompt,
         // numeric fields render the keypad prompt.
         if (inbound && lists.customFields && lists.customFields.length) {
             lists.customFields.forEach(function (f) {
                 if (f.fieldType === 'Text') {
+                    // Cascading sub-fields carry parentKey + valueMap; the
+                    // items are resolved at render time from the answer the
+                    // driver already gave for the parent prompt.
                     prompts.push({ key: 'cf' + f.id, cfId: f.id,
                                    title: 'Select ' + f.name,
                                    items: f.listValues || [],
+                                   allItems: f.listValues || [],
+                                   parentKey: cascadeParentKey(f.parentField),
+                                   valueMap: f.parentField ? (f.valueMap || {}) : null,
                                    allowSkip: !f.required });
                 } else {
                     prompts.push({ key: 'cf' + f.id, cfId: f.id,
@@ -1352,6 +1376,16 @@
         }
         $('#prompt-number').hide();
         $('#prompt-list').show();
+        // Cascading sub-field: filter the choices to the parent answer given
+        // earlier in this flow. No parent answer (prompt off / skipped) falls
+        // back to every choice; a parent with no mapped choices auto-skips
+        // via the empty-list path below.
+        if (prompt.valueMap) {
+            var parentAnswer = prompt.parentKey ? weighinData[prompt.parentKey] : null;
+            prompt.items = parentAnswer
+                ? (prompt.valueMap[parentAnswer] || [])
+                : (prompt.allItems || []);
+        }
         var rawItems = prompt.items || [];
         // Auto-skip lists with no real items — no point showing only "— None —".
         if (rawItems.length === 0) {
@@ -1671,6 +1705,7 @@
                 truckId: weighinData.truck || null,
                 location: weighinData.location || null,
                 destination: weighinData.destination || null,
+                bin: weighinData.bin || null,
                 printerId: kioskHasPrinter ? (kioskServiceId + ':' + kioskPrinterId) : null,
                 customFields: buildCustomFieldPayload(),
                 scaleName: kioskScaleName || null
@@ -1716,6 +1751,7 @@
                 commodity:   weighinData.commodity   || null,
                 customer:    weighinData.customer    || null,
                 location:    weighinData.location    || null,
+                bin:         weighinData.bin         || null,
                 printerId: kioskHasPrinter ? (kioskServiceId + ':' + kioskPrinterId) : null,
                 scaleName: kioskScaleName || null
             }),
@@ -1865,6 +1901,7 @@
         if (weighinData.carrier) html += '<div class="dt-row"><span class="dt-label">Carrier:</span><span>' + escHtml(weighinData.carrier) + '</span></div>';
         if (weighinData.truck) html += '<div class="dt-row"><span class="dt-label">Truck ID:</span><span>' + escHtml(weighinData.truck) + '</span></div>';
         if (weighinData.destination) html += '<div class="dt-row"><span class="dt-label">Destination:</span><span>' + escHtml(weighinData.destination) + '</span></div>';
+        if (weighinData.bin) html += '<div class="dt-row"><span class="dt-label">Bin:</span><span>' + escHtml(weighinData.bin) + '</span></div>';
 
         html += '<div class="dt-weights">';
         if (outWeight !== null) {

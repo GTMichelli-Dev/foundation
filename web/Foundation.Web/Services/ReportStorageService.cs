@@ -51,10 +51,12 @@ public class ReportStorageService : ReportStorageWebExtension
     }
 
     /// <summary>
-    /// Serve the saved layout with a cf_ parameter for every active
-    /// Show-on-Ticket custom field, so the fields appear in the designer's
-    /// Field List. In-memory only — the .repx on disk is untouched until the
-    /// user saves (at which point any placed parameters persist with it).
+    /// Serve the saved layout with a cf_ parameter for every active custom
+    /// field, so the fields appear in the designer's Field List — including
+    /// fields with Show-on-Ticket unchecked, which only print when placed in
+    /// the layout here (checked fields auto-append instead). In-memory only —
+    /// the .repx on disk is untouched until the user saves (at which point
+    /// any placed parameters persist with it).
     /// </summary>
     private byte[] WithCustomFieldParameters(string path)
     {
@@ -66,7 +68,7 @@ public class ReportStorageService : ReportStorageWebExtension
             using var scope = _services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ScaleDbContext>();
             var fields = db.CustomFields
-                .Where(f => f.Active && f.ShowOnTicket)
+                .Where(f => f.Active)
                 .OrderBy(f => f.SortOrder).ThenBy(f => f.Name)
                 .ToList();
             if (fields.Count == 0) return bytes;

@@ -57,6 +57,23 @@ public class TransactionController : Controller
         ViewBag.Commodities = _db.Commodities.Where(c => c.Active).OrderBy(c => c.CommodityName).ToList();
         ViewBag.Locations = _db.Locations.Where(l => l.Active).OrderBy(l => l.LocationName).ToList();
         ViewBag.Destinations = _db.Destinations.Where(d => d.Active).OrderBy(d => d.DestinationName).ToList();
+        ViewBag.Bins = _db.Bins.Where(b => b.Active).OrderBy(b => b.BinName).ToList();
+
+        var setup = _setupCache.Get();
+        ViewBag.BinRequired = setup.UseBinInventory && setup.BinRequired;
+    }
+
+    /// <summary>
+    /// Server-side backstop for the Require Bin gate (Setup → Options). The
+    /// forms enforce it via HTML validation; this catches direct posts and
+    /// stale pages. Returns an error message, or null when the ticket is fine.
+    /// </summary>
+    private string? ValidateRequiredBin(Transaction transaction)
+    {
+        var setup = _setupCache.Get();
+        if (setup.UseBinInventory && setup.BinRequired && string.IsNullOrWhiteSpace(transaction.Bin))
+            return "Bin is required.";
+        return null;
     }
 
     // GET: Transaction/WeighIn (new)
@@ -101,6 +118,7 @@ public class TransactionController : Controller
                 txn.Customer = lastTxn.Customer;
                 txn.Location = lastTxn.Location;
                 txn.Destination = lastTxn.Destination;
+                txn.Bin = lastTxn.Bin;
             }
         }
         return View(txn);
@@ -113,6 +131,7 @@ public class TransactionController : Controller
     {
         var customFields = GetActiveCustomFields();
         var cfErrors = ValidateCustomFieldValues(customFields);
+        if (ValidateRequiredBin(transaction) is { } binError) cfErrors.Add(binError);
         if (cfErrors.Count > 0)
         {
             // Backstop only — the form's HTML validation normally catches this.
@@ -306,6 +325,19 @@ public class TransactionController : Controller
             : _db.TransactionCustomValues
                 .Where(v => v.Ticket == ticket && v.Value != null)
                 .ToDictionary(v => v.CustomFieldId, v => v.Value!);
+
+        // Parent → choices maps for cascading sub-fields, embedded on the
+        // child selects so the forms can filter by the selected parent value.
+        var dependentIds = fields.Where(f => f.ParentField != null).Select(f => f.Id).ToList();
+        ViewBag.CustomFieldValueMaps = _db.CustomFieldListValues
+            .Where(v => dependentIds.Contains(v.CustomFieldId))
+            .OrderBy(v => v.SortOrder).ThenBy(v => v.Value)
+            .AsEnumerable()
+            .GroupBy(v => v.CustomFieldId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.GroupBy(v => v.ParentValue)
+                      .ToDictionary(pg => pg.Key, pg => pg.Select(v => v.Value).ToList()));
     }
 
     /// <summary>
@@ -416,6 +448,8 @@ public class TransactionController : Controller
         if (!setup.HideCommodity) target.Commodity = posted.Commodity;
         if (!setup.HideLocation) target.Location = posted.Location;
         if (!setup.HideDestination) target.Destination = posted.Destination;
+        // Bin is only on the form while Bin Inventory is enabled.
+        if (setup.UseBinInventory) target.Bin = posted.Bin;
         if (!setup.HideNotes) target.Notes = posted.Notes;
     }
 
@@ -453,6 +487,8 @@ public class TransactionController : Controller
         // this catches direct posts and stale pages.
         foreach (var err in ValidateCustomFieldValues(customFields))
             ModelState.AddModelError("", err);
+        if (ValidateRequiredBin(transaction) is { } binError)
+            ModelState.AddModelError("", binError);
         if (setup.SignatureMode != "None" && setup.SignatureRequired
             && !System.IO.File.Exists(Path.Combine(TicketsImageDir, $"{id}_Signature.png")))
         {
@@ -553,6 +589,7 @@ public class TransactionController : Controller
     {
         var customFields = GetActiveCustomFields();
         var cfErrors = ValidateCustomFieldValues(customFields);
+        if (ValidateRequiredBin(transaction) is { } binError) cfErrors.Add(binError);
         if (cfErrors.Count > 0)
         {
             TempData["Error"] = string.Join(" ", cfErrors);
@@ -640,6 +677,7 @@ public class TransactionController : Controller
 
         var customFields = GetActiveCustomFields();
         var cfErrors = ValidateCustomFieldValues(customFields);
+        if (ValidateRequiredBin(transaction) is { } binError) cfErrors.Add(binError);
         if (cfErrors.Count > 0)
         {
             TempData["Error"] = string.Join(" ", cfErrors);
@@ -749,6 +787,7 @@ public class TransactionController : Controller
                 DateIn = t.DateIn.AsUtc(),
                 t.Location,
                 t.Destination,
+                t.Bin,
                 t.Notes,
                 t.ManualInbound,
                 HasInImage = HasImage(t.Ticket, "in"),
@@ -797,6 +836,7 @@ public class TransactionController : Controller
                 DateOut = t.DateOut.AsUtc(),
                 t.Location,
                 t.Destination,
+                t.Bin,
                 t.Notes,
                 t.Void,
                 t.SentToQuickBooks,
@@ -815,6 +855,9 @@ public class TransactionController : Controller
     {
         var existing = _db.Transactions.Find(transaction.Ticket);
         if (existing == null) return NotFound();
+
+        if (ValidateRequiredBin(transaction) is { } binError)
+            return BadRequest(new { message = binError });
 
         // A weight change invalidates the driver signature (see Edit POST).
         if (existing.InWeight != transaction.InWeight || existing.OutWeight != transaction.OutWeight)

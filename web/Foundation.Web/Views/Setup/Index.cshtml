@@ -321,9 +321,31 @@
                                     </select>
                                 </div>
                                 <div class="col-2 d-flex align-items-end" id="retainedTareManageSection" style="display: @(Model.UseRetainedTare ? "flex" : "none") !important;">
-                                    <a href="/MasterData" class="btn btn-outline-secondary btn-sm w-100" title="Manage on MasterData → Carriers &amp; Trucks">
+                                    <a href="/MasterData?tab=carriersTab" class="btn btn-outline-secondary btn-sm w-100" title="Manage on MasterData → Carriers &amp; Trucks">
                                         Manage
                                     </a>
+                                </div>
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-4">
+                                    <label asp-for="UseBinInventory" class="form-label mb-0 small"></label>
+                                    <select asp-for="UseBinInventory" class="form-select form-select-sm" id="UseBinInventory">
+                                        <option value="false">No</option>
+                                        <option value="true">Yes</option>
+                                    </select>
+                                </div>
+                                <div class="col-2 d-flex align-items-end" id="binManageSection" style="display: @(Model.UseBinInventory ? "flex" : "none") !important;">
+                                    <a href="/MasterData?tab=binsTab" class="btn btn-outline-secondary btn-sm w-100" title="Manage bins on Edit Tables → Bins">
+                                        Bins
+                                    </a>
+                                </div>
+                                <div class="col-4" id="binRequiredSection" style="display: @(Model.UseBinInventory ? "block" : "none");">
+                                    <label asp-for="BinRequired" class="form-label mb-0 small"></label>
+                                    <select asp-for="BinRequired" class="form-select form-select-sm" id="BinRequired"
+                                            title="Required blocks saving a ticket without a bin and removes Skip from the kiosk bin prompt">
+                                        <option value="false">Optional</option>
+                                        <option value="true">Required</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -427,6 +449,18 @@
                                             </td>
                                         </tr>
                                     }
+                                    @* Bin has no Hide flag — the Bin Inventory option (System → Options)
+                                       controls its visibility, so only the order is editable here. *@
+                                    <tr id="binFieldOrderRow" style="display: @(Model.UseBinInventory ? "table-row" : "none");">
+                                        <td class="fw-bold">Bin</td>
+                                        <td>
+                                            <span class="badge bg-info text-dark" title="Shown while Bin Inventory is enabled (System → Options)">Bin Inventory</span>
+                                        </td>
+                                        <td>
+                                            <input type="number" name="FieldOrderBin" id="FieldOrderBin" value="@Model.FieldOrderBin" step="1"
+                                                   class="form-control form-control-sm" />
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                             <div class="form-text small">
@@ -567,9 +601,19 @@
                                                 Model.PromptKioskDestinationOnInbound, Model.PromptKioskDestinationOnOutbound, Model.AllowSkipDestination),
                                         };
                                     }
+                                    @{
+                                        // Bin rides the same split-prompt machinery; its row is hidden
+                                        // while Bin Inventory is off (System → Options) and toggled
+                                        // live by the UseBinInventory change handler.
+                                        splitPrompts = splitPrompts.Append(
+                                            ("Bin", "kioskBinDir", "PromptKioskBinOnInbound", "PromptKioskBinOnOutbound", "AllowSkipBin",
+                                                Direction(Model.PromptKioskBinOnInbound, Model.PromptKioskBinOnOutbound),
+                                                Model.PromptKioskBinOnInbound, Model.PromptKioskBinOnOutbound, Model.AllowSkipBin)).ToArray();
+                                    }
                                     @foreach (var (label, group, inField, outField, skipField, currentDir, inVal, outVal, skipVal) in splitPrompts)
                                     {
-                                        <tr>
+                                        <tr id="@(label == "Bin" ? "binPromptRow" : null)"
+                                            style="@(label == "Bin" && !Model.UseBinInventory ? "display: none;" : null)">
                                             <td class="fw-bold">@label</td>
                                             <td class="text-center">
                                                 <div class="form-check form-check-inline">
@@ -853,11 +897,29 @@
                         <input type="number" id="cfSortOrder" class="form-control form-control-sm" value="0" step="1" />
                     </div>
                 </div>
+                <div class="mb-2" id="cfParentSection" style="display:none;">
+                    <label class="form-label mb-0 small">Sub-field of <span class="text-muted">(optional — makes this a cascading dropdown)</span></label>
+                    <select id="cfParentField" class="form-select form-select-sm"></select>
+                    <div class="form-text small">
+                        The choices are grouped under each value of the parent — e.g. a
+                        <em>Variety</em> field under Commodity, then a <em>Grade</em> field
+                        under Variety. The forms and kiosk only offer the choices that
+                        belong to the selected parent value.
+                    </div>
+                </div>
                 <div class="mb-2" id="cfListSection" style="display:none;">
                     <label class="form-label mb-0 small">Dropdown values <span class="text-muted">(optional — one per line; leave empty for free text)</span></label>
                     <textarea id="cfListValues" class="form-control form-control-sm" rows="5"
                               placeholder="Value 1&#10;Value 2&#10;Value 3"></textarea>
                     <div class="form-text small">Add, change, delete, or reorder lines to manage the list. Values already saved on tickets are kept even if removed here.</div>
+                </div>
+                <div class="mb-2" id="cfParentValuesHint" style="display:none;">
+                    <div class="alert alert-info py-1 mb-0 small">
+                        <i class="fa fa-circle-info"></i>
+                        Manage this field's choices per parent value on
+                        <a href="/MasterData">Edit Tables</a> after saving — the field gets
+                        its own tab there.
+                    </div>
                 </div>
                 <div class="row g-2 mb-2" id="cfNumberSection" style="display:none;">
                     <div class="col-4">
@@ -874,7 +936,8 @@
                     </div>
                 </div>
                 <div class="d-flex gap-4 flex-wrap">
-                    <div class="form-check">
+                    <div class="form-check"
+                         title="Checked: the value prints automatically on tickets. Unchecked: it only prints if you place the field's cf_ parameter in the Ticket Designer.">
                         <input type="checkbox" id="cfShowOnTicket" class="form-check-input" checked />
                         <label class="form-check-label small" for="cfShowOnTicket">Show on printed ticket</label>
                     </div>
@@ -1097,27 +1160,71 @@
             });
         }
 
+        function parentLabel(parentField) {
+            if (!parentField) return null;
+            if (parentField.indexOf('cf_') === 0) {
+                var pid = parseInt(parentField.substring(3));
+                var p = loadedFields.find(function (f) { return f.id === pid; });
+                return p ? p.name : parentField;
+            }
+            return parentField === 'TruckId' ? 'Truck ID' : parentField;
+        }
+
         function typeLabel(f) {
             var t = f.fieldType === 'Real' ? 'Decimal' : f.fieldType;
-            if (f.fieldType === 'Text' && f.listValues) t += ' (List)';
+            if (f.fieldType === 'Text' && f.parentField) t += ' (List under ' + esc(parentLabel(f.parentField)) + ')';
+            else if (f.fieldType === 'Text' && f.listValues) t += ' (List)';
             return t;
         }
 
         // Show the dropdown-list editor for Text, the min/max (+ decimals for
         // Decimal) inputs for number types. The kiosk checkbox only applies to
         // constrained inputs: numbers, or Text with a non-empty dropdown list.
+        // A sub-field (parent set) manages its choices per parent value on
+        // Edit Tables, so the flat textarea is hidden for it.
         function syncCfTypeSections() {
             var t = document.getElementById('cfType').value;
-            document.getElementById('cfListSection').style.display = t === 'Text' ? 'block' : 'none';
+            var hasParent = document.getElementById('cfParentField').value !== '';
+            document.getElementById('cfParentSection').style.display = t === 'Text' ? 'block' : 'none';
+            document.getElementById('cfListSection').style.display = (t === 'Text' && !hasParent) ? 'block' : 'none';
+            document.getElementById('cfParentValuesHint').style.display = (t === 'Text' && hasParent) ? 'block' : 'none';
             document.getElementById('cfNumberSection').style.display = t === 'Text' ? 'none' : 'flex';
             document.getElementById('cfPrecisionCol').style.display = t === 'Real' ? 'block' : 'none';
             var kiosk = document.getElementById('cfPromptAtKiosk');
-            var eligible = t !== 'Text' || document.getElementById('cfListValues').value.trim() !== '';
+            var eligible = t !== 'Text' || hasParent
+                || document.getElementById('cfListValues').value.trim() !== '';
             kiosk.disabled = !eligible;
             if (!eligible) kiosk.checked = false;
         }
         document.getElementById('cfType').addEventListener('change', syncCfTypeSections);
         document.getElementById('cfListValues').addEventListener('input', syncCfTypeSections);
+        document.getElementById('cfParentField').addEventListener('change', syncCfTypeSections);
+
+        // Parent choices: the standard dropdown-backed fields plus every OTHER
+        // list-backed text custom field. Self is excluded; deeper loops are
+        // rejected server-side.
+        function fillCfParentOptions(currentParent, selfId) {
+            var sel = document.getElementById('cfParentField');
+            sel.innerHTML = '';
+            sel.appendChild(new Option('— None (top-level field) —', ''));
+            var standard = ['Commodity', 'Customer', 'Carrier', 'Location', 'Destination'];
+            @if (Model.UseBinInventory)
+            {
+                <text>standard.push('Bin');</text>
+            }
+            standard.forEach(function (name) { sel.appendChild(new Option(name, name)); });
+            loadedFields.forEach(function (f) {
+                if (f.fieldType !== 'Text') return;
+                if (selfId && f.id === selfId) return;
+                if (!f.listValues && !f.parentField) return; // free text can't be a parent
+                sel.appendChild(new Option(f.name + ' (custom field)', 'cf_' + f.id));
+            });
+            // Keep a stored parent selectable even if it no longer qualifies.
+            if (currentParent && !Array.from(sel.options).some(function (o) { return o.value === currentParent; })) {
+                sel.appendChild(new Option(parentLabel(currentParent) + ' (retired)', currentParent));
+            }
+            sel.value = currentParent || '';
+        }
 
         function loadCustomFields() {
             fetch('/api/customfields').then(function (r) { return r.json(); }).then(function (fields) {
@@ -1155,6 +1262,7 @@
             document.getElementById('cfShowOnTicket').checked = field ? field.showOnTicket : true;
             document.getElementById('cfActive').checked = field ? field.active : true;
             document.getElementById('cfListValues').value = field && field.listValues ? field.listValues : '';
+            fillCfParentOptions(field ? field.parentField : null, field ? field.id : null);
             document.getElementById('cfMinValue').value = field && field.minValue != null ? field.minValue : '';
             document.getElementById('cfMaxValue').value = field && field.maxValue != null ? field.maxValue : '';
             document.getElementById('cfPrecision').value = field && field.precision != null ? field.precision : '';
@@ -1182,6 +1290,7 @@
                 showOnTicket: document.getElementById('cfShowOnTicket').checked,
                 active: document.getElementById('cfActive').checked,
                 listValues: document.getElementById('cfListValues').value || null,
+                parentField: document.getElementById('cfParentField').value || null,
                 minValue: document.getElementById('cfMinValue').value === '' ? null : parseFloat(document.getElementById('cfMinValue').value),
                 maxValue: document.getElementById('cfMaxValue').value === '' ? null : parseFloat(document.getElementById('cfMaxValue').value),
                 precision: document.getElementById('cfPrecision').value === '' ? null : parseInt(document.getElementById('cfPrecision').value),
@@ -1215,16 +1324,20 @@
         { group: 'kioskCommodityDir', skip: 'AllowSkipCommodity',   rtForcesOff: false },
         { group: 'kioskCustomerDir',  skip: 'AllowSkipCustomer',    rtForcesOff: false },
         { group: 'kioskLocationDir',  skip: 'AllowSkipLocation',    rtForcesOff: false },
-        { group: 'kioskDestDir',      skip: 'AllowSkipDestination', rtForcesOff: false }
+        { group: 'kioskDestDir',      skip: 'AllowSkipDestination', rtForcesOff: false },
+        { group: 'kioskBinDir',       skip: 'AllowSkipBin',         rtForcesOff: false }
     ];
     function syncAllowSkipState() {
         var rtOn = isRetainedTareOn();
+        var binRequiredSel = document.getElementById('BinRequired');
+        var binRequired = binRequiredSel && binRequiredSel.value === 'true';
         SKIP_RULES.forEach(function (row) {
             var skip = document.getElementById(row.skip);
             if (!skip) return;
             var checkedRadio = document.querySelector('input[name="' + row.group + '"]:checked');
             var dir = checkedRadio ? checkedRadio.value : 'neither';
-            var force = dir === 'neither' || (row.rtForcesOff && rtOn);
+            var force = dir === 'neither' || (row.rtForcesOff && rtOn)
+                || (row.group === 'kioskBinDir' && binRequired);
             if (force) {
                 skip.checked = false;
                 skip.disabled = true;
@@ -1257,7 +1370,7 @@
         });
         // Outbound radios for splittable prompts: disable while RT is on; if
         // currently checked, push selection to Inbound.
-        ['kioskCommodityDirOutbound', 'kioskCustomerDirOutbound', 'kioskLocationDirOutbound', 'kioskDestDirOutbound'].forEach(function (id) {
+        ['kioskCommodityDirOutbound', 'kioskCustomerDirOutbound', 'kioskLocationDirOutbound', 'kioskDestDirOutbound', 'kioskBinDirOutbound'].forEach(function (id) {
             var outRadio = document.getElementById(id);
             if (!outRadio) return;
             outRadio.disabled = on;
@@ -1413,8 +1526,32 @@
     bindSplitDirectionRadio('kioskCustomerDir',  'PromptKioskCustomerOnInbound',   'PromptKioskCustomerOnOutbound');
     bindSplitDirectionRadio('kioskLocationDir',  'PromptKioskLocationOnInbound',   'PromptKioskLocationOnOutbound');
     bindSplitDirectionRadio('kioskDestDir',      'PromptKioskDestinationOnInbound', 'PromptKioskDestinationOnOutbound');
+    bindSplitDirectionRadio('kioskBinDir',       'PromptKioskBinOnInbound',         'PromptKioskBinOnOutbound');
     // Apply the rule on initial load (covers prompts already set to Neither).
     syncAllowSkipState();
+
+    // --- Bin Inventory gating (System → Options) ---
+    document.getElementById('BinRequired').addEventListener('change', syncAllowSkipState);
+
+    document.getElementById('UseBinInventory').addEventListener('change', function () {
+        var on = this.value === 'true';
+        document.getElementById('binManageSection').style.display = on ? 'flex' : 'none';
+        document.getElementById('binRequiredSection').style.display = on ? 'block' : 'none';
+        var orderRow = document.getElementById('binFieldOrderRow');
+        if (orderRow) orderRow.style.display = on ? 'table-row' : 'none';
+        var promptRow = document.getElementById('binPromptRow');
+        if (promptRow) promptRow.style.display = on ? 'table-row' : 'none';
+        // Turning the feature on with the prompt at Neither would look broken
+        // at the kiosk — default the prompt to Inbound (the receiving leg).
+        if (on) {
+            var inRadio = document.getElementById('kioskBinDirInbound');
+            var noneRadio = document.getElementById('kioskBinDirNone');
+            if (inRadio && noneRadio && noneRadio.checked) {
+                inRadio.checked = true;
+                inRadio.dispatchEvent(new Event('change'));
+            }
+        }
+    });
 
     // --- Confirm modal ---
     var _confirmFormId = null;

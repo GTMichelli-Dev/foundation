@@ -6,10 +6,10 @@ namespace Foundation.Web.Reports;
 
 /// <summary>
 /// Bridges admin-defined custom fields (Setup → Fields) and the DevExpress
-/// ticket reports. Each active Show-on-Ticket field is exposed as a report
-/// parameter named cf_&lt;SanitizedName&gt; so it can be placed in the designer;
-/// fields not referenced by the layout keep the legacy auto-appended row
-/// (see TicketController.InjectCustomFields).
+/// ticket reports. Every active field is exposed as a report parameter named
+/// cf_&lt;SanitizedName&gt; so it can be placed in the designer. Show-on-Ticket
+/// fields not referenced by the layout auto-append a printed row; unchecked
+/// fields print only when placed (see TicketController.InjectCustomFields).
 /// </summary>
 public static class CustomFieldParams
 {

@@ -11,6 +11,11 @@ public class CustomFieldsController : Controller
 {
     private static readonly string[] ValidTypes = { "Text", "Integer", "Real" };
 
+    /// <summary>Standard fields a sub-field can cascade under (their form
+    /// input name doubles as the ParentField key).</summary>
+    private static readonly string[] StandardParents =
+        { "Commodity", "Customer", "Carrier", "Location", "Destination", "Bin" };
+
     private readonly ScaleDbContext _db;
 
     public CustomFieldsController(ScaleDbContext db)
@@ -27,14 +32,14 @@ public class CustomFieldsController : Controller
         return Json(fields.Select(f => new
         {
             f.Id, f.Name, f.FieldType, f.Required, f.Active, f.ShowOnTicket, f.SortOrder,
-            f.ListValues, f.MinValue, f.MaxValue, f.Precision, f.PromptAtKiosk
+            f.ListValues, f.MinValue, f.MaxValue, f.Precision, f.PromptAtKiosk, f.ParentField
         }));
     }
 
     [HttpPost("api/customfields")]
     public IActionResult Add([FromBody] CustomField field)
     {
-        var error = Validate(field);
+        var error = Validate(field) ?? ValidateParent(field, selfId: null);
         if (error != null) return BadRequest(new { error });
         if (_db.CustomFields.Any(f => f.Name.ToLower() == field.Name.Trim().ToLower()))
             return BadRequest(new { error = "A field with that name already exists." });
@@ -53,25 +58,78 @@ public class CustomFieldsController : Controller
         var existing = _db.CustomFields.Find(id);
         if (existing == null) return NotFound();
 
-        var error = Validate(field);
+        var error = Validate(field) ?? ValidateParent(field, selfId: id);
         if (error != null) return BadRequest(new { error });
         if (_db.CustomFields.Any(f => f.Id != id && f.Name.ToLower() == field.Name.Trim().ToLower()))
             return BadRequest(new { error = "A field with that name already exists." });
 
         Normalize(field);
+
+        // Changing (or clearing) the parent orphans the per-parent mapping —
+        // its keys were the old parent's values. Drop the mapping but keep the
+        // flattened union in ListValues so no choices are silently lost.
+        if (existing.ParentField != field.ParentField)
+        {
+            var stale = _db.CustomFieldListValues.Where(v => v.CustomFieldId == id);
+            _db.CustomFieldListValues.RemoveRange(stale);
+        }
+
         existing.Name = field.Name.Trim();
         existing.FieldType = field.FieldType;
         existing.Required = field.Required;
         existing.Active = field.Active;
         existing.ShowOnTicket = field.ShowOnTicket;
         existing.SortOrder = field.SortOrder;
-        existing.ListValues = field.ListValues;
+        // A sub-field's ListValues is the synced union of its mapping — don't
+        // overwrite it from the modal (the textarea is hidden for sub-fields).
+        if (field.ParentField == null) existing.ListValues = field.ListValues;
         existing.MinValue = field.MinValue;
         existing.MaxValue = field.MaxValue;
         existing.Precision = field.Precision;
         existing.PromptAtKiosk = field.PromptAtKiosk;
+        existing.ParentField = field.ParentField;
+        if (!existing.IsKioskEligible()) existing.PromptAtKiosk = false;
         _db.SaveChanges();
         return Json(existing);
+    }
+
+    /// <summary>
+    /// ParentField rules: text list fields only; parent must be a known
+    /// standard field or an existing list-backed text custom field; no
+    /// self-reference or cycles (Variety under Commodity, Grade under Variety
+    /// is fine — Grade under itself, or two fields under each other, is not).
+    /// </summary>
+    private string? ValidateParent(CustomField field, int? selfId)
+    {
+        var parent = string.IsNullOrWhiteSpace(field.ParentField) ? null : field.ParentField.Trim();
+        field.ParentField = parent;
+        if (parent == null) return null;
+
+        if (field.FieldType != "Text")
+            return "Only text dropdown fields can be a sub-field of another field.";
+        if (StandardParents.Contains(parent)) return null;
+
+        if (!parent.StartsWith("cf_") || !int.TryParse(parent[3..], out var parentId))
+            return "Unknown parent field.";
+        if (selfId.HasValue && parentId == selfId.Value)
+            return "A field can't be a sub-field of itself.";
+
+        var parentField = _db.CustomFields.Find(parentId);
+        if (parentField == null) return "Parent field no longer exists.";
+        if (parentField.FieldType != "Text")
+            return "The parent must be a text dropdown field.";
+
+        // Walk up the parent chain to reject cycles.
+        var seen = new HashSet<int> { parentId };
+        if (selfId.HasValue) seen.Add(selfId.Value);
+        var cursor = parentField;
+        while (cursor?.ParentField is { } up && up.StartsWith("cf_") && int.TryParse(up[3..], out var upId))
+        {
+            if (!seen.Add(upId))
+                return "That parent would create a loop of sub-fields.";
+            cursor = _db.CustomFields.Find(upId);
+        }
+        return null;
     }
 
     /// <summary>Deletes the definition AND all stored ticket values (cascade).
@@ -89,32 +147,102 @@ public class CustomFieldsController : Controller
     }
 
     // ===== Dropdown list values (Edit Tables → per-field tab) =====
-    // The choices live as newline-separated text on CustomField.ListValues;
-    // these endpoints let the Edit Tables grids manage them like master data.
+    // Flat fields keep their choices as newline-separated text on
+    // CustomField.ListValues. Sub-fields (ParentField set) keep them in
+    // CustomFieldListValues, one row per (parent value, choice); pass
+    // ?parent= to scope every call, and ListValues is re-synced to the
+    // flattened union so validation / kiosk eligibility work unchanged.
 
     public record ListValueEdit(string? OldValue, string? NewValue);
 
     [HttpGet("api/customfields/{id}/values")]
-    public IActionResult GetValues(int id)
+    public IActionResult GetValues(int id, string? parent = null)
     {
         var field = _db.CustomFields.Find(id);
         if (field == null) return NotFound();
+        if (field.ParentField != null && !string.IsNullOrEmpty(parent))
+        {
+            return Json(_db.CustomFieldListValues
+                .Where(v => v.CustomFieldId == id && v.ParentValue == parent)
+                .OrderBy(v => v.SortOrder).ThenBy(v => v.Value)
+                .Select(v => new { value = v.Value })
+                .ToList());
+        }
         return Json(field.GetListValues().Select(v => new { value = v }));
     }
 
+    /// <summary>Full parent → choices map for a sub-field. Used by the weigh
+    /// forms and the kiosk to filter the dropdown by the selected parent.</summary>
+    [HttpGet("api/customfields/{id}/valuemap")]
+    public IActionResult GetValueMap(int id)
+    {
+        var field = _db.CustomFields.Find(id);
+        if (field == null) return NotFound();
+        return Json(BuildValueMap(id));
+    }
+
+    private Dictionary<string, List<string>> BuildValueMap(int fieldId) =>
+        _db.CustomFieldListValues
+            .Where(v => v.CustomFieldId == fieldId)
+            .OrderBy(v => v.ParentValue).ThenBy(v => v.SortOrder).ThenBy(v => v.Value)
+            .AsEnumerable()
+            .GroupBy(v => v.ParentValue)
+            .ToDictionary(g => g.Key, g => g.Select(v => v.Value).ToList());
+
     /// <summary>Add (OldValue null), rename, or delete (NewValue null) one
-    /// choice. Order of the remaining choices is preserved.</summary>
+    /// choice. Order of the remaining choices is preserved. For sub-fields the
+    /// edit applies to the given parent value only.</summary>
     [HttpPost("api/customfields/{id}/values")]
-    public IActionResult EditValue(int id, [FromBody] ListValueEdit edit)
+    public IActionResult EditValue(int id, [FromBody] ListValueEdit edit, string? parent = null)
     {
         var field = _db.CustomFields.Find(id);
         if (field == null) return NotFound();
         if (field.FieldType != "Text") return BadRequest(new { error = "Only text fields have dropdown values." });
 
-        var values = field.GetListValues();
         var newVal = edit.NewValue?.Trim();
         if (newVal is { Length: > 200 }) return BadRequest(new { error = "Values must be 200 characters or fewer." });
 
+        if (field.ParentField != null)
+        {
+            if (string.IsNullOrEmpty(parent))
+                return BadRequest(new { error = "Pick a parent value first." });
+
+            var rows = _db.CustomFieldListValues
+                .Where(v => v.CustomFieldId == id && v.ParentValue == parent)
+                .OrderBy(v => v.SortOrder).ThenBy(v => v.Value)
+                .ToList();
+
+            if (edit.OldValue == null)
+            {
+                if (string.IsNullOrEmpty(newVal)) return BadRequest(new { error = "Value is required." });
+                if (rows.Any(r => r.Value == newVal)) return BadRequest(new { error = "That value already exists." });
+                _db.CustomFieldListValues.Add(new CustomFieldListValue
+                {
+                    CustomFieldId = id,
+                    ParentValue = parent,
+                    Value = newVal,
+                    SortOrder = rows.Count == 0 ? 10 : rows.Max(r => r.SortOrder) + 10
+                });
+            }
+            else
+            {
+                var row = rows.FirstOrDefault(r => r.Value == edit.OldValue);
+                if (row == null) return NotFound(new { error = "Value not found." });
+                if (string.IsNullOrEmpty(newVal))
+                {
+                    _db.CustomFieldListValues.Remove(row);
+                }
+                else
+                {
+                    if (newVal != edit.OldValue && rows.Any(r => r.Value == newVal))
+                        return BadRequest(new { error = "That value already exists." });
+                    row.Value = newVal;
+                }
+            }
+            return SyncUnionAndSave(field);
+        }
+
+        var values = field.GetListValues();
         if (edit.OldValue == null)
         {
             if (string.IsNullOrEmpty(newVal)) return BadRequest(new { error = "Value is required." });
@@ -140,9 +268,10 @@ public class CustomFieldsController : Controller
         return SaveValues(field, values);
     }
 
-    /// <summary>Replace the full choice list (drag-reorder posts the new order).</summary>
+    /// <summary>Replace the full choice list (drag-reorder posts the new
+    /// order). For sub-fields, replaces the list under the given parent value.</summary>
     [HttpPut("api/customfields/{id}/values")]
-    public IActionResult ReorderValues(int id, [FromBody] List<string> values)
+    public IActionResult ReorderValues(int id, [FromBody] List<string> values, string? parent = null)
     {
         var field = _db.CustomFields.Find(id);
         if (field == null) return NotFound();
@@ -150,7 +279,49 @@ public class CustomFieldsController : Controller
 
         var clean = values.Select(v => v.Trim()).Where(v => v.Length > 0).Distinct().ToList();
         if (clean.Any(v => v.Length > 200)) return BadRequest(new { error = "Values must be 200 characters or fewer." });
+
+        if (field.ParentField != null)
+        {
+            if (string.IsNullOrEmpty(parent))
+                return BadRequest(new { error = "Pick a parent value first." });
+            var rows = _db.CustomFieldListValues
+                .Where(v => v.CustomFieldId == id && v.ParentValue == parent);
+            _db.CustomFieldListValues.RemoveRange(rows);
+            for (var i = 0; i < clean.Count; i++)
+            {
+                _db.CustomFieldListValues.Add(new CustomFieldListValue
+                {
+                    CustomFieldId = id,
+                    ParentValue = parent,
+                    Value = clean[i],
+                    SortOrder = (i + 1) * 10
+                });
+            }
+            return SyncUnionAndSave(field);
+        }
+
         return SaveValues(field, clean);
+    }
+
+    /// <summary>Re-derive a sub-field's flat ListValues union from its mapping
+    /// rows (pending changes included) and save everything.</summary>
+    private IActionResult SyncUnionAndSave(CustomField field)
+    {
+        _db.SaveChanges(); // persist mapping edits so the union query sees them
+
+        var union = _db.CustomFieldListValues
+            .Where(v => v.CustomFieldId == field.Id)
+            .OrderBy(v => v.ParentValue).ThenBy(v => v.SortOrder).ThenBy(v => v.Value)
+            .Select(v => v.Value)
+            .AsEnumerable()
+            .Distinct()
+            .ToList();
+
+        var joined = string.Join("\n", union);
+        field.ListValues = union.Count > 0 && joined.Length <= 4000 ? joined : (union.Count > 0 ? field.ListValues : null);
+        if (!field.IsKioskEligible()) field.PromptAtKiosk = false;
+        _db.SaveChanges();
+        return Json(new { success = true, count = union.Count });
     }
 
     private IActionResult SaveValues(CustomField field, List<string> values)
@@ -200,6 +371,7 @@ public class CustomFieldsController : Controller
         else
         {
             field.ListValues = null;
+            field.ParentField = null; // cascading applies to text dropdowns only
             if (field.FieldType == "Integer") field.Precision = null;
         }
         // Kiosk prompting requires a constrained input.

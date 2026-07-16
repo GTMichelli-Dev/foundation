@@ -14,6 +14,7 @@
     if (!setup.HideCarrier) standardTabs.Add(("carriersTab", "carriersGrid", "Carriers & Trucks"));
     if (!setup.HideLocation) standardTabs.Add(("locationsTab", "locationsGrid", "Locations"));
     if (!setup.HideDestination) standardTabs.Add(("destinationsTab", "destinationsGrid", "Destinations"));
+    if (setup.UseBinInventory) standardTabs.Add(("binsTab", "binsGrid", "Bins"));
     if (!setup.HideCommodity) standardTabs.Add(("commoditiesTab", "commoditiesGrid", "Commodities"));
 }
 
@@ -111,12 +112,37 @@
     @foreach (var cf in customFieldLists)
     {
         <div class="tab-pane fade @(isFirstPane ? "show active" : "")" id="cfListTab_@cf.Id">
-            <p class="small text-muted mb-2">
-                Dropdown choices for the <strong>@cf.Name</strong> custom field
-                (Setup &rarr; Fields). Drag rows to reorder. Values already saved
-                on tickets are kept even if removed here.
-            </p>
-            <div id="cfListGrid_@cf.Id" class="cf-list-grid" data-field-id="@cf.Id" style="max-width: 480px;"></div>
+            @if (cf.ParentField == null)
+            {
+                <p class="small text-muted mb-2">
+                    Dropdown choices for the <strong>@cf.Name</strong> custom field
+                    (Setup &rarr; Fields). Drag rows to reorder. Values already saved
+                    on tickets are kept even if removed here.
+                </p>
+                <div id="cfListGrid_@cf.Id" class="cf-list-grid" data-field-id="@cf.Id" style="max-width: 480px;"></div>
+            }
+            else
+            {
+                var cfNames = ViewBag.CustomFieldNames as Dictionary<int, string> ?? new Dictionary<int, string>();
+                var parentLabel = cf.ParentField.StartsWith("cf_")
+                    && int.TryParse(cf.ParentField[3..], out var pid) && cfNames.TryGetValue(pid, out var pname)
+                        ? pname
+                        : cf.ParentField;
+                <p class="small text-muted mb-2">
+                    <strong>@cf.Name</strong> is a sub-field of <strong>@parentLabel</strong>
+                    (Setup &rarr; Fields): its dropdown choices are grouped under each
+                    @parentLabel value. Pick a @parentLabel, then manage its choices below.
+                    Drag rows to reorder. Values already saved on tickets are kept even
+                    if removed here.
+                </p>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="small fw-bold">@parentLabel:</span>
+                    <div id="cfParentPicker_@cf.Id" style="width: 300px;"></div>
+                </div>
+                <div id="cfListGrid_@cf.Id" class="cf-dep-list-grid" data-field-id="@cf.Id"
+                     data-parent-field="@cf.ParentField" style="max-width: 480px; display: none;"></div>
+                <p id="cfDepPickHint_@cf.Id" class="small text-muted">Pick a @parentLabel above to edit its @cf.Name choices.</p>
+            }
         </div>
         isFirstPane = false;
     }
@@ -329,6 +355,16 @@
     }
 
     $(function () {
+        // Deep-link support: /MasterData?tab=binsTab opens that tab directly
+        // (used by the Setup page's Bins / Manage buttons). Falls back to the
+        // first tab when the requested one doesn't exist (e.g. hidden field).
+        (function () {
+            var tab = new URLSearchParams(window.location.search).get('tab');
+            if (!tab || !/^[A-Za-z0-9_-]+$/.test(tab)) return;
+            var btn = document.querySelector('[data-bs-target="#' + tab + '"]');
+            if (btn) new bootstrap.Tab(btn).show();
+        })();
+
         var showKiosk = @(showKiosk ? "true" : "false");
         var useQuickBooks = @(useQuickBooks ? "true" : "false");
         var useRetainedTare = @(useRetainedTare ? "true" : "false");
@@ -442,6 +478,7 @@
         initNameActiveGrid('#customersGrid', 'customers', 'customerName', 'Customer Name', true, true);
         initNameActiveGrid('#locationsGrid', 'locations', 'locationName', 'Location Name', false);
         initNameActiveGrid('#destinationsGrid', 'destinations', 'destinationName', 'Destination Name', false);
+        initNameActiveGrid('#binsGrid', 'bins', 'binName', 'Bin Name', false);
         initNameActiveGrid('#commoditiesGrid', 'commodities', 'commodityName', 'Commodity Name', true);
 
         // Dropdown-value grids for list-backed custom fields (one tab each).
@@ -498,6 +535,120 @@
                     caption: 'Value',
                     validationRules: [{ type: 'required' }, { type: 'stringLength', max: 200 }]
                 }]
+            });
+        });
+
+        // Sub-field tabs (CustomField.ParentField set): a parent-value picker
+        // plus the same choice grid, scoped per parent value via ?parent= on
+        // the /api/customfields/{id}/values endpoints.
+        var STD_PARENT_SOURCES = {
+            'Commodity':   { url: '/api/masterdata/commodities',  name: 'commodityName' },
+            'Customer':    { url: '/api/masterdata/customers',    name: 'customerName' },
+            'Carrier':     { url: '/api/masterdata/carriers',     name: 'carrierName' },
+            'Location':    { url: '/api/masterdata/locations',    name: 'locationName' },
+            'Destination': { url: '/api/masterdata/destinations', name: 'destinationName' },
+            'Bin':         { url: '/api/masterdata/bins',         name: 'binName' }
+        };
+
+        $('.cf-dep-list-grid').each(function () {
+            var $gridEl = $(this);
+            var fieldId = $gridEl.data('field-id');
+            var parentField = String($gridEl.data('parent-field'));
+            var apiBase = '/api/customfields/' + fieldId + '/values';
+            var currentParent = null;
+            var gridInited = false;
+
+            function loadParentValues() {
+                var src = STD_PARENT_SOURCES[parentField];
+                if (src) {
+                    return $.getJSON(src.url).then(function (rows) {
+                        return rows.filter(function (r) { return r.active !== false; })
+                                   .map(function (r) { return r[src.name]; });
+                    });
+                }
+                // Parent is another custom field — its flat value union.
+                var pid = parseInt(parentField.substring(3));
+                return $.getJSON('/api/customfields/' + pid + '/values').then(function (rows) {
+                    return rows.map(function (r) { return r.value; });
+                });
+            }
+
+            function withParent(url) {
+                return url + '?parent=' + encodeURIComponent(currentParent || '');
+            }
+
+            function editValue(oldValue, newValue) {
+                return $.ajax({
+                    url: withParent(apiBase),
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ oldValue: oldValue, newValue: newValue })
+                });
+            }
+
+            function initGrid() {
+                gridInited = true;
+                $gridEl.dxDataGrid({
+                    hoverStateEnabled: true,
+                    showBorders: true,
+                    dataSource: new DevExpress.data.CustomStore({
+                        key: 'value',
+                        load: function () { return $.getJSON(withParent(apiBase)); },
+                        insert: function (values) { return editValue(null, values.value); },
+                        update: function (key, values) { return editValue(key, values.value); },
+                        remove: function (key) { return editValue(key, null); }
+                    }),
+                    editing: {
+                        mode: 'cell',
+                        allowAdding: true,
+                        allowUpdating: true,
+                        allowDeleting: true,
+                        useIcons: false
+                    },
+                    rowDragging: {
+                        allowReordering: true,
+                        onReorder: function (e) {
+                            var grid = e.component;
+                            var values = grid.getVisibleRows().map(function (r) { return r.data.value; });
+                            values.splice(e.fromIndex, 1);
+                            values.splice(e.toIndex, 0, e.itemData.value);
+                            $.ajax({
+                                url: withParent(apiBase),
+                                method: 'PUT',
+                                contentType: 'application/json',
+                                data: JSON.stringify(values)
+                            }).done(function () { grid.refresh(); });
+                        }
+                    },
+                    sorting: { mode: 'none' }, // list order = dropdown order
+                    columns: [{
+                        dataField: 'value',
+                        caption: 'Value',
+                        validationRules: [{ type: 'required' }, { type: 'stringLength', max: 200 }]
+                    }]
+                });
+            }
+
+            var picker = $('#cfParentPicker_' + fieldId).dxSelectBox({
+                items: [],
+                placeholder: 'Select...',
+                searchEnabled: true,
+                onValueChanged: function (e) {
+                    currentParent = e.value;
+                    if (!currentParent) {
+                        $gridEl.hide();
+                        $('#cfDepPickHint_' + fieldId).show();
+                        return;
+                    }
+                    $gridEl.show();
+                    $('#cfDepPickHint_' + fieldId).hide();
+                    if (!gridInited) initGrid();
+                    else $gridEl.dxDataGrid('instance').refresh();
+                }
+            }).dxSelectBox('instance');
+
+            loadParentValues().then(function (items) {
+                picker.option('items', items);
             });
         });
 
@@ -701,7 +852,7 @@
         var mdIsLeaving = false;
         function mdAnyGridDirty() {
             var grids = ['#customersGrid', '#carriersGrid', '#locationsGrid',
-                         '#destinationsGrid', '#commoditiesGrid'];
+                         '#destinationsGrid', '#binsGrid', '#commoditiesGrid'];
             for (var i = 0; i < grids.length; i++) {
                 var inst = $(grids[i]).dxDataGrid('instance');
                 if (inst && typeof inst.hasEditData === 'function' && inst.hasEditData()) {
@@ -861,7 +1012,7 @@
         };
 
         var MD_GRID_SELECTORS = ['#customersGrid', '#carriersGrid', '#locationsGrid',
-                                 '#destinationsGrid', '#commoditiesGrid'];
+                                 '#destinationsGrid', '#binsGrid', '#commoditiesGrid'];
 
         $(function () {
             $('#mdSyncDiscardBtn').on('click', function () {

@@ -40,9 +40,24 @@ public class CustomField
     /// Text fields only: newline-separated dropdown choices. When set, the
     /// weigh forms render a select instead of a free-text input. Managed on
     /// Setup → Fields (one value per line = full add/edit/delete/reorder).
+    /// For a sub-field (ParentField set) this holds the flattened union of
+    /// every parent's choices — kept in sync by CustomFieldsController — so
+    /// validation and kiosk-eligibility keep working unchanged.
     /// </summary>
     [StringLength(4000)]
     public string? ListValues { get; set; }
+
+    /// <summary>
+    /// Makes this a cascading sub-field: its dropdown choices are grouped
+    /// under each value of the parent field, and the forms/kiosk filter the
+    /// choices by the selected parent value (e.g. Variety under Commodity,
+    /// Grade under Variety). Either a standard field name ("Commodity",
+    /// "Customer", "Carrier", "Location", "Destination", "Bin") or another
+    /// list-backed custom field as "cf_{id}". Text list fields only. The
+    /// per-parent choices live in CustomFieldListValues (Edit Tables).
+    /// </summary>
+    [StringLength(20)]
+    public string? ParentField { get; set; }
 
     /// <summary>Integer/Real fields only: inclusive minimum allowed value.</summary>
     public double? MinValue { get; set; }
@@ -60,9 +75,11 @@ public class CustomField
     /// </summary>
     public bool PromptAtKiosk { get; set; }
 
-    /// <summary>True when this field is allowed to prompt at the kiosk.</summary>
+    /// <summary>True when this field is allowed to prompt at the kiosk.
+    /// A sub-field stays eligible even while its choice map is empty — the
+    /// kiosk auto-skips a prompt whose list resolves to no items.</summary>
     public bool IsKioskEligible() =>
-        FieldType != "Text" || GetListValues().Count > 0;
+        FieldType != "Text" || ParentField != null || GetListValues().Count > 0;
 
     /// <summary>ListValues split into clean entries (empty for free-text fields).</summary>
     public List<string> GetListValues() =>
@@ -71,6 +88,31 @@ public class CustomField
             .Select(v => v.Trim())
             .Where(v => v.Length > 0)
             .ToList();
+}
+
+/// <summary>
+/// One dropdown choice of a cascading sub-field (CustomField.ParentField set),
+/// scoped to one value of the parent field — e.g. field "Variety",
+/// ParentValue "Corn", Value "Yellow Dent". ParentValue is stored as text so
+/// the mapping survives parent renames the same way ticket values do.
+/// </summary>
+public class CustomFieldListValue
+{
+    [Key]
+    public int Id { get; set; }
+
+    public int CustomFieldId { get; set; }
+
+    [Required]
+    [StringLength(200)]
+    public string ParentValue { get; set; } = "";
+
+    [Required]
+    [StringLength(200)]
+    public string Value { get; set; } = "";
+
+    /// <summary>Display order within the parent value's list.</summary>
+    public int SortOrder { get; set; }
 }
 
 /// <summary>Per-ticket value for a CustomField. Stored as text; the field's

@@ -2,6 +2,7 @@
     ViewData["Title"] = "Reports";
     var savePicture = (bool)(ViewBag.SavePicture ?? false);
     var useQuickBooks = (bool)(ViewBag.UseQuickBooks ?? false);
+    var useBinInventory = (bool)(ViewBag.UseBinInventory ?? false);
 }
 
 <style>
@@ -32,6 +33,18 @@
 
 <h3>Reports</h3>
 <script>var companyName = '@Html.Raw(ViewBag.CompanyName)';</script>
+
+@if (useBinInventory)
+{
+    <ul class="nav nav-pills mb-2">
+        <li class="nav-item">
+            <button type="button" class="nav-link active" id="tabBtnTransactions">Transactions</button>
+        </li>
+        <li class="nav-item">
+            <button type="button" class="nav-link" id="tabBtnBinInventory">Bin Inventory</button>
+        </li>
+    </ul>
+}
 
 <!-- Image Lightbox Modal -->
 <div class="modal fade" id="imageModal" tabindex="-1">
@@ -78,6 +91,7 @@ function showTicketImage(ticket, direction, data) {
         info += row('Commodity:', data.commodity);
         if (data.location) info += row('Location:', data.location);
         if (data.destination) info += row('Destination:', data.destination);
+        if (data.bin) info += row('Bin:', data.bin);
         info += '<div style="border-top:1px dashed #000;border-bottom:1px dashed #000;margin:6px 0;padding:6px 0;">';
         if (direction === 'in') {
             info += '<div style="font-size:16px;font-weight:bold;display:flex;justify-content:space-between;"><span>Weight:</span><span>' + (data.inWeight || 0).toLocaleString() + ' lb</span></div>';
@@ -94,6 +108,7 @@ function showTicketImage(ticket, direction, data) {
 }
 </script>
 
+<div id="pane-transactions">
 <div class="report-controls">
     <span class="ctrl-label">From:</span>
     <div id="startDate"></div>
@@ -125,6 +140,74 @@ function showTicketImage(ticket, direction, data) {
 </div>
 
 <div id="reportGrid"></div>
+</div><!-- /pane-transactions -->
+
+@if (useBinInventory)
+{
+<div id="pane-binInventory" style="display:none;">
+    <div class="report-controls">
+        <span class="ctrl-label">As Of:</span>
+        <div id="binAsOfDate"></div>
+        <div id="binAddAdjustmentBtn" class="ms-2"></div>
+        <span class="ctrl-label ms-auto text-muted" style="font-weight:400;">
+            Loads in add to a bin, loads out deduct; true-ups reconcile shrinkage. Expand a row for its history.
+        </span>
+    </div>
+    <div id="binInventoryGrid"></div>
+</div>
+
+<!-- Bin adjustment / true-up modal -->
+<div class="modal fade" id="binAdjModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title" id="binAdjTitle">Bin Adjustment</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body py-2">
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label mb-0 small">Bin</label>
+                        <select id="binAdjBin" class="form-select form-select-sm"></select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label mb-0 small">Commodity</label>
+                        <select id="binAdjCommodity" class="form-select form-select-sm"></select>
+                    </div>
+                </div>
+                <div class="mb-2 small" id="binAdjCurrent" style="color: var(--bw-text-muted);"></div>
+                <div class="mb-2">
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="binAdjMode" id="binAdjModeTrueUp" value="trueup" checked />
+                        <label class="form-check-label small" for="binAdjModeTrueUp"><strong>True Up</strong> — set to measured total</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="binAdjMode" id="binAdjModeAdjust" value="adjust" />
+                        <label class="form-check-label small" for="binAdjModeAdjust"><strong>Adjust</strong> — add/subtract an amount</label>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label mb-0 small" id="binAdjAmountLabel">Measured amount on hand (lbs)</label>
+                    <input type="number" step="1" id="binAdjAmount" class="form-control form-control-sm" />
+                    <div class="form-text small" id="binAdjAmountHint">
+                        The difference from the computed balance is recorded as an adjustment.
+                    </div>
+                </div>
+                <div class="mb-1">
+                    <label class="form-label mb-0 small">Note</label>
+                    <input type="text" maxlength="200" id="binAdjNote" class="form-control form-control-sm"
+                           placeholder="e.g. Measured after drying — shrinkage" />
+                </div>
+                <div id="binAdjError" class="small text-danger mt-1" style="display:none;"></div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" id="binAdjSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+}
 
 @section Scripts {
 <script src="~/js/ticket-image-download.js"></script>
@@ -178,7 +261,8 @@ function showTicketImage(ticket, direction, data) {
             { value: 'truckId', text: 'Truck ID' },
             { value: 'commodity', text: 'Commodity' },
             { value: 'location', text: 'Location' },
-            { value: 'destination', text: 'Destination' }
+            { value: 'destination', text: 'Destination' },
+            { value: 'bin', text: 'Bin' }
         ].filter(function (o) { return window.bwFieldConfig.hidden.indexOf(o.value) === -1; });
         window.bwFieldConfig.customFields.forEach(function (f) {
             groupOptions.push({ value: 'cf_' + f.id, text: f.name });
@@ -545,6 +629,7 @@ function showTicketImage(ticket, direction, data) {
                     { dataField: 'commodity', caption: 'Commodity' },
                     { dataField: 'location', caption: 'Location' },
                     { dataField: 'destination', caption: 'Destination' },
+                    { dataField: 'bin', caption: 'Bin' },
                     { dataField: 'inWeight', caption: 'In (lbs)', dataType: 'number', format: '#,##0', width: 150 },
                     { dataField: 'outWeight', caption: 'Out (lbs)', dataType: 'number', format: '#,##0', width: 150 },
                     { dataField: 'netWeight', caption: 'Net (lbs)', dataType: 'number', format: '#,##0', width: 150, allowHiding: false, showInColumnChooser: false },
@@ -906,4 +991,236 @@ function showTicketImage(ticket, direction, data) {
         }
     });
 </script>
+@if (useBinInventory)
+{
+<text>
+<script>
+    // ===== BIN INVENTORY TAB =====
+    $(function () {
+        var binGrid = null;          // created lazily on first tab switch
+        var binAsOf = new Date();    // inclusive as-of date (display TZ)
+        var binRowsCache = [];       // last-loaded rows, for the modal's current-balance line
+        var binsList = [];           // active bin names (modal dropdown)
+        var commoditiesList = [];    // active commodity names (modal dropdown)
+
+        function showPane(which) {
+            $('#pane-transactions').toggle(which === 'transactions');
+            $('#pane-binInventory').toggle(which === 'bin');
+            $('#tabBtnTransactions').toggleClass('active', which === 'transactions');
+            $('#tabBtnBinInventory').toggleClass('active', which === 'bin');
+            if (which === 'bin' && !binGrid) initBinInventory();
+        }
+        $('#tabBtnTransactions').on('click', function () { showPane('transactions'); });
+        $('#tabBtnBinInventory').on('click', function () { showPane('bin'); });
+
+        function fmtLbs(n) { return (n == null ? 0 : Number(n)).toLocaleString('en-US'); }
+        function asOfParam() { return DevExpress.localization.formatDate(binAsOf, 'yyyy-MM-dd'); }
+
+        function initBinInventory() {
+            $.getJSON('/api/masterdata/bins').done(function (data) {
+                binsList = data.filter(function (b) { return b.active; }).map(function (b) { return b.binName; });
+            });
+            $.getJSON('/api/masterdata/commodities').done(function (data) {
+                commoditiesList = data.filter(function (c) { return c.active; }).map(function (c) { return c.commodityName; });
+            });
+
+            $('#binAsOfDate').dxDateBox({
+                value: binAsOf, type: 'date', displayFormat: 'MM/dd/yyyy', width: 140,
+                onValueChanged: function (e) { binAsOf = e.value; binGrid.refresh(); }
+            });
+
+            $('#binAddAdjustmentBtn').dxButton({
+                icon: 'edit', text: 'True Up / Adjust',
+                hint: 'Record a measured total or a +/- correction for a bin',
+                onClick: function () { openBinAdjModal(null); }
+            });
+
+            binGrid = $('#binInventoryGrid').dxDataGrid({
+                hoverStateEnabled: true,
+                dataSource: new DevExpress.data.CustomStore({
+                    key: '__key',
+                    load: function () {
+                        return $.getJSON('/api/reports/bin-inventory', { asOfDate: asOfParam() }).then(function (rows) {
+                            rows.forEach(function (r) { r.__key = r.bin + '||' + (r.commodity || ''); });
+                            binRowsCache = rows;
+                            return rows;
+                        });
+                    }
+                }),
+                columns: [
+                    { dataField: 'bin', caption: 'Bin', sortOrder: 'asc', sortIndex: 0 },
+                    { dataField: 'commodity', caption: 'Commodity', sortOrder: 'asc', sortIndex: 1,
+                      calculateDisplayValue: function (r) { return r.commodity || '—'; } },
+                    { dataField: 'loadsIn', caption: 'Loads In', dataType: 'number', width: 100 },
+                    { dataField: 'lbsIn', caption: 'In (lbs)', dataType: 'number', format: '#,##0', width: 120 },
+                    { dataField: 'loadsOut', caption: 'Loads Out', dataType: 'number', width: 100 },
+                    { dataField: 'lbsOut', caption: 'Out (lbs)', dataType: 'number', format: '#,##0', width: 120 },
+                    { dataField: 'adjustmentLbs', caption: 'Adjustments (lbs)', dataType: 'number', format: '#,##0', width: 140 },
+                    { dataField: 'onHandLbs', caption: 'On Hand (lbs)', dataType: 'number', format: '#,##0', width: 140,
+                      cssClass: 'fw-bold',
+                      cellTemplate: function (container, options) {
+                          $('<span>').text(fmtLbs(options.value))
+                              .css(options.value < 0 ? { color: '#c53030', fontWeight: 'bold' } : { fontWeight: 'bold' })
+                              .appendTo(container);
+                      } },
+                    { dataField: 'onHandTons', caption: 'On Hand (tons)', dataType: 'number', format: '#,##0.00', width: 130 },
+                    {
+                        caption: '', width: 110, allowFiltering: false, allowSorting: false, allowExporting: false,
+                        cellTemplate: function (container, options) {
+                            $('<button type="button" class="grid-action-btn btn btn-sm btn-outline-primary py-0">True Up</button>')
+                                .on('click', function () { openBinAdjModal(options.data); })
+                                .appendTo(container);
+                        }
+                    }
+                ],
+                summary: {
+                    totalItems: [
+                        { column: 'lbsIn', summaryType: 'sum', valueFormat: '#,##0', displayFormat: 'In: {0} lbs' },
+                        { column: 'lbsOut', summaryType: 'sum', valueFormat: '#,##0', displayFormat: 'Out: {0} lbs' },
+                        { column: 'onHandLbs', summaryType: 'sum', valueFormat: '#,##0', displayFormat: 'On hand: {0} lbs' }
+                    ]
+                },
+                masterDetail: {
+                    enabled: true,
+                    template: function (container, options) {
+                        var row = options.data;
+                        $('<div>').dxDataGrid({
+                            dataSource: new DevExpress.data.CustomStore({
+                                loadMode: 'raw',
+                                load: function () {
+                                    return $.getJSON('/api/reports/bin-inventory/detail', {
+                                        bin: row.bin, commodity: row.commodity || '', asOfDate: asOfParam()
+                                    });
+                                }
+                            }),
+                            showBorders: true,
+                            columnAutoWidth: true,
+                            paging: { pageSize: 10 },
+                            columns: [
+                                { dataField: 'date', caption: 'Date', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a', width: 160, sortOrder: 'desc' },
+                                { dataField: 'type', caption: 'Type', width: 110 },
+                                { dataField: 'reference', caption: 'Reference' },
+                                { dataField: 'lbs', caption: 'Change (lbs)', dataType: 'number', width: 130,
+                                  cellTemplate: function (c, o) {
+                                      var v = o.value || 0;
+                                      $('<span>').text((v > 0 ? '+' : '') + fmtLbs(v))
+                                          .css({ color: v < 0 ? '#c53030' : '#2f855a', fontWeight: 'bold' })
+                                          .appendTo(c);
+                                  } },
+                                {
+                                    caption: '', width: 90, allowFiltering: false, allowSorting: false,
+                                    cellTemplate: function (c, o) {
+                                        // Only manual adjustments can be removed here — tickets
+                                        // are corrected on the Completed page.
+                                        if (o.data.adjustmentId == null) return;
+                                        $('<button type="button" class="btn btn-sm btn-outline-danger py-0">Remove</button>')
+                                            .on('click', function () {
+                                                if (!confirm('Remove this adjustment?')) return;
+                                                $.ajax({ url: '/api/reports/bin-adjustments/' + o.data.adjustmentId, method: 'DELETE' })
+                                                    .done(function () {
+                                                        o.component.refresh();
+                                                        binGrid.refresh();
+                                                    });
+                                            })
+                                            .appendTo(c);
+                                    }
+                                }
+                            ]
+                        }).appendTo(container);
+                    }
+                },
+                showBorders: true,
+                filterRow: { visible: true },
+                headerFilter: { visible: true },
+                allowColumnReordering: true,
+                allowColumnResizing: true,
+                columnAutoWidth: true,
+                paging: { pageSize: 50 },
+                export: { enabled: false }
+            }).dxDataGrid('instance');
+        }
+
+        // ===== True Up / Adjust modal =====
+        function currentBalanceFor(bin, commodity) {
+            var row = binRowsCache.find(function (r) {
+                return r.bin === bin && (r.commodity || '') === (commodity || '');
+            });
+            return row ? row.onHandLbs : 0;
+        }
+
+        function fillSelect($sel, items, selected, emptyLabel) {
+            $sel.empty();
+            if (emptyLabel !== undefined) $sel.append($('<option>').val('').text(emptyLabel));
+            // Keep a value that's no longer in master data selectable so a
+            // retired bin/commodity row can still be trued up.
+            var all = items.slice();
+            if (selected && all.indexOf(selected) === -1) all.unshift(selected);
+            all.forEach(function (name) {
+                $sel.append($('<option>').val(name).text(name).prop('selected', name === selected));
+            });
+        }
+
+        function syncBinAdjModal() {
+            var mode = $('input[name="binAdjMode"]:checked').val();
+            $('#binAdjAmountLabel').text(mode === 'trueup' ? 'Measured amount on hand (lbs)' : 'Adjustment amount (lbs, +/-)');
+            $('#binAdjAmountHint').text(mode === 'trueup'
+                ? 'The difference from the computed balance is recorded as an adjustment.'
+                : 'Positive adds to the bin, negative deducts (e.g. -1500 for shrinkage).');
+            var bin = $('#binAdjBin').val();
+            var commodity = $('#binAdjCommodity').val();
+            $('#binAdjCurrent').text(bin
+                ? 'Computed balance for ' + bin + (commodity ? ' / ' + commodity : '') + ': ' + fmtLbs(currentBalanceFor(bin, commodity)) + ' lbs'
+                : '');
+        }
+
+        function openBinAdjModal(row) {
+            fillSelect($('#binAdjBin'), binsList, row ? row.bin : null);
+            fillSelect($('#binAdjCommodity'), commoditiesList, row ? (row.commodity || '') : '', '— None —');
+            $('#binAdjModeTrueUp').prop('checked', true);
+            $('#binAdjAmount').val('');
+            $('#binAdjNote').val('');
+            $('#binAdjError').hide();
+            $('#binAdjTitle').text(row ? ('True Up — ' + row.bin) : 'Bin Adjustment');
+            syncBinAdjModal();
+            new bootstrap.Modal('#binAdjModal').show();
+        }
+
+        $('input[name="binAdjMode"], #binAdjBin, #binAdjCommodity').on('change', syncBinAdjModal);
+
+        $('#binAdjSaveBtn').on('click', function () {
+            var bin = $('#binAdjBin').val();
+            var amountRaw = $('#binAdjAmount').val();
+            var amount = parseInt(amountRaw, 10);
+            var mode = $('input[name="binAdjMode"]:checked').val();
+            var $err = $('#binAdjError');
+            if (!bin) { $err.text('Pick a bin.').show(); return; }
+            if (amountRaw === '' || isNaN(amount)) { $err.text('Enter an amount in pounds.').show(); return; }
+            if (mode === 'adjust' && amount === 0) { $err.text('An adjustment of 0 lbs does nothing.').show(); return; }
+            var $btn = $(this).prop('disabled', true);
+            $.ajax({
+                url: '/api/reports/bin-adjustments',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    bin: bin,
+                    commodity: $('#binAdjCommodity').val() || null,
+                    mode: mode,
+                    amountLbs: amount,
+                    note: $('#binAdjNote').val() || null
+                })
+            }).done(function () {
+                bootstrap.Modal.getInstance(document.getElementById('binAdjModal')).hide();
+                if (binGrid) binGrid.refresh();
+            }).fail(function (xhr) {
+                var msg = 'Save failed.';
+                try { msg = JSON.parse(xhr.responseText).message || msg; } catch (e) { }
+                $err.text(msg).show();
+            }).always(function () {
+                $btn.prop('disabled', false);
+            });
+        });
+    });
+</script>
+</text>
+}
 }

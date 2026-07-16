@@ -66,6 +66,10 @@ public class SetupController : Controller
         existing.PromptKioskDestinationOnOutbound = setup.PromptKioskDestinationOnOutbound;
         existing.AllowSkipDestination = setup.AllowSkipDestination;
 
+        existing.PromptKioskBinOnInbound = setup.PromptKioskBinOnInbound;
+        existing.PromptKioskBinOnOutbound = setup.PromptKioskBinOnOutbound;
+        existing.AllowSkipBin = setup.AllowSkipBin;
+
         existing.HideKioskOnScreenButtons = setup.HideKioskOnScreenButtons;
         existing.TimeZoneId = string.IsNullOrWhiteSpace(setup.TimeZoneId) ? "America/Chicago" : setup.TimeZoneId;
         // Apply the new TZ to the running app immediately so subsequent
@@ -78,6 +82,8 @@ public class SetupController : Controller
         existing.RecallLastValues = setup.RecallLastValues;
         existing.RemotePrintMode = setup.RemotePrintMode ?? "None";
         existing.UseQuickBooks = setup.UseQuickBooks;
+        existing.UseBinInventory = setup.UseBinInventory;
+        existing.BinRequired = setup.BinRequired;
         existing.SavePicture = setup.SavePicture;
         existing.UseRetainedTare = setup.UseRetainedTare;
         existing.AutoClearStaleRetainedTare = setup.AutoClearStaleRetainedTare;
@@ -100,6 +106,7 @@ public class SetupController : Controller
         existing.FieldOrderTruckId = setup.FieldOrderTruckId;
         existing.FieldOrderLocation = setup.FieldOrderLocation;
         existing.FieldOrderDestination = setup.FieldOrderDestination;
+        existing.FieldOrderBin = setup.FieldOrderBin;
         existing.FieldOrderNotes = setup.FieldOrderNotes;
 
         // Field-visibility rules:
@@ -131,6 +138,7 @@ public class SetupController : Controller
             existing.PromptKioskCustomerOnOutbound = false;
             existing.PromptKioskLocationOnOutbound = false;
             existing.PromptKioskDestinationOnOutbound = false;
+            existing.PromptKioskBinOnOutbound = false;
         }
 
         // A hidden field must never be prompted for at the kiosk — force its
@@ -159,6 +167,16 @@ public class SetupController : Controller
             existing.PromptKioskDestinationOnInbound = false;
             existing.PromptKioskDestinationOnOutbound = false;
         }
+        // Bin has no Hide flag — the feature toggle IS its visibility. Turning
+        // Bin Inventory off forces the kiosk prompts off so they can't fire.
+        if (!existing.UseBinInventory)
+        {
+            existing.PromptKioskBinOnInbound = false;
+            existing.PromptKioskBinOnOutbound = false;
+        }
+        // A required bin can't be skippable at the kiosk.
+        if (existing.UseBinInventory && existing.BinRequired)
+            existing.AllowSkipBin = false;
         // Camera assignments are managed on the Camera page and scales on the
         // Scales page (named site scales), so the posted AppSetup never carries
         // those fields — don't overwrite the saved values with the nulls that
@@ -498,7 +516,9 @@ public class SetupController : Controller
                 demoMode = setup.DemoMode,
                 theme = setup.Theme,
                 hasCustomIcon = setup.Icon != null,
-                recallLastValues = setup.RecallLastValues
+                recallLastValues = setup.RecallLastValues,
+                useBinInventory = setup.UseBinInventory,
+                binRequired = setup.BinRequired
             },
             kiosk = new
             {
@@ -519,7 +539,10 @@ public class SetupController : Controller
                 allowSkipLocation = setup.AllowSkipLocation,
                 promptDestinationOnInbound = setup.PromptKioskDestinationOnInbound,
                 promptDestinationOnOutbound = setup.PromptKioskDestinationOnOutbound,
-                allowSkipDestination = setup.AllowSkipDestination
+                allowSkipDestination = setup.AllowSkipDestination,
+                promptBinOnInbound = setup.PromptKioskBinOnInbound,
+                promptBinOnOutbound = setup.PromptKioskBinOnOutbound,
+                allowSkipBin = setup.AllowSkipBin
             },
             security = new
             {

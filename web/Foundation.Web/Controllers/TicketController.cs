@@ -74,6 +74,7 @@ public class TicketController : Controller
             commodity = transaction.Commodity,
             location = transaction.Location,
             destination = transaction.Destination,
+            bin = transaction.Bin,
             grossWeight = transaction.GrossWeight,
             tareWeight = transaction.TareWeight,
             netWeight = transaction.NetWeight,
@@ -115,6 +116,7 @@ public class TicketController : Controller
         SetLogoImage(report, setup);
         ApplyFieldVisibility(report, setup);
         SetSignatureImage(report, setup, id);
+        InjectBinRow(report, setup, transaction, "capSignature", "lblVoid");
         InjectCustomFields(report, id, "capSignature", "lblVoid");
 
         // Set parameters
@@ -163,6 +165,7 @@ public class TicketController : Controller
         }
 
         ApplyFieldVisibility(report, setup);
+        InjectBinRow(report, setup, transaction, "capInWeight");
         InjectCustomFields(report, id, "capInWeight");
         SetParam(report, "Ticket", transaction.Ticket);
         SetParam(report, "DateIn", transaction.DateIn.ToServerLocal().ToString("MM/dd/yyyy hh:mm tt"));
@@ -201,6 +204,7 @@ public class TicketController : Controller
                 : new KioskTicketReport();
 
             ApplyFieldVisibility(report, setup);
+            InjectBinRow(report, setup, transaction, "capInWeight");
             InjectCustomFields(report, id, "capInWeight");
             SetParam(report, "Ticket", transaction.Ticket);
             SetParam(report, "DateIn", transaction.DateIn.ToServerLocal().ToString("MM/dd/yyyy hh:mm tt"));
@@ -224,6 +228,7 @@ public class TicketController : Controller
             SetLogoImage(report, setup);
             ApplyFieldVisibility(report, setup);
             SetSignatureImage(report, setup, id);
+            InjectBinRow(report, setup, transaction, "capSignature", "lblVoid");
             InjectCustomFields(report, id, "capSignature", "lblVoid");
             SetParam(report, "Ticket", transaction.Ticket);
             SetParam(report, "DateIn", transaction.DateIn.ToServerLocal().ToString("MM/dd/yyyy hh:mm tt"));
@@ -340,19 +345,39 @@ public class TicketController : Controller
         if (setup.HideNotes) ReportFieldLayout.CollapseRow(report, "Notes");
     }
 
-    /// <summary>Print this ticket's custom-field values (fields marked Show on
-    /// Ticket only). Hybrid: a field whose cf_ parameter is referenced in the
-    /// layout (placed via the designer) gets its value through that parameter;
-    /// unreferenced fields keep the legacy auto-appended row above the given
-    /// anchor control, so existing layouts print unchanged.</summary>
+    /// <summary>Append a "Bin:" row to the printed ticket (Bin Inventory
+    /// feature). Uses the same auto-append mechanism as unplaced custom fields
+    /// so existing .repx layouts print unchanged; a designer-placed "Bin"
+    /// parameter takes over when the layout references it.</summary>
+    private void InjectBinRow(XtraReport report, AppSetup setup, Transaction transaction, params string[] anchorNames)
+    {
+        if (!setup.UseBinInventory || string.IsNullOrEmpty(transaction.Bin)) return;
+
+        var paramName = CustomFieldParams.ParamName("Bin");
+        if (CustomFieldParams.IsReferenced(report, paramName))
+        {
+            CustomFieldParams.EnsureParameter(report, paramName, "Bin");
+            report.Parameters[paramName].Value = transaction.Bin;
+            return;
+        }
+        ReportFieldLayout.InsertRows(report, new List<(string, string)> { ("Bin:", transaction.Bin!) }, anchorNames);
+    }
+
+    /// <summary>Print this ticket's custom-field values. Hybrid: a field whose
+    /// cf_ parameter is referenced in the layout (placed via the designer) gets
+    /// its value through that parameter regardless of Show on Ticket; a
+    /// Show-on-Ticket field NOT referenced keeps the legacy auto-appended row
+    /// above the given anchor control, so existing layouts print unchanged. A
+    /// field with Show on Ticket unchecked and no placement prints nothing —
+    /// its parameter simply sits in the designer waiting to be placed.</summary>
     private void InjectCustomFields(XtraReport report, string ticketId, params string[] anchorNames)
     {
         var rows = (from v in _db.TransactionCustomValues
                     join f in _db.CustomFields on v.CustomFieldId equals f.Id
-                    where v.Ticket == ticketId && f.ShowOnTicket
+                    where v.Ticket == ticketId
                           && v.Value != null && v.Value != ""
                     orderby f.SortOrder, f.Name
-                    select new { f.Name, v.Value }).ToList();
+                    select new { f.Name, f.ShowOnTicket, v.Value }).ToList();
         if (rows.Count == 0) return;
 
         var appendRows = new List<(string Label, string Value)>();
@@ -364,7 +389,7 @@ public class TicketController : Controller
                 CustomFieldParams.EnsureParameter(report, paramName, row.Name);
                 report.Parameters[paramName].Value = row.Value;
             }
-            else
+            else if (row.ShowOnTicket)
             {
                 appendRows.Add((row.Name + ":", row.Value!));
             }

@@ -92,6 +92,13 @@ public class AppSetup
     [Display(Name = "Allow Skip Destination")]
     public bool AllowSkipDestination { get; set; } = true;
 
+    [Display(Name = "Prompt Bin on Inbound")]
+    public bool PromptKioskBinOnInbound { get; set; } = true;
+    [Display(Name = "Prompt Bin on Outbound")]
+    public bool PromptKioskBinOnOutbound { get; set; }
+    [Display(Name = "Allow Skip Bin")]
+    public bool AllowSkipBin { get; set; } = true;
+
     /// <summary>
     /// Hide the on-screen interactive buttons on the kiosk (numpad, Cancel,
     /// Skip, Select, Done) so the operator drives entirely with a physical
@@ -129,6 +136,27 @@ public class AppSetup
     // QuickBooks integration
     [Display(Name = "Connect to QuickBooks")]
     public bool UseQuickBooks { get; set; }
+
+    /// <summary>
+    /// Bin inventory tracking. When true: a Bin field appears on the weigh
+    /// forms and kiosk prompts, bins are managed on Edit Tables, and the
+    /// Reports page gains a Bin Inventory tab. On-hand per bin is computed
+    /// from ticket history — loads where the truck arrived heavy add to the
+    /// bin, loads where it left heavy deduct — plus manual adjustments
+    /// (true-ups for shrinkage, starting balances). When false, nothing
+    /// bin-related is shown anywhere.
+    /// </summary>
+    [Display(Name = "Use Bin Inventory")]
+    public bool UseBinInventory { get; set; }
+
+    /// <summary>
+    /// When Bin Inventory is on, require a bin on every ticket: the weigh
+    /// forms won't save without one and the kiosk bin prompt can't be
+    /// skipped (Allow Skip Bin is forced off). Keeps the inventory complete —
+    /// no unbinned loads slip through.
+    /// </summary>
+    [Display(Name = "Bin Entry")]
+    public bool BinRequired { get; set; }
 
     // Camera / ticket images
     [Display(Name = "Save Picture for Ticket")]
@@ -264,6 +292,9 @@ public class AppSetup
 
     [Display(Name = "Destination Order")]
     public int FieldOrderDestination { get; set; } = 60;
+
+    [Display(Name = "Bin Order")]
+    public int FieldOrderBin { get; set; } = 65;
 
     [Display(Name = "Notes Order")]
     public int FieldOrderNotes { get; set; } = 70;

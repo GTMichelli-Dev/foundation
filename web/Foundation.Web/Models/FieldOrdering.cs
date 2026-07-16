@@ -29,6 +29,8 @@ public static class FieldOrdering
         Std("TruckId", setup.HideTruckId, setup.FieldOrderTruckId);
         Std("Location", setup.HideLocation, setup.FieldOrderLocation);
         Std("Destination", setup.HideDestination, setup.FieldOrderDestination);
+        // Bin has no Hide flag — the Bin Inventory toggle is its visibility.
+        Std("Bin", !setup.UseBinInventory, setup.FieldOrderBin);
         Std("Notes", setup.HideNotes, setup.FieldOrderNotes);
 
         foreach (var f in customFields.Where(f => f.Active))

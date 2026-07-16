@@ -27,10 +27,15 @@ public class MasterDataController : Controller
         // Hidden standard fields lose their Edit Tables tab too (Setup → Fields).
         ViewBag.Setup = setup;
         // Active dropdown-backed custom fields each get their own edit tab.
+        // Sub-fields (ParentField set) get a tab even while empty — their
+        // choices are created here, per parent value.
         ViewBag.CustomFieldLists = _db.CustomFields
-            .Where(f => f.Active && f.FieldType == "Text" && f.ListValues != null && f.ListValues != "")
+            .Where(f => f.Active && f.FieldType == "Text"
+                        && ((f.ListValues != null && f.ListValues != "") || f.ParentField != null))
             .OrderBy(f => f.SortOrder).ThenBy(f => f.Name)
             .ToList();
+        // For resolving "cf_{id}" parent references to display names.
+        ViewBag.CustomFieldNames = _db.CustomFields.ToDictionary(f => f.Id, f => f.Name);
         return View();
     }
 
@@ -267,6 +272,48 @@ public class MasterDataController : Controller
         return Json(new { success = true });
     }
 
+    // ---- Bins (Bin Inventory feature) ----
+    [HttpGet("api/masterdata/bins")]
+    public IActionResult GetBins()
+    {
+        return Json(_db.Bins.OrderBy(b => b.BinName).ToList());
+    }
+
+    [HttpPost("api/masterdata/bins")]
+    public IActionResult AddBin([FromBody] Bin bin)
+    {
+        _db.Bins.Add(bin);
+        _db.SaveChanges();
+        return Json(bin);
+    }
+
+    [HttpPut("api/masterdata/bins")]
+    public IActionResult UpdateBin([FromBody] JsonElement body)
+    {
+        var id = body.GetProperty("id").GetInt32();
+        var existing = _db.Bins.Find(id);
+        if (existing == null) return NotFound();
+        if (body.TryGetProperty("binName", out var name)) existing.BinName = name.GetString()!;
+        if (body.TryGetProperty("active", out var active))
+        {
+            existing.Active = active.GetBoolean();
+            if (!existing.Active) existing.UseAtKiosk = false;
+        }
+        if (body.TryGetProperty("useAtKiosk", out var kiosk)) existing.UseAtKiosk = kiosk.GetBoolean();
+        _db.SaveChanges();
+        return Json(existing);
+    }
+
+    [HttpDelete("api/masterdata/bins/{id:int}")]
+    public IActionResult DeleteBin(int id)
+    {
+        var entity = _db.Bins.Find(id);
+        if (entity == null) return NotFound();
+        _db.Bins.Remove(entity);
+        _db.SaveChanges();
+        return Json(new { success = true });
+    }
+
     // ---- Trucks ----
     [HttpGet("api/masterdata/trucks")]
     public IActionResult GetTrucks()
@@ -411,6 +458,14 @@ public class MasterDataController : Controller
                 break;
             case "destinations":
                 foreach (var x in _db.Destinations)
+                {
+                    if (field == "active") { x.Active = req.Value; if (!req.Value) x.UseAtKiosk = false; }
+                    else { x.UseAtKiosk = req.Value && x.Active; }
+                    count++;
+                }
+                break;
+            case "bins":
+                foreach (var x in _db.Bins)
                 {
                     if (field == "active") { x.Active = req.Value; if (!req.Value) x.UseAtKiosk = false; }
                     else { x.UseAtKiosk = req.Value && x.Active; }

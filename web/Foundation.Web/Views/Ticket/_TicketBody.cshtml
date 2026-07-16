@@ -66,6 +66,14 @@
     </div>
 }
 
+@if (!string.IsNullOrEmpty(Model.Bin))
+{
+    <div class="ticket-row">
+        <span class="label">Bin:</span>
+        <span>@Model.Bin</span>
+    </div>
+}
+
 <div class="ticket-weights">
     @if (isInbound)
     {

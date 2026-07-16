@@ -3,6 +3,7 @@ using System;
 using Foundation.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Foundation.Web.Migrations
 {
     [DbContext(typeof(ScaleDbContext))]
-    partial class ScaleDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260715232134_AddBinInventory")]
+    partial class AddBinInventory
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
@@ -64,9 +67,6 @@ namespace Foundation.Web.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("AutoClearStaleRetainedTare")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("BinRequired")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("DemoMode")
@@ -302,7 +302,6 @@ namespace Foundation.Web.Migrations
                             AllowSkipTruckId = true,
                             ApiDefinitionPin = "12345",
                             AutoClearStaleRetainedTare = true,
-                            BinRequired = false,
                             DemoMode = false,
                             FieldOrderBin = 65,
                             FieldOrderCarrier = 30,
@@ -598,10 +597,6 @@ namespace Foundation.Web.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("ParentField")
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
                     b.Property<int?>("Precision")
                         .HasColumnType("INTEGER");
 
@@ -623,36 +618,6 @@ namespace Foundation.Web.Migrations
                         .IsUnique();
 
                     b.ToTable("CustomFields", (string)null);
-                });
-
-            modelBuilder.Entity("Foundation.Web.Models.CustomFieldListValue", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("CustomFieldId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("ParentValue")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Value")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CustomFieldId", "ParentValue", "Value")
-                        .IsUnique();
-
-                    b.ToTable("CustomFieldListValues", (string)null);
                 });
 
             modelBuilder.Entity("Foundation.Web.Models.Customer", b =>
@@ -925,15 +890,6 @@ namespace Foundation.Web.Migrations
                         .IsUnique();
 
                     b.ToTable("Trucks", (string)null);
-                });
-
-            modelBuilder.Entity("Foundation.Web.Models.CustomFieldListValue", b =>
-                {
-                    b.HasOne("Foundation.Web.Models.CustomField", null)
-                        .WithMany()
-                        .HasForeignKey("CustomFieldId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Foundation.Web.Models.TransactionCustomValue", b =>

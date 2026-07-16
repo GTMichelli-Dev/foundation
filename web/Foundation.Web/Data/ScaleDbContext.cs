@@ -12,12 +12,15 @@ public class ScaleDbContext : DbContext
     public DbSet<Carrier> Carriers => Set<Carrier>();
     public DbSet<Location> Locations => Set<Location>();
     public DbSet<Destination> Destinations => Set<Destination>();
+    public DbSet<Bin> Bins => Set<Bin>();
+    public DbSet<BinAdjustment> BinAdjustments => Set<BinAdjustment>();
     public DbSet<Truck> Trucks => Set<Truck>();
     public DbSet<Commodity> Commodities => Set<Commodity>();
     public DbSet<AppSetup> AppSetup => Set<AppSetup>();
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<CameraConfig> CameraConfigs => Set<CameraConfig>();
     public DbSet<CustomField> CustomFields => Set<CustomField>();
+    public DbSet<CustomFieldListValue> CustomFieldListValues => Set<CustomFieldListValue>();
     public DbSet<TransactionCustomValue> TransactionCustomValues => Set<TransactionCustomValue>();
     public DbSet<Scale> Scales => Set<Scale>();
 
@@ -55,6 +58,17 @@ public class ScaleDbContext : DbContext
             e.HasIndex(d => d.DestinationName).IsUnique();
             e.Property(d => d.UseAtKiosk).HasDefaultValue(true);
         });
+        modelBuilder.Entity<Bin>(e =>
+        {
+            e.ToTable("Bins");
+            e.HasIndex(b => b.BinName).IsUnique();
+            e.Property(b => b.UseAtKiosk).HasDefaultValue(true);
+        });
+        modelBuilder.Entity<BinAdjustment>(e =>
+        {
+            e.ToTable("BinAdjustments");
+            e.HasIndex(a => a.Bin);
+        });
         modelBuilder.Entity<Truck>(e =>
         {
             e.ToTable("Trucks");
@@ -82,6 +96,8 @@ public class ScaleDbContext : DbContext
             e.Property(s => s.AllowSkipLocation).HasDefaultValue(true);
             e.Property(s => s.AllowSkipTruckId).HasDefaultValue(true);
             e.Property(s => s.AllowSkipDestination).HasDefaultValue(true);
+            e.Property(s => s.PromptKioskBinOnInbound).HasDefaultValue(true);
+            e.Property(s => s.AllowSkipBin).HasDefaultValue(true);
         });
 
         modelBuilder.Entity<AppUser>(e =>
@@ -100,6 +116,16 @@ public class ScaleDbContext : DbContext
         {
             e.ToTable("CustomFields");
             e.HasIndex(f => f.Name).IsUnique();
+        });
+
+        modelBuilder.Entity<CustomFieldListValue>(e =>
+        {
+            e.ToTable("CustomFieldListValues");
+            e.HasIndex(v => new { v.CustomFieldId, v.ParentValue, v.Value }).IsUnique();
+            e.HasOne<CustomField>()
+                .WithMany()
+                .HasForeignKey(v => v.CustomFieldId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Scale>(e =>

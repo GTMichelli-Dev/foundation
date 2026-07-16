@@ -174,6 +174,7 @@
             info += row('Commodity:', data.commodity);
             if (data.location) info += row('Location:', data.location);
             if (data.destination) info += row('Destination:', data.destination);
+            if (data.bin) info += row('Bin:', data.bin);
 
             info += '<div style="border-top:1px dashed #000;border-bottom:1px dashed #000;margin:6px 0;padding:6px 0;">';
             if (direction === 'in') {
@@ -201,6 +202,7 @@
                 { dataField: 'commodity', caption: 'Commodity' },
                 { dataField: 'location', caption: 'Location' },
                 { dataField: 'destination', caption: 'Destination' },
+                { dataField: 'bin', caption: 'Bin' },
                 {
                     dataField: 'inWeight', caption: 'In (lbs)', dataType: 'number', format: '#,##0', width: 110,
                     cellTemplate: function (container, options) {
@@ -230,11 +232,22 @@
                     }
                 });
             }
+            // Action column: pinned to the right edge so Edit / Weigh Out /
+            // Print stay visible while the grid scrolls horizontally, and
+            // excluded from reorder/chooser so saved layouts can't strand it
+            // mid-table.
             cols.push({
                     caption: '',
                     width: 280,
+                    fixed: true,
+                    fixedPosition: 'right',
                     allowFiltering: false,
                     allowSorting: false,
+                    allowReordering: false,
+                    allowResizing: false,
+                    allowHiding: false,
+                    showInColumnChooser: false,
+                    allowExporting: false,
                     cellTemplate: function (container, options) {
                         $('<a>')
                             .addClass('grid-action-btn me-1')
@@ -278,13 +291,20 @@
             headerFilter: { visible: true },
             sorting: { mode: 'multiple' },
             columnAutoWidth: true,
+            // Keep the grid inside the page: extra columns scroll horizontally
+            // within the grid (native scrollbar always visible) instead of
+            // widening the page.
+            width: '100%',
+            scrolling: { useNative: true, showScrollbar: 'always' },
             allowColumnReordering: true,
             allowColumnResizing: true,
             columnChooser: { enabled: true, mode: 'select' },
             stateStoring: {
                 enabled: true,
                 type: 'localStorage',
-                storageKey: 'inboundTrucksGrid_v2'
+                // v3 — discards layouts saved before the action column was
+                // pinned right (old saved orders stranded it mid-table).
+                storageKey: 'inboundTrucksGrid_v3'
             },
             paging: { pageSize: 20 },
             pager: { showPageSizeSelector: true, allowedPageSizes: [10, 20, 50] }

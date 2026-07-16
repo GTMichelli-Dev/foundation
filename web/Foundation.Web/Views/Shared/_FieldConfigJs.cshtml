@@ -14,6 +14,8 @@
     if (fvSetup.HideCommodity) hiddenList.Add("commodity");
     if (fvSetup.HideLocation) hiddenList.Add("location");
     if (fvSetup.HideDestination) hiddenList.Add("destination");
+    // Bin rides the hidden-column mechanism: visible only while Bin Inventory is on.
+    if (!fvSetup.UseBinInventory) hiddenList.Add("bin");
     if (fvSetup.HideNotes) hiddenList.Add("notes");
 
     var cfDefs = Db.CustomFields.Where(f => f.Active)

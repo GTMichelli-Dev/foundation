@@ -42,6 +42,12 @@ public class Transaction
     [StringLength(50)]
     public string? Destination { get; set; }
 
+    /// <summary>Storage bin this load was delivered into (truck arrived heavy)
+    /// or hauled out of (truck left heavy). Only used when Bin Inventory is
+    /// enabled in Setup. Stored as text so history survives bin renames.</summary>
+    [StringLength(50)]
+    public string? Bin { get; set; }
+
     [StringLength(500)]
     public string? Notes { get; set; }
 

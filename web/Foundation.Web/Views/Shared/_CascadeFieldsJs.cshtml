@@ -1,0 +1,61 @@
+@* Cascading sub-field behavior for the weigh forms (Weigh In / Weigh Out /
+   Edit / Basic Ticket). A child select rendered by _TicketFieldSlot carries
+   data-parent-field (the parent input's name: "Commodity", "Bin", "cf_5", …)
+   and data-value-map ({parentValue: [choices]}). This script filters the
+   child's options to the selected parent value:
+     - no parent selected  → every choice (flat union) stays available
+     - parent selected     → only that parent's mapped choices
+     - parent changed      → the child value is kept only if still valid,
+       which also re-cascades any grandchildren (Grade under Variety)
+     - initial page load   → stored values survive even when no longer mapped
+       (same "(retired)" convention as flat list fields) *@
+<script>
+    (function () {
+        document.querySelectorAll('select[data-parent-field]').forEach(function (child) {
+            var parentName = child.getAttribute('data-parent-field');
+            if (!parentName) return;
+            var parentEl = document.querySelector('[name="' + parentName + '"]');
+            var map = {};
+            try { map = JSON.parse(child.getAttribute('data-value-map') || '{}'); } catch (e) { }
+
+            // The server-rendered options are the flat union (plus a possible
+            // retired stored value) — capture them as the no-parent fallback.
+            var allValues = Array.from(child.options)
+                .filter(function (o) { return o.value !== ''; })
+                .map(function (o) { return o.value; });
+
+            // preserveUnmapped: on initial load a stored value is kept (retired
+            // convention); on a parent change an invalid child value clears.
+            function refill(preserveUnmapped) {
+                var pv = parentEl ? parentEl.value : '';
+                var items = pv ? (map[pv] || []) : allValues;
+                var original = child.value;
+                var current = original;
+                // A parent that just got cleared (directly or by its own
+                // parent changing) invalidates the child value too — otherwise
+                // a Grade could survive after its Variety was reset.
+                if (!preserveUnmapped && !pv) current = '';
+                child.innerHTML = '';
+                child.appendChild(new Option('', ''));
+                items.forEach(function (v) { child.appendChild(new Option(v, v)); });
+                if (current && items.indexOf(current) < 0) {
+                    if (preserveUnmapped) {
+                        child.appendChild(new Option(current + ' (retired)', current));
+                    } else {
+                        current = '';
+                    }
+                }
+                child.value = current;
+                // A cleared child must notify ITS children (chained cascade).
+                if (original !== current) {
+                    child.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }
+
+            if (parentEl) {
+                parentEl.addEventListener('change', function () { refill(false); });
+            }
+            refill(true);
+        });
+    })();
+</script>

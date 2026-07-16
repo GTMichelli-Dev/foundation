@@ -145,6 +145,7 @@
             addRow('Commodity:', t.commodity);
             addRow('Location:', t.location);
             addRow('Destination:', t.destination);
+            if (t.bin) addRow('Bin:', t.bin);
 
             // Weights section
             y += 2;
@@ -214,6 +215,7 @@
             info += row('Commodity:', data.commodity);
             if (data.location) info += row('Location:', data.location);
             if (data.destination) info += row('Destination:', data.destination);
+            if (data.bin) info += row('Bin:', data.bin);
 
             info += '<div style="border-top:1px dashed #000;border-bottom:1px dashed #000;margin:6px 0;padding:6px 0;">';
             if (direction === 'in') {
@@ -416,14 +418,22 @@
                         }
                     });
                 }
+                // Action column: pinned right so Edit / Print stay visible
+                // while the grid scrolls; excluded from reorder/chooser so
+                // saved layouts can't strand it mid-table.
                 cols.push({
                     caption: '',
                     width: 175,
                     minWidth: 175,
+                    fixed: true,
+                    fixedPosition: 'right',
                     allowFiltering: false,
                     allowSorting: false,
                     allowExporting: false,
                     allowResizing: false,
+                    allowReordering: false,
+                    allowHiding: false,
+                    showInColumnChooser: false,
                     cellTemplate: function (container, options) {
                         $('<a>')
                             .addClass('grid-action-btn me-1')
@@ -447,13 +457,19 @@
             sorting: { mode: 'multiple' },
             columnAutoWidth: true,
             columnMinWidth: 50,
+            // Keep the grid inside the page: extra columns scroll horizontally
+            // within the grid instead of widening the page.
+            width: '100%',
+            scrolling: { useNative: true, showScrollbar: 'always' },
             allowColumnReordering: true,
             allowColumnResizing: true,
             columnChooser: { enabled: true, mode: 'select' },
             stateStoring: {
                 enabled: true,
                 type: 'localStorage',
-                storageKey: 'completedTrucksGrid_v2'
+                // v3 — discards layouts saved before the action column was
+                // pinned right (old saved orders stranded it mid-table).
+                storageKey: 'completedTrucksGrid_v3'
             },
             paging: { pageSize: 20 },
             pager: { showPageSizeSelector: true, allowedPageSizes: [10, 20, 50] },
