@@ -24,6 +24,7 @@ public class ScaleDbContext : DbContext
     public DbSet<TransactionCustomValue> TransactionCustomValues => Set<TransactionCustomValue>();
     public DbSet<Scale> Scales => Set<Scale>();
     public DbSet<Site> Sites => Set<Site>();
+    public DbSet<ReportTemplate> ReportTemplates => Set<ReportTemplate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -139,6 +140,12 @@ public class ScaleDbContext : DbContext
         {
             e.ToTable("Sites");
             e.HasIndex(s => s.Name).IsUnique();
+        });
+
+        modelBuilder.Entity<ReportTemplate>(e =>
+        {
+            e.ToTable("ReportTemplates");
+            e.HasIndex(t => t.Name).IsUnique();
         });
 
         modelBuilder.Entity<TransactionCustomValue>(e =>

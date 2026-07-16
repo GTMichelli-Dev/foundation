@@ -110,6 +110,16 @@ function showTicketImage(ticket, direction, data) {
 
 <div id="pane-transactions">
 <div class="report-controls">
+    <span class="ctrl-label">Report:</span>
+    <div id="tplSelect"></div>
+    <div id="tplSaveBtn"></div>
+    <div id="tplSaveAsBtn"></div>
+    <div id="tplDeleteBtn"></div>
+    <span class="small text-muted">
+        Arrange the grid (columns, order, grouping, filters, sorting), then Save As to keep it as a named report. Exports follow the loaded report.
+    </span>
+</div>
+<div class="report-controls">
     <span class="ctrl-label">From:</span>
     <div id="startDate"></div>
     <span class="ctrl-label">To:</span>
@@ -140,6 +150,28 @@ function showTicketImage(ticket, direction, data) {
 </div>
 
 <div id="reportGrid"></div>
+
+<!-- Report-builder: name a saved report (Save As) -->
+<div class="modal fade" id="tplNameModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title">Save Report As</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body py-2">
+                <label class="form-label mb-0 small">Report name</label>
+                <input type="text" id="tplNameInput" class="form-control form-control-sm" maxlength="100"
+                       placeholder="e.g. Daily Corn Loads by Customer" />
+                <div id="tplNameError" class="small text-danger mt-1" style="display:none;"></div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" id="tplNameSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
 </div><!-- /pane-transactions -->
 
 @if (useBinInventory)
@@ -358,7 +390,12 @@ function showTicketImage(ticket, direction, data) {
                 function getFileName(ext) {
                     var s = DevExpress.localization.formatDate(startVal, 'yyyy-MM-dd');
                     var en = DevExpress.localization.formatDate(endVal, 'yyyy-MM-dd');
-                    return 'WeighReport_' + s + '_to_' + en + '.' + ext;
+                    // Saved reports export under their own name.
+                    var tpl = currentTemplateName();
+                    var base = tpl
+                        ? tpl.replace(/[^A-Za-z0-9 _-]+/g, '').trim().replace(/\s+/g, '_') || 'WeighReport'
+                        : 'WeighReport';
+                    return base + '_' + s + '_to_' + en + '.' + ext;
                 }
 
                 function formatNum(n) { return n == null ? '' : Number(n).toLocaleString('en-US'); }
@@ -386,7 +423,7 @@ function showTicketImage(ticket, direction, data) {
                     doc.text(companyName, pageWidth / 2, 8, { align: 'center' });
                     doc.setFontSize(8);
                     doc.setFont(undefined, 'normal');
-                    doc.text('Weigh Report: ' + sDate + ' to ' + eDate, pageWidth / 2, 13, { align: 'center' });
+                    doc.text((currentTemplateName() || 'Weigh Report') + ': ' + sDate + ' to ' + eDate, pageWidth / 2, 13, { align: 'center' });
 
                     // Get visible columns and data. Custom-field columns have no
                     // dataField (they use calculateCellValue), so match those by
@@ -703,6 +740,165 @@ function showTicketImage(ticket, direction, data) {
             pager: { showPageSizeSelector: true, allowedPageSizes: [20, 50, 100, 500] },
             export: { enabled: false }
         }).dxDataGrid('instance');
+
+        // ===== REPORT BUILDER (saved templates) =====
+        // The whole custom report IS the grid state (columns, order, widths,
+        // grouping, sorting, filters). Save it under a name, reload it any
+        // time; the exports above automatically follow whatever is loaded.
+        var templates = [];
+        var currentTemplateId = parseInt(localStorage.getItem('report_templateId')) || 0;
+
+        function currentTemplateName() {
+            var t = templates.find(function (x) { return x.id === currentTemplateId; });
+            return t ? t.name : null;
+        }
+
+        function tplItems() {
+            return [{ id: 0, name: '— Standard Report —' }].concat(templates);
+        }
+
+        function gridStateJson() {
+            var state = grid.state() || {};
+            delete state.pageIndex;     // transient — not part of the layout
+            delete state.focusedRowKey;
+            return JSON.stringify(state);
+        }
+
+        // Reflect the grid's group indexes back into the Group By tag box
+        // after a template loads (its onValueChanged re-applies them — same
+        // values, so it's a no-op).
+        function syncGroupTagsFromGrid() {
+            var pairs = [];
+            groupOptions.forEach(function (o) {
+                var gi = grid.columnOption(o.value, 'groupIndex');
+                if (gi !== undefined && gi !== null && gi >= 0) pairs.push({ f: o.value, gi: gi });
+            });
+            pairs.sort(function (a, b) { return a.gi - b.gi; });
+            groupByFields = pairs.map(function (p) { return p.f; });
+            setCookie(cookieGroupBy, groupByFields, 365);
+            groupByTag.option('value', groupByFields);
+        }
+
+        function applyTemplate(id) {
+            if (id === 0) {
+                grid.state(null); // standard layout from the column config
+                syncGroupTagsFromGrid();
+                return;
+            }
+            $.getJSON('/api/reports/templates/' + id).done(function (t) {
+                var state = {};
+                try { state = JSON.parse(t.stateJson || '{}'); } catch (e) { }
+                delete state.pageIndex;
+                grid.state(state);
+                syncGroupTagsFromGrid();
+            }).fail(function () {
+                showAlert('<i class="fa fa-times-circle"></i> Could not load that report.', 'danger');
+            });
+        }
+
+        var tplSelect = $('#tplSelect').dxSelectBox({
+            items: tplItems(),
+            valueExpr: 'id',
+            displayExpr: 'name',
+            value: currentTemplateId,
+            width: 240,
+            onValueChanged: function (e) {
+                if (e.value === null || e.value === undefined) return;
+                currentTemplateId = e.value;
+                localStorage.setItem('report_templateId', String(currentTemplateId));
+                syncTplButtons();
+                // Only a user-initiated pick loads the layout — on page load the
+                // grid already restored the operator's last working view.
+                if (e.event) applyTemplate(currentTemplateId);
+            }
+        }).dxSelectBox('instance');
+
+        var tplSaveBtn = $('#tplSaveBtn').dxButton({
+            icon: 'save', text: 'Save',
+            hint: 'Save the current layout to the selected report',
+            onClick: function () {
+                if (currentTemplateId === 0) return;
+                var name = currentTemplateName();
+                $.ajax({
+                    url: '/api/reports/templates/' + currentTemplateId,
+                    method: 'PUT',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ name: name, stateJson: gridStateJson() })
+                }).done(function () {
+                    showAlert('<i class="fa fa-check-circle"></i> Report "' + $('<span>').text(name).html() + '" saved.', 'success');
+                }).fail(function (xhr) {
+                    var msg = 'Save failed.'; try { msg = JSON.parse(xhr.responseText).message || msg; } catch (e) { }
+                    showAlert('<i class="fa fa-times-circle"></i> ' + msg, 'danger');
+                });
+            }
+        }).dxButton('instance');
+
+        $('#tplSaveAsBtn').dxButton({
+            icon: 'plus', text: 'Save As',
+            hint: 'Save the current layout as a new report',
+            onClick: function () {
+                $('#tplNameInput').val('');
+                $('#tplNameError').hide();
+                new bootstrap.Modal('#tplNameModal').show();
+                setTimeout(function () { $('#tplNameInput').trigger('focus'); }, 400);
+            }
+        });
+
+        var tplDeleteBtn = $('#tplDeleteBtn').dxButton({
+            icon: 'trash',
+            hint: 'Delete the selected report',
+            onClick: function () {
+                if (currentTemplateId === 0) return;
+                if (!confirm('Delete the report "' + currentTemplateName() + '"?')) return;
+                $.ajax({ url: '/api/reports/templates/' + currentTemplateId, method: 'DELETE' })
+                    .done(function () { loadTemplates(0); }); // keep the current layout on screen
+            }
+        }).dxButton('instance');
+
+        function syncTplButtons() {
+            var std = currentTemplateId === 0;
+            tplSaveBtn.option('disabled', std);
+            tplDeleteBtn.option('disabled', std);
+        }
+
+        var tplLoadSeq = 0;
+        function loadTemplates(selectId) {
+            var seq = ++tplLoadSeq;
+            return $.getJSON('/api/reports/templates').done(function (list) {
+                if (seq !== tplLoadSeq) return; // a newer load superseded this one
+                templates = list || [];
+                if (selectId !== undefined) currentTemplateId = selectId;
+                if (!tplItems().some(function (t) { return t.id === currentTemplateId; })) currentTemplateId = 0;
+                localStorage.setItem('report_templateId', String(currentTemplateId));
+                tplSelect.option('items', tplItems());
+                tplSelect.option('value', currentTemplateId);
+                syncTplButtons();
+            });
+        }
+
+        $('#tplNameSaveBtn').on('click', function () {
+            var name = $('#tplNameInput').val().trim();
+            if (!name) { $('#tplNameError').text('Enter a name for the report.').show(); return; }
+            $.ajax({
+                url: '/api/reports/templates',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ name: name, stateJson: gridStateJson() })
+            }).done(function (t) {
+                bootstrap.Modal.getInstance(document.getElementById('tplNameModal')).hide();
+                showAlert('<i class="fa fa-check-circle"></i> Report "' + $('<span>').text(t.name).html() + '" created.', 'success');
+                loadTemplates(t.id);
+            }).fail(function (xhr) {
+                var msg = 'Save failed.'; try { msg = JSON.parse(xhr.responseText).message || msg; } catch (e) { }
+                $('#tplNameError').text(msg).show();
+            });
+        });
+        $('#tplNameInput').on('keypress', function (e) {
+            if (e.which === 13) { e.preventDefault(); $('#tplNameSaveBtn').click(); }
+        });
+
+        loadTemplates();
+        syncTplButtons();
 
         // Voided tickets popup
         $('#showVoidsLink').on('click', function (e) {
