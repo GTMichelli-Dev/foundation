@@ -29,38 +29,6 @@
     </div>
 </div>
 
-<!-- Locations (physical weighing sites) -->
-<div class="card mb-3">
-    <div class="card-header py-2 d-flex justify-content-between align-items-center">
-        <strong>Locations</strong>
-        <button type="button" class="btn btn-outline-primary btn-sm py-0" onclick="addSite()"><i class="fa fa-plus"></i> Add Location</button>
-    </div>
-    <div class="card-body py-2">
-        <p class="small text-muted mb-2">
-            Optional physical locations (yards/facilities) with their own scales.
-            With two or more locations, a picker appears in the navbar — each
-            operator chooses where they are, and the weigh forms and kiosks only
-            offer that location's scales. Bins and commodities can also be
-            limited to a location on Edit Tables. Leave this empty for a
-            single-location setup. Changes save immediately.
-        </p>
-        <table class="table table-sm align-middle mb-0" id="sitesTable">
-            <thead>
-                <tr class="small text-muted">
-                    <th>Name</th><th>Address</th><th style="width:130px;">City</th>
-                    <th style="width:70px;">State</th><th style="width:90px;">Zip</th>
-                    <th style="width:130px;">Phone</th>
-                    <th style="width:80px;">Order</th>
-                    <th style="width:60px;" class="text-center">Active</th>
-                    <th style="width:70px;"></th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-        <div id="siteStatus" class="small mt-1">&nbsp;</div>
-    </div>
-</div>
-
 <!-- Site Scales (named scales, grain-management style) -->
 <div class="card mb-3">
     <div class="card-header py-2 d-flex justify-content-between align-items-center">
@@ -75,8 +43,9 @@
             with no feed is driven by the simulator in Demo Mode. The optional
             per-scale printers receive that scale's tickets; "Default" uses the
             site-wide printers from the Printers page. Assigning a Location
-            limits the scale to operators at that location. Changes save
-            immediately.
+            limits the scale to operators at that location — locations
+            themselves are managed on <a href="/Setup?tab=tabLocations">Setup
+            &rarr; Locations</a>. Changes save immediately.
         </p>
         <table class="table table-sm align-middle mb-0" id="siteScalesTable">
             <thead>
@@ -527,95 +496,15 @@
         container.innerHTML = html;
     }
 
-    // ===== LOCATIONS (physical weighing sites) =====
+    // ===== LOCATIONS (managed on Setup → Locations) =====
+    // Loaded here only to populate the per-scale Location dropdowns.
     var sites = [];
-    var siteStatusTimer = null;
-
-    function siteStatus(msg, isError) {
-        var el = document.getElementById('siteStatus');
-        clearTimeout(siteStatusTimer);
-        el.innerHTML = '<span class="' + (isError ? 'text-danger' : 'text-success') + '">' + escHtml(msg) + '</span>';
-        if (!isError) siteStatusTimer = setTimeout(function () { el.innerHTML = '&nbsp;'; }, 2000);
-    }
 
     function loadSites() {
         fetch('/api/sites').then(function (r) { return r.json(); }).then(function (list) {
             sites = list;
-            renderSites();
             renderSiteScales(); // refresh the Location dropdowns on the scales table
         });
-    }
-
-    function renderSites() {
-        var tbody = document.querySelector('#sitesTable tbody');
-        var html = '';
-        sites.forEach(function (s) {
-            html += '<tr data-id="' + s.id + '">'
-                + '<td><input class="form-control form-control-sm st-name" maxlength="100" value="' + escHtml(s.name) + '"></td>'
-                + '<td><input class="form-control form-control-sm st-address" maxlength="200" value="' + escHtml(s.address || '') + '"></td>'
-                + '<td><input class="form-control form-control-sm st-city" maxlength="50" value="' + escHtml(s.city || '') + '"></td>'
-                + '<td><input class="form-control form-control-sm st-state" maxlength="20" value="' + escHtml(s.state || '') + '"></td>'
-                + '<td><input class="form-control form-control-sm st-zip" maxlength="20" value="' + escHtml(s.zip || '') + '"></td>'
-                + '<td><input class="form-control form-control-sm st-phone" maxlength="30" value="' + escHtml(s.phone || '') + '"></td>'
-                + '<td><input type="number" step="1" class="form-control form-control-sm st-order" value="' + s.sortOrder + '"></td>'
-                + '<td class="text-center"><input type="checkbox" class="form-check-input st-active"' + (s.active ? ' checked' : '') + '></td>'
-                + '<td class="text-end"><button type="button" class="btn btn-outline-danger btn-sm py-0" onclick="deleteSite(' + s.id + ')">Delete</button></td>'
-                + '</tr>';
-        });
-        tbody.innerHTML = html;
-        tbody.querySelectorAll('input').forEach(function (el) {
-            el.addEventListener('change', function () { saveSiteRow(el.closest('tr')); });
-        });
-    }
-
-    function saveSiteRow(tr) {
-        var id = parseInt(tr.dataset.id);
-        var body = {
-            id: id,
-            name: tr.querySelector('.st-name').value.trim(),
-            address: tr.querySelector('.st-address').value.trim() || null,
-            city: tr.querySelector('.st-city').value.trim() || null,
-            state: tr.querySelector('.st-state').value.trim() || null,
-            zip: tr.querySelector('.st-zip').value.trim() || null,
-            phone: tr.querySelector('.st-phone').value.trim() || null,
-            sortOrder: parseInt(tr.querySelector('.st-order').value) || 0,
-            active: tr.querySelector('.st-active').checked
-        };
-        fetch('/api/sites/' + id, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        }).then(function (r) {
-            if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'Save failed.'); });
-            siteStatus('Saved ✓', false);
-            loadSites();
-        }).catch(function (e) {
-            siteStatus(e.message, true);
-            loadSites();
-        });
-    }
-
-    function addSite() {
-        var n = sites.length + 1;
-        var name = 'Location ' + n;
-        while (sites.some(function (s) { return s.name === name; })) { n++; name = 'Location ' + n; }
-        var maxOrder = sites.reduce(function (m, s) { return Math.max(m, s.sortOrder); }, 0);
-        fetch('/api/sites', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name, sortOrder: maxOrder + 10, active: true })
-        }).then(function (r) {
-            if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'Add failed.'); });
-            loadSites();
-        }).catch(function (e) { siteStatus(e.message, true); });
-    }
-
-    function deleteSite(id) {
-        if (!confirm('Delete this location? Its scales, bins, and commodities become available at every location.')) return;
-        fetch('/api/sites/' + id, { method: 'DELETE' }).then(function (r) {
-            if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'Delete failed.'); });
-            loadSites();
-        }).catch(function (e) { siteStatus(e.message, true); });
     }
 
     loadSites();

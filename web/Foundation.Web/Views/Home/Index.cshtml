@@ -68,20 +68,23 @@
         }
     }
 
-    /* Multi-scale: one live card per scale at the operator's location.
-       Clicking a card selects that scale for the weigh forms. */
+    /* Multi-scale: one live card per scale at the operator's location,
+       always on a single row — cards and their text shrink to fit (up to
+       the 4-scale cap). Clicking a card selects that scale for the forms. */
     #dashScaleGrid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 16px;
-        max-width: 920px;
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 12px;
+        max-width: 1200px;
         margin: 0 auto 30px;
     }
     .scale-card {
+        flex: 1 1 0;
+        min-width: 0; /* lets the cards shrink below their content width */
         background: #000;
         border: 3px solid #222;
         border-radius: 16px;
-        padding: 12px 20px 26px;
+        padding: 10px 14px 26px;
         cursor: pointer;
         position: relative;
         transition: border-color 0.15s, box-shadow 0.15s;
@@ -94,7 +97,7 @@
     }
     .scale-card .sc-name {
         color: #ccc;
-        font-size: 0.95rem;
+        font-size: clamp(0.65rem, 1vw, 0.95rem);
         font-weight: 700;
         letter-spacing: 2px;
         text-transform: uppercase;
@@ -105,16 +108,16 @@
     .scale-card.selected .sc-name { color: #fff; }
     .scale-card .sc-weight {
         font-family: 'Courier New', monospace;
-        font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+        font-size: clamp(1rem, 2.2vw, 2.6rem);
         font-weight: bold;
         color: #00ff41;
         text-align: right;
-        letter-spacing: 3px;
+        letter-spacing: 2px;
         white-space: nowrap;
     }
-    .scale-card .sc-weight .weight-unit { font-size: 1.2rem; }
+    .scale-card .sc-weight .weight-unit { font-size: clamp(0.7rem, 1vw, 1.2rem); }
     .scale-card .sc-status {
-        font-size: 0.85rem;
+        font-size: clamp(0.6rem, 0.9vw, 0.85rem);
         font-weight: bold;
         text-align: center;
         letter-spacing: 2px;

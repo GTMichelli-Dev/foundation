@@ -32,6 +32,9 @@
         <li class="nav-item">
             <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabFields" type="button">Fields</button>
         </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabLocations" type="button">Locations</button>
+        </li>
         <li class="nav-item" id="tabKioskPromptsNav" style="display: @(Model.KioskCount > 0 ? "block" : "none");">
             <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabKioskPrompts" type="button">Kiosk Prompts</button>
         </li>
@@ -498,6 +501,46 @@
                                 <tbody></tbody>
                             </table>
                             <div id="customFieldsEmpty" class="small text-muted" style="display:none;">No custom fields defined.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: Locations (physical sites) -->
+        <div class="tab-pane fade" id="tabLocations">
+            <div class="row g-3">
+                <div class="col-12 col-xxl-10">
+                    <div class="card">
+                        <div class="card-header py-1 d-flex justify-content-between align-items-center" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Locations</strong>
+                            <button type="button" class="btn btn-outline-primary btn-sm py-0" id="addLocationBtn"><i class="fa fa-plus"></i> Add Location</button>
+                        </div>
+                        <div class="card-body py-2" id="locationsEditor">
+                            <p class="small mb-2" style="color: var(--bw-text-muted);">
+                                Optional physical locations (yards/facilities). With two or more
+                                active locations, a picker appears in the navbar — each operator
+                                chooses where they are, and that workstation only sees its
+                                location's scales. Assign scales to locations on the
+                                <a href="/Scale">Scales page</a>; bins and commodities can be
+                                limited to a location on <a href="/MasterData">Edit Tables</a>.
+                                Leave this empty for a single-location setup. Changes save
+                                immediately.
+                            </p>
+                            <table class="table table-sm align-middle mb-0" id="sitesTable">
+                                <thead>
+                                    <tr class="small text-muted">
+                                        <th>Name</th><th>Address</th><th style="width:130px;">City</th>
+                                        <th style="width:70px;">State</th><th style="width:90px;">Zip</th>
+                                        <th style="width:130px;">Phone</th>
+                                        <th style="width:80px;">Order</th>
+                                        <th style="width:60px;" class="text-center">Active</th>
+                                        <th style="width:70px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                            <div id="siteStatus" class="small mt-1">&nbsp;</div>
                         </div>
                     </div>
                 </div>
@@ -1088,6 +1131,9 @@
 
     setupForm.addEventListener('change', function (e) {
         if (!e.target || !e.target.matches('input, select, textarea')) return;
+        // The Locations editor saves through its own API — don't also post
+        // the whole settings form for those edits.
+        if (e.target.closest('#locationsEditor')) return;
         if (e.target.id === 'Theme') reloadAfterSave = true;
         scheduleAutoSave();
     });
@@ -1596,6 +1642,111 @@
             document.getElementById('loadTestDataForm').submit();
         });
     }
+
+    // --- Locations editor (Setup → Locations) ---
+    // Physical sites: name/address/phone rows that save on change via
+    // /api/sites, independent of the settings form's auto-save.
+    (function () {
+        var sites = [];
+        var siteStatusTimer = null;
+
+        function escLoc(s) {
+            return String(s ?? '').replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+
+        function siteStatus(msg, isError) {
+            var el = document.getElementById('siteStatus');
+            clearTimeout(siteStatusTimer);
+            el.innerHTML = '<span class="' + (isError ? 'text-danger' : 'text-success') + '">' + escLoc(msg) + '</span>';
+            if (!isError) siteStatusTimer = setTimeout(function () { el.innerHTML = '&nbsp;'; }, 2000);
+        }
+
+        function loadSites() {
+            fetch('/api/sites').then(function (r) { return r.json(); }).then(function (list) {
+                sites = list;
+                renderSites();
+            });
+        }
+
+        function renderSites() {
+            var tbody = document.querySelector('#sitesTable tbody');
+            var html = '';
+            sites.forEach(function (s) {
+                html += '<tr data-id="' + s.id + '">'
+                    + '<td><input class="form-control form-control-sm st-name" maxlength="100" value="' + escLoc(s.name) + '"></td>'
+                    + '<td><input class="form-control form-control-sm st-address" maxlength="200" value="' + escLoc(s.address || '') + '"></td>'
+                    + '<td><input class="form-control form-control-sm st-city" maxlength="50" value="' + escLoc(s.city || '') + '"></td>'
+                    + '<td><input class="form-control form-control-sm st-state" maxlength="20" value="' + escLoc(s.state || '') + '"></td>'
+                    + '<td><input class="form-control form-control-sm st-zip" maxlength="20" value="' + escLoc(s.zip || '') + '"></td>'
+                    + '<td><input class="form-control form-control-sm st-phone" maxlength="30" value="' + escLoc(s.phone || '') + '"></td>'
+                    + '<td><input type="number" step="1" class="form-control form-control-sm st-order" value="' + s.sortOrder + '"></td>'
+                    + '<td class="text-center"><input type="checkbox" class="form-check-input st-active"' + (s.active ? ' checked' : '') + '></td>'
+                    + '<td class="text-end"><button type="button" class="btn btn-outline-danger btn-sm py-0 st-delete">Delete</button></td>'
+                    + '</tr>';
+            });
+            tbody.innerHTML = html;
+            tbody.querySelectorAll('input').forEach(function (el) {
+                el.addEventListener('change', function () { saveSiteRow(el.closest('tr')); });
+            });
+            tbody.querySelectorAll('.st-delete').forEach(function (btn) {
+                btn.addEventListener('click', function () { deleteSite(parseInt(btn.closest('tr').dataset.id)); });
+            });
+        }
+
+        function saveSiteRow(tr) {
+            var id = parseInt(tr.dataset.id);
+            var body = {
+                id: id,
+                name: tr.querySelector('.st-name').value.trim(),
+                address: tr.querySelector('.st-address').value.trim() || null,
+                city: tr.querySelector('.st-city').value.trim() || null,
+                state: tr.querySelector('.st-state').value.trim() || null,
+                zip: tr.querySelector('.st-zip').value.trim() || null,
+                phone: tr.querySelector('.st-phone').value.trim() || null,
+                sortOrder: parseInt(tr.querySelector('.st-order').value) || 0,
+                active: tr.querySelector('.st-active').checked
+            };
+            fetch('/api/sites/' + id, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            }).then(function (r) {
+                if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'Save failed.'); });
+                siteStatus('Saved ✓', false);
+                loadSites();
+            }).catch(function (e) {
+                siteStatus(e.message, true);
+                loadSites();
+            });
+        }
+
+        document.getElementById('addLocationBtn').addEventListener('click', function () {
+            var n = sites.length + 1;
+            var name = 'Location ' + n;
+            while (sites.some(function (s) { return s.name === name; })) { n++; name = 'Location ' + n; }
+            var maxOrder = sites.reduce(function (m, s) { return Math.max(m, s.sortOrder); }, 0);
+            fetch('/api/sites', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name, sortOrder: maxOrder + 10, active: true })
+            }).then(function (r) {
+                if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'Add failed.'); });
+                loadSites();
+            }).catch(function (e) { siteStatus(e.message, true); });
+        });
+
+        function deleteSite(id) {
+            if (!confirm('Delete this location? Its scales, bins, and commodities become available at every location.')) return;
+            fetch('/api/sites/' + id, { method: 'DELETE' }).then(function (r) {
+                if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'Delete failed.'); });
+                loadSites();
+            }).catch(function (e) { siteStatus(e.message, true); });
+        }
+
+        loadSites();
+    })();
 
     // --- Confirm modal ---
     var _confirmFormId = null;
