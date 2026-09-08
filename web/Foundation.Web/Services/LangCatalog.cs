@@ -131,6 +131,10 @@ public static class LangCatalog
 
         // ===== KIOSK: saving / complete =====
         ["Saving"] = "Guardando",
+        ["Saving Information"] = "Guardando Información",
+        ["Printing Ticket"] = "Imprimiendo Boleta",
+        ["Print Failed"] = "Error de Impresión",
+        ["Ticket saved — not printed. Reprint or see the attendant."] = "Boleta guardada — no se imprimió. Reimprima o vea al encargado.",
         ["Complete"] = "Completado",
         ["WEIGH IN COMPLETE"] = "PESAJE DE ENTRADA COMPLETADO",
         ["WEIGH OUT COMPLETE"] = "PESAJE DE SALIDA COMPLETADO",

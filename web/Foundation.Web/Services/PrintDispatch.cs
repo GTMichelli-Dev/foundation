@@ -14,13 +14,15 @@ namespace Foundation.Web.Services;
 public static class PrintDispatch
 {
     /// <summary>
-    /// Send a ticket to a printer.
+    /// Send a ticket to a printer. Returns true when a command actually went to a
+    /// print service, so a caller that shows print progress knows whether to wait
+    /// for one — browser printing and "no printer" resolve to false.
     /// <paramref name="printerId"/> is "serviceId:printerId" (e.g.
     /// "office-1:BIXOLON BK3-3"). When empty: the virtual "KioskPrinter" in
     /// demo mode, otherwise the capturing scale's printer assignment falling
     /// back to the site-wide Setup defaults.
     /// </summary>
-    public static async Task SendAsync(IHubContext<ScaleHub> hub, ScaleDbContext db, AppSetup setup,
+    public static async Task<bool> SendAsync(IHubContext<ScaleHub> hub, ScaleDbContext db, AppSetup setup,
         string ticketId, string type, string? printerId, string? scaleName = null)
     {
         // If no printer specified, use defaults
@@ -38,10 +40,10 @@ public static class PrintDispatch
             }
         }
 
-        if (string.IsNullOrEmpty(printerId)) return;
+        if (string.IsNullOrEmpty(printerId)) return false;
 
         // Browser printing — handled client-side, skip server-side print command
-        if (printerId.Equals("Browser:Browser", StringComparison.OrdinalIgnoreCase)) return;
+        if (printerId.Equals("Browser:Browser", StringComparison.OrdinalIgnoreCase)) return false;
 
         // Split serviceId:printerId
         var parts = printerId.Split(':', 2);
@@ -60,5 +62,7 @@ public static class PrintDispatch
             await hub.Clients.Group("PrintClients").SendAsync("PrintTicket",
                 new { ticketId, type, printerId = printerName });
         }
+
+        return true;
     }
 }

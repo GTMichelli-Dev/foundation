@@ -728,9 +728,10 @@ public class KioskController : Controller
         //     eventual closing ticket. The closing weigh-out (or the next visit's
         //     auto-completed weigh-in) is what gets printed.
         bool suppressInboundPrint = setup.UseRetainedTare && !tareApplied;
+        bool printing = false;
         if (!suppressInboundPrint)
         {
-            await SendPrintCommand(ticketNumber, tareApplied ? "weighout" : "weighin", request.PrinterId, request.ScaleName);
+            printing = await SendPrintCommand(ticketNumber, tareApplied ? "weighout" : "weighin", request.PrinterId, request.ScaleName);
         }
 
         return Json(new
@@ -740,6 +741,9 @@ public class KioskController : Controller
             outWeight = transaction.OutWeight,
             dateOut = transaction.DateOut,
             tareApplied,
+            // Whether a print service was actually given the job — the kiosk waits for
+            // print progress only when one was.
+            printing,
             retainedTare = truck?.RetainedTare,
             retainedTareUpdated = truck?.RetainedTareUpdated,
             suppressInboundPrint,
@@ -818,11 +822,12 @@ public class KioskController : Controller
         }
 
         // Print the ticket
-        await SendPrintCommand(transaction.Ticket.ToString(), "weighout", request.PrinterId, request.ScaleName);
+        var printing = await SendPrintCommand(transaction.Ticket.ToString(), "weighout", request.PrinterId, request.ScaleName);
 
         return Json(new
         {
             ticket = transaction.Ticket,
+            printing,
             cardUsed = card != null,
             cardClosed = card != null,
             cardRecycled
@@ -925,9 +930,9 @@ public class KioskController : Controller
     /// If not set and not demo: the capturing scale's printer assignment,
     /// falling back to the site-wide Setup defaults.
     /// </summary>
-    private async Task SendPrintCommand(string ticketId, string type, string? printerId, string? scaleName = null)
+    private async Task<bool> SendPrintCommand(string ticketId, string type, string? printerId, string? scaleName = null)
     {
-        await PrintDispatch.SendAsync(_hub, _db, _setupCache.Get(), ticketId, type, printerId, scaleName);
+        return await PrintDispatch.SendAsync(_hub, _db, _setupCache.Get(), ticketId, type, printerId, scaleName);
     }
 
     /// <summary>

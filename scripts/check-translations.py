@@ -125,6 +125,7 @@ DYNAMIC_CALLS = [
     ("dtRow",          "Views/Kiosk/Index.cshtml", 0),
     ("showDemoTicket", "Views/Kiosk/Index.cshtml", 0),
     ("showComplete",   "Views/Kiosk/Index.cshtml", 0),
+    ("finishTransaction", "Views/Kiosk/Index.cshtml", 0),
 ]
 
 ARG_LITERAL = re.compile(r"""^'((?:[^'\\]|\\.)*)'$|^"((?:[^"\\]|\\.)*)"$""")

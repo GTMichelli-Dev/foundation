@@ -735,6 +735,29 @@
         }
         /* Card instruction on the completion screen — the one thing the driver
            must read before pulling off the scale, so it gets its own plate. */
+        /* Complete screen, print-failure case: the ticket is saved but did not
+           come out. Red against the green completion screen so it is not read
+           as part of the success message. */
+        .print-failed-banner {
+            display: none;
+            background: #dc3545;
+            color: #fff;
+            border-radius: 12px;
+            padding: 16px 36px;
+            margin-top: 16px;
+            max-width: 900px;
+        }
+        .print-failed-banner.active { display: block; }
+        .pf-line {
+            font-size: 2.1rem;
+            font-weight: 900;
+            letter-spacing: 1px;
+        }
+        .pf-note {
+            font-size: 1.35rem;
+            margin-top: 8px;
+            opacity: 0.95;
+        }
         .complete-card-note {
             font-size: 1.7rem;
             font-weight: 900;
@@ -1064,7 +1087,12 @@
 
         <!-- SAVING -->
         <div id="state-saving" class="kiosk-state">
-            <div class="waiting-message">@L["Saving"]<span class="waiting-dots"></span></div>
+            <div class="waiting-message">@L["Saving Information"]<span class="waiting-dots"></span></div>
+        </div>
+
+        <!-- PRINTING: the spooler has the job; the printer takes several more seconds -->
+        <div id="state-printing" class="kiosk-state">
+            <div class="waiting-message">@L["Printing Ticket"]<span class="waiting-dots"></span></div>
         </div>
 
         <!-- COMPLETE -->
@@ -1074,6 +1102,12 @@
             <!-- Card weighing: tells the driver whether to keep the card or
                  hand it back. Hidden on keyed-in tickets. -->
             <div class="complete-card-note" id="complete-card-note" style="display:none;"></div>
+            <!-- The ticket saved but never came out of the printer. Shown instead of
+                 letting the driver walk away from a Complete screen with no ticket. -->
+            <div class="print-failed-banner" id="complete-print-failed">
+                <div class="pf-line">@L["Print Failed"]</div>
+                <div class="pf-note">@L["Ticket saved — not printed. Reprint or see the attendant."]</div>
+            </div>
             <div id="demo-ticket-area"></div>
             <div class="complete-buttons">
                 <button class="kiosk-btn btn-blue" id="btn-reprint">@L["Reprint"]</button>
@@ -1153,6 +1187,8 @@
     var OVERLAY_DURATION_MS = 2000;
     var COMPLETE_DURATION_MS = 4000;
     var OPERATION_TIMEOUT_MS = 75000;
+    var PRINT_START_TIMEOUT_MS = 8000;   // give up waiting for the spooler to take the job
+    var PRINT_DONE_TIMEOUT_MS = 25000;   // give up waiting for the job to finish printing
     var OPERATION_WEIGHT_CHANGE = 1000;
     // A prox reader keeps re-reading while the card is held near it; repeats of
     // the same card inside this window count as one presentation.
@@ -1271,6 +1307,8 @@
     var WEIGHT_CHANGE_EXIT = 1000; // exit complete screen when weight changes this much
     var operationStartWeight = null; // weight when operation started
     var operationTimer = null; // 60-sec timeout for operations
+    var pendingComplete = null; // saved transaction waiting on the printer before Complete shows
+    var printWaitTimer = null;  // fallback so the kiosk never hangs waiting on a print event
 
     // ===== CARD STATE =====
     var activeCardNumber = null;  // card driving the current flow (sent on save)
@@ -1554,6 +1592,16 @@
         });
         if (setupActive && currentStepKey() === 'reader') renderSetupStep();
     }
+
+    // Print service picked the job up (the spooler accepted it) — ticket is on its way out
+    connection.on('PrintJobStarted', function (data) {
+        onPrintJobStarted(data && data.ticketId);
+    });
+
+    // Print job finished — success tells us whether the ticket actually came out
+    connection.on('PrintResult', function (data) {
+        onPrintFinished(data && data.ticketId, !data || data.success !== false);
+    });
 
     connection.on('PrintServiceReady', addSetupPrinters);
     connection.on('PrinterListReceived', addSetupPrinters);
@@ -1970,15 +2018,16 @@
             return;
         }
 
-        // Error during active operation (don't cancel during saving — request is in flight)
-        if (scaleData.error && isActiveOperation() && currentState !== 'saving') {
+        // Error during active operation (don't cancel while saving or printing —
+        // the request is in flight and the transaction is already committed)
+        if (scaleData.error && isActiveOperation() && !isPrintWaitState()) {
             cancelOperation('error');
             return;
         }
 
         // Weight change during active operation (entering ticket, prompts, motion-wait)
-        // Don't cancel during 'saving' — the request is already in flight
-        if (isActiveOperation() && currentState !== 'saving' && operationStartWeight !== null) {
+        // Don't cancel while saving or printing — the request is already in flight
+        if (isActiveOperation() && !isPrintWaitState() && operationStartWeight !== null) {
             if (Math.abs(scaleData.weight - operationStartWeight) >= OPERATION_WEIGHT_CHANGE) {
                 cancelOperation('weight-changed');
                 return;
@@ -2018,7 +2067,13 @@
     }
 
     function isActiveOperation() {
-        return ['entering-ticket', 'checking-ticket', 'motion-wait', 'prompt', 'confirm', 'saving'].indexOf(currentState) >= 0;
+        return ['entering-ticket', 'checking-ticket', 'motion-wait', 'prompt', 'confirm', 'saving', 'printing'].indexOf(currentState) >= 0;
+    }
+
+    // Saving and printing both sit after the driver's last input, with a request or a
+    // print job already in flight. Nothing the scale does should cancel out of them.
+    function isPrintWaitState() {
+        return currentState === 'saving' || currentState === 'printing';
     }
 
     function cancelOperation(reason) {
@@ -2844,12 +2899,12 @@
                 // in one shot and returns both weights. Skip straight to the
                 // completion screen with the recalled-tare badge visible.
                 if (result.tareApplied && result.outWeight !== null && typeof result.outWeight !== 'undefined') {
-                    showComplete('Weigh In', result.ticket, weight, result.outWeight, {
+                    finishTransaction('Weigh In', result.ticket, weight, result.outWeight, result.printing, {
                         retainedTare: result.retainedTare,
                         retainedTareUpdated: result.retainedTareUpdated
                     });
                 } else {
-                    showComplete('Weigh In', result.ticket, weight, null);
+                    finishTransaction('Weigh In', result.ticket, weight, null, result.printing);
                 }
             },
             error: function (xhr) {
@@ -2892,7 +2947,7 @@
             }),
             success: function (result) {
                 completedCardMessage = cardGuidance(result);
-                showComplete('Weigh Out', result.ticket, weighoutTicket.inWeight, weight);
+                finishTransaction('Weigh Out', result.ticket, weighoutTicket.inWeight, weight, result.printing);
             },
             error: function (xhr) {
                 var msg = TF('Server error ({0}). Please try again.', xhr.status);
@@ -2912,7 +2967,70 @@
             : T('RETURN CARD TO THE LOADER OPERATOR');
     }
 
-    function showComplete(type, ticketNum, inWeight, outWeight, tareInfo) {
+    // The ticket is not out of the printer when the save returns: the print service still
+    // has to fetch the PDF, hand it to the spooler, and the printer itself takes seconds
+    // after that. Hold the driver on "Saving Information" until the spooler takes the job,
+    // then "Printing Ticket", and only show Complete once the job is done.
+    function finishTransaction(type, ticketNum, inWeight, outWeight, printing, tareInfo) {
+        // Saved — it can no longer time out or be cancelled by the truck moving
+        clearOperationTracking();
+        // Hold the completion as a closure rather than a bag of fields: the only thing
+        // still undecided at this point is whether the print succeeded.
+        pendingComplete = {
+            ticket: ticketNum,
+            show: function (printFailed) {
+                showComplete(type, ticketNum, inWeight, outWeight, tareInfo, printFailed);
+            }
+        };
+
+        // Nothing went to a print service: browser print, no printer assigned, or a
+        // Retained Tare in-leg the server deliberately did not print.
+        if (!printing) {
+            revealComplete();
+            return;
+        }
+
+        if (kioskSettings.demoMode) {
+            // No print service in demo mode — play the same sequence on timers
+            printWaitTimer = setTimeout(function () {
+                setState('printing');
+                printWaitTimer = setTimeout(function () { revealComplete(false); }, 2500);
+            }, 1200);
+            return;
+        }
+
+        // Stay on 'saving' until the print service reports the job started
+        printWaitTimer = setTimeout(function () { revealComplete(false); }, PRINT_START_TIMEOUT_MS);
+    }
+
+    function isPendingTicket(ticketNum) {
+        return pendingComplete && ticketNum != null && String(ticketNum) === String(pendingComplete.ticket);
+    }
+
+    function onPrintJobStarted(ticketNum) {
+        if (!isPendingTicket(ticketNum)) return;
+        clearTimeout(printWaitTimer);
+        setState('printing');
+        printWaitTimer = setTimeout(function () { revealComplete(false); }, PRINT_DONE_TIMEOUT_MS);
+    }
+
+    function onPrintFinished(ticketNum, success) {
+        if (!isPendingTicket(ticketNum)) return;
+        // The transaction is saved either way. A failed print still lands on the
+        // Complete screen so the ticket number stays visible and Reprint is reachable.
+        revealComplete(!success);
+    }
+
+    function revealComplete(printFailed) {
+        clearTimeout(printWaitTimer);
+        printWaitTimer = null;
+        if (!pendingComplete) return;
+        var p = pendingComplete;
+        pendingComplete = null;
+        p.show(printFailed);
+    }
+
+    function showComplete(type, ticketNum, inWeight, outWeight, tareInfo, printFailed) {
         activeFlow = null;
         activeCardNumber = null;
         cardValues = {};
@@ -2945,6 +3063,10 @@
             info = TF('{0} — {1} lb', info, inWeight.toLocaleString());
         }
         $('#complete-info').text(info);
+
+        // Saved either way — the header still says what happened; the banner says the
+        // ticket never came out, so nobody walks off a Complete screen empty-handed.
+        $('#complete-print-failed').toggleClass('active', !!printFailed);
 
         // Show ticket info on complete screen
         showDemoTicket(type, ticketNum, inWeight, outWeight, tareInfo);
@@ -2992,6 +3114,9 @@
     }
 
     function exitCompleteState() {
+        clearTimeout(printWaitTimer);
+        printWaitTimer = null;
+        pendingComplete = null;
         completedWeight = null;
         completedTicket = null;
         completedType = null;

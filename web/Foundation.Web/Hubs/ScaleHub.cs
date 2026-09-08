@@ -110,6 +110,16 @@ public class ScaleHub : Hub
         await Clients.All.SendAsync("PrintResult", result);
     }
 
+    /// <summary>
+    /// Called by the print service the moment the spooler (CUPS on the Pi) accepts the job.
+    /// The kiosk uses this to switch from "Saving Information" to "Printing Ticket": the
+    /// printer takes several more seconds after this point, and the driver is stood there.
+    /// </summary>
+    public async Task PrintJobStarted(object info)
+    {
+        await Clients.All.SendAsync("PrintJobStarted", info);
+    }
+
     public async Task TestPrintResult(object result)
     {
         await Clients.All.SendAsync("TestPrintResult", result);
