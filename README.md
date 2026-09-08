@@ -12,11 +12,11 @@ Foundation is a web-based truck scale management application for weighing inboun
   - [Raspberry Pi Branding](Pi_Branding/README.md)
   - [Debian Server (Vultr, etc.) — HTTPS](docs/deploy-vultr.md)
   - [Raspberry Pi (LAN only, HTTP)](docs/deploy-pi.md)
+  - [Windows Server (LAN or HTTPS)](docs/deploy-windows.md)
   - [Raspberry Pi Kiosk Display](RaspberryPiKiosk/README.md)
 - [Deploy Script Reference](#deploy-script-reference)
   - [Server (Debian x64)](#server-debian-x64)
   - [Multiple Sites at Once](#multiple-sites-at-once)
-  - [Windows Server](#windows-server)
   - [RFID Card Reader Service](#rfid-card-reader-service)
   - [Gate Controller Service (arm64)](#gate-controller-service-arm64)
   - [QuickBooks Sync Service](QBSyncService/README.md)
@@ -81,6 +81,7 @@ Pick the path that matches where the app will run. Each guide is self-contained 
 |--------|----------------|-------|
 | **Debian cloud server** (Vultr, etc.) | Internet-facing site with a real domain and HTTPS. Required if you need access from outside the LAN or want Let's Encrypt SSL. | [docs/deploy-vultr.md](docs/deploy-vultr.md) |
 | **Raspberry Pi on the LAN** (HTTP) | Single weigh station, operators on the same local network, no domain or certificate. Reachable at `http://truckscale.local`. | [docs/deploy-pi.md](docs/deploy-pi.md) |
+| **Windows server or PC** | The office already runs Windows and you would rather not add a Linux box. Same app, same ports; publish on a dev PC and copy the folder over. No install script — the steps are manual. | [docs/deploy-windows.md](docs/deploy-windows.md) |
 | **Raspberry Pi kiosk display** | A second Pi (per kiosk display) wired to the scale-house TV. Boots straight into Chromium pointed at `<server>/Kiosk` with a watchdog that restarts the browser on outage. Bootstrap is a one-shot paste into [Raspberry Pi Connect](https://connect.raspberrypi.com); install.sh prompts for the kiosk PIN, service-id, and printer-id and assembles the full URL. | [RaspberryPiKiosk/README.md](RaspberryPiKiosk/README.md) |
 | **Raspberry Pi branding** | Cosmetic, run on any Pi in the fleet. Replaces the boot splash and desktop with Michelli artwork, quiets the boot, and rotates the screen. One-shot — run once, reboot once, done. | [Pi_Branding/README.md](Pi_Branding/README.md) |
 
@@ -301,99 +302,6 @@ bash deploy/deploy-pi-web.sh admin@192.168.1.60
 
 To commission the Pi's network connection in the field without a monitor,
 see [pi-network-setup](https://github.com/GTMichelli-Dev/pi-network-setup).
-
-### Windows Server
-
-The scripted deploy targets Debian. Windows runs the same app the same way —
-Kestrel listening on a port — but there is no install script, so the steps below
-are manual.
-
-Split the work across two machines where you can: **build** on a developer PC,
-**run** on the server. The reporting packages are licensed DevExpress builds
-that are not on nuget.org, so a machine that has never built this app cannot
-restore it without your DevExpress feed configured. A published folder carries
-those DLLs with it, so the server needs neither the feed nor the SDK.
-
-| | Needs |
-|---|---|
-| Machine that **builds** | [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) + access to your DevExpress NuGet feed |
-| Machine that **runs** | [ASP.NET Core 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) only |
-
-**1. Publish**
-
-```
-dotnet publish web\Foundation.Web -c Release -r win-x64 --self-contained false -o C:\Foundation
-```
-
-Copy `C:\Foundation` to the server if you built elsewhere. Use
-`--self-contained true` instead when the server has no .NET at all — the output
-is much larger but needs no runtime installed.
-
-**2. Run**
-
-```
-cd C:\Foundation
-Foundation.Web.exe --urls http://0.0.0.0:5110
-```
-
-Bind `0.0.0.0`, not `localhost`. Kiosk displays, the scale reader, the print
-service and drivers' phones all connect *to* this machine, and a localhost bind
-accepts none of them.
-
-The first start creates the database and applies every migration — the console
-shows each one. Browse to `http://<server>:5110` and work through Setup.
-
-**3. Open the port**
-
-Nothing reaches the app until Windows Firewall allows it. From an **admin**
-prompt:
-
-```
-netsh advfirewall firewall add rule name="Foundation 5110" dir=in action=allow protocol=TCP localport=5110
-```
-
-**4. Keep it running**
-
-The app has no Windows service host compiled in, so `sc.exe` cannot run it
-directly. Either register a Task Scheduler task (trigger *At startup*, "Run
-whether user is logged on or not") or wrap it with a supervisor such as NSSM.
-Without one of those it stops when the console window closes.
-
-**HTTPS is optional.** A scale house on its own LAN can stay on plain HTTP —
-that is a supported mode, not a compromise, and it is exactly what the
-[Raspberry Pi LAN deploy](docs/deploy-pi.md) does. Kestrel serves HTTP and
-nothing in the app needs a secure browser context.
-
-The one artifact is a startup warning:
-
-```
-warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]
-      Failed to determine the https port for redirect.
-```
-
-That is the redirect middleware finding no HTTPS port to send anyone to, so it
-stops redirecting and serves the request. Harmless, and the reason HTTP works
-at all outside Development.
-
-Add TLS when the site is reachable from outside the LAN, or when policy asks
-for it — passwords and session cookies otherwise cross the network in the
-clear. On Debian that is Nginx with a Let's Encrypt (or self-signed)
-certificate; on Windows put IIS or another reverse proxy in front and terminate
-there. Nothing in the app changes either way.
-
-**What lives in the publish folder**
-
-| Path | |
-|---|---|
-| `Foundation.db` (+ `-wal`, `-shm`) | The database. **This is the backup target.** |
-| `App_Data\keys` | Data-protection keys. Deleting them signs every user out. |
-| `appsettings.json` | `Display:TimeZone` and the database provider. |
-| `Reports\*.repx` | Only present once the site customizes a ticket in the Report Designer. Absent, the app uses its built-in layout — publishing deliberately does not overwrite a site's saved templates. |
-
-**Updating.** Publish over the top of the same folder. `Foundation.db`,
-`App_Data` and any saved `.repx` are not part of the publish output, so they
-survive — but stop the app first, or the running `.exe` is locked and the copy
-fails partway.
 
 ### RFID Card Reader Service
 
