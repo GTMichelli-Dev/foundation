@@ -13,6 +13,7 @@ and keep it running.
 
 ## Contents
 
+- [Minimum System Requirements](#minimum-system-requirements)
 - [What You Need](#what-you-need)
 - [Step 1: Publish](#step-1-publish)
 - [Step 2: Run It](#step-2-run-it)
@@ -21,6 +22,54 @@ and keep it running.
 - [HTTPS (optional)](#https-optional)
 - [What Lives in the Publish Folder](#what-lives-in-the-publish-folder)
 - [Updating](#updating)
+
+## Minimum System Requirements
+
+Modest. This is a small ASP.NET Core app with a SQLite file behind it — an
+office PC that already exists will do, and a weigh station does not need a
+dedicated server.
+
+| | Minimum | Comfortable |
+|---|---|---|
+| **OS** | Windows 10 (1607+), Windows 11, or Windows Server 2016+ | Windows 11 or Server 2022 |
+| **Architecture** | x64 | x64 |
+| **CPU** | Any current x64 processor | 2+ cores |
+| **RAM** | 2 GB free for the app | 4 GB |
+| **Disk** | 1 GB, plus room for photos (below) | 20 GB+ |
+| **Runtime** | [ASP.NET Core 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | — |
+| **Network** | One inbound TCP port (5110 by default), static or reserved IP | — |
+
+Measured on a framework-dependent `win-x64` publish, so you can size a machine
+against real figures rather than guesses:
+
+| | |
+|---|---|
+| Published app on disk | **374 MB** (990 files) |
+| Memory, idle after startup | **131 MB** |
+| Memory, peak while rendering a ticket PDF | **223 MB** |
+| Database, fresh | ~2 MB |
+| Database, a site with real ticket history | ~1.6 MB |
+
+**Photos are the only thing that grows.** The database stays in the low
+megabytes for years. Camera captures do not: with **Save Picture** on, each
+ticket stores roughly two images at ~127 KB, so a site running 100 tickets a
+day writes about 25 MB a day — call it 9 GB a year. Size the disk for that, or
+prune old images periodically. With cameras off, disk is effectively static.
+
+A few notes worth having before you buy anything:
+
+- **x64 is assumed** by the publish command below. For an ARM Windows machine,
+  publish with `-r win-arm64` instead.
+- **The .NET runtime is the only prerequisite on the server.** No IIS, no SQL
+  Server, no DevExpress install — the publish folder carries everything else,
+  including its own SQLite and graphics natives.
+- **The first ticket after a restart takes about a second longer** while the
+  report engine warms up; every ticket after that renders in well under a
+  tenth of a second. Not a sizing problem, just expected behaviour.
+- **If the app fails on startup with a native-DLL error**, install the
+  [Microsoft Visual C++ Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe).
+  A bare Windows Server install can lack it; a normal desktop almost never
+  does.
 
 ## What You Need
 
