@@ -359,9 +359,27 @@ directly. Either register a Task Scheduler task (trigger *At startup*, "Run
 whether user is logged on or not") or wrap it with a supervisor such as NSSM.
 Without one of those it stops when the console window closes.
 
-**HTTPS.** Kestrel serves plain HTTP here; the Debian path gets its certificate
-from Nginx and Let's Encrypt. On Windows put IIS or another reverse proxy in
-front and terminate TLS there.
+**HTTPS is optional.** A scale house on its own LAN can stay on plain HTTP —
+that is a supported mode, not a compromise, and it is exactly what the
+[Raspberry Pi LAN deploy](docs/deploy-pi.md) does. Kestrel serves HTTP and
+nothing in the app needs a secure browser context.
+
+The one artifact is a startup warning:
+
+```
+warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]
+      Failed to determine the https port for redirect.
+```
+
+That is the redirect middleware finding no HTTPS port to send anyone to, so it
+stops redirecting and serves the request. Harmless, and the reason HTTP works
+at all outside Development.
+
+Add TLS when the site is reachable from outside the LAN, or when policy asks
+for it — passwords and session cookies otherwise cross the network in the
+clear. On Debian that is Nginx with a Let's Encrypt (or self-signed)
+certificate; on Windows put IIS or another reverse proxy in front and terminate
+there. Nothing in the app changes either way.
 
 **What lives in the publish folder**
 
