@@ -151,7 +151,9 @@ public class GateWorker : BackgroundService
         var version = typeof(GateWorker).Assembly.GetName().Version?.ToString() ?? "unknown";
         try
         {
-            await _connection!.InvokeAsync("ReportServiceVersion", "Gate controller", _serviceId, version);
+            // true: this service ships from the Foundation repo and carries the
+            // same release tag, so the server can judge it against its own.
+            await _connection!.InvokeAsync("ReportServiceVersion", "Gate controller", _serviceId, version, true);
         }
         catch (Exception ex)
         {

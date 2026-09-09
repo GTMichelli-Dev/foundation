@@ -114,8 +114,11 @@ public class PrintService : BackgroundService
         var version = typeof(PrintService).Assembly.GetName().Version?.ToString() ?? "unknown";
         try
         {
+            // true: this agent ships from the Foundation repo and carries the
+            // same release tag, so the server can judge it against its own. The
+            // Pi web print service is a separate product and reports false.
             await _connection!.InvokeAsync("ReportServiceVersion",
-                "Print service", "default", version, stoppingToken);
+                "Kiosk print agent", "default", version, true, stoppingToken);
         }
         catch (Exception ex)
         {

@@ -1601,8 +1601,15 @@
                 return '<span class="badge bg-secondary">Not reported</span>' +
                     '<div class="small text-muted">Update it to report its version</div>';
             }
-            // "Mismatch", not "older": a service can also be ahead of the server
-            // mid-rollout, and calling that out as out of date would send someone
+            if (!svc.releasedWithServer) {
+                // Its own product, on its own release line. Comparing it to this
+                // server's version would mark it wrong forever, so show the
+                // version and say plainly where to check it instead.
+                return '<span class="text-muted small">Released separately —' +
+                    ' check against its own release</span>';
+            }
+            // "Does not match", not "older": a service can also be ahead of the
+            // server mid-rollout, and calling that out of date would send someone
             // to update the wrong machine.
             return svc.upToDate
                 ? '<span class="badge bg-success">Up to date</span>'

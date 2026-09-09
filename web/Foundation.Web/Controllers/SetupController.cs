@@ -810,10 +810,15 @@ public class SetupController : Controller
                     kind = s.Kind,
                     serviceId = s.ServiceId,
                     version = s.Version,
-                    // A service is "current" only when it reports and matches.
-                    // Not reporting is its own state, not a mismatch: the build
-                    // may well be right, we just cannot see it from here.
-                    upToDate = s.Version == null ? (bool?)null : s.Version == server,
+                    releasedWithServer = s.ReleasedWithServer,
+                    // Null means "no verdict", and there are two ways to get
+                    // there. Either the service did not report a version, or it
+                    // is a separate product on its own release line — the scale
+                    // reader, camera, QuickBooks sync and web print service —
+                    // whose version this server has no business judging.
+                    upToDate = s.Version == null || !s.ReleasedWithServer
+                        ? (bool?)null
+                        : s.Version == server,
                 })
                 .ToList(),
         });

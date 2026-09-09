@@ -557,7 +557,8 @@ public class ScaleHub : Hub
 
     // ===== SERVICE VERSIONS =====
 
-    public record ServiceVersionEntry(string Kind, string ServiceId, string Version, DateTime ConnectedUtc);
+    public record ServiceVersionEntry(
+        string Kind, string ServiceId, string Version, bool ReleasedWithServer, DateTime ConnectedUtc);
 
     /// <summary>
     /// What each connected service reports itself as: connectionId -> its kind,
@@ -579,13 +580,28 @@ public class ScaleHub : Hub
     /// Called by each service immediately after it joins its group, so the
     /// Services tab can answer "is the latest actually installed out there"
     /// without anyone walking out to a Pi to check.
+    ///
+    /// releasedWithServer says whether this service ships from the Foundation
+    /// repo and therefore carries the same release tag as this server. Only
+    /// those can be judged against the server's own version. The scale reader,
+    /// camera, QuickBooks sync and web print service are separate products with
+    /// their own release lines, so comparing them to the server would mark every
+    /// one of them permanently wrong.
+    ///
+    /// No default on releasedWithServer, because a C# default would not do what
+    /// it looks like it does: SignalR matches on argument count, so a three
+    /// argument call from a v1.21.0 service is rejected outright rather than
+    /// falling back. Those services catch the fault and carry on, and show as
+    /// "Not reported" until they are updated alongside the server — which is
+    /// how they ship anyway, from the same release.
     /// </summary>
-    public async Task ReportServiceVersion(string kind, string serviceId, string version)
+    public async Task ReportServiceVersion(
+        string kind, string serviceId, string version, bool releasedWithServer)
     {
         lock (_serviceVersionLock)
         {
             _serviceVersions[Context.ConnectionId] =
-                new ServiceVersionEntry(kind, serviceId, version, DateTime.UtcNow);
+                new ServiceVersionEntry(kind, serviceId, version, releasedWithServer, DateTime.UtcNow);
         }
         await Clients.All.SendAsync("ServiceVersionsChanged", GetServiceVersions());
     }
@@ -605,7 +621,7 @@ public class ScaleHub : Hub
         }
     }
 
-    public record ConnectedService(string Kind, string ServiceId, string? Version);
+    public record ConnectedService(string Kind, string ServiceId, string? Version, bool ReleasedWithServer);
 
     /// <summary>
     /// Every service connected right now, with the version it reported if it
@@ -635,9 +651,10 @@ public class ScaleHub : Hub
             {
                 foreach (var (connectionId, serviceId) in connections)
                 {
+                    var reported = versions.TryGetValue(connectionId, out var v) ? v : null;
                     accountedFor.Add(connectionId);
-                    rows.Add(new ConnectedService(kind, serviceId,
-                        versions.TryGetValue(connectionId, out var v) ? v.Version : null));
+                    rows.Add(new ConnectedService(
+                        kind, serviceId, reported?.Version, reported?.ReleasedWithServer ?? false));
                 }
             }
         }
@@ -652,16 +669,17 @@ public class ScaleHub : Hub
         {
             foreach (var connectionId in _qbSyncConnections)
             {
+                var reported = versions.TryGetValue(connectionId, out var v) ? v : null;
                 accountedFor.Add(connectionId);
-                rows.Add(new ConnectedService("QuickBooks sync", "default",
-                    versions.TryGetValue(connectionId, out var v) ? v.Version : null));
+                rows.Add(new ConnectedService(
+                    "QuickBooks sync", "default", reported?.Version, reported?.ReleasedWithServer ?? false));
             }
         }
 
         foreach (var (connectionId, v) in versions)
         {
             if (!accountedFor.Contains(connectionId))
-                rows.Add(new ConnectedService(v.Kind, v.ServiceId, v.Version));
+                rows.Add(new ConnectedService(v.Kind, v.ServiceId, v.Version, v.ReleasedWithServer));
         }
 
         return rows.OrderBy(r => r.Kind).ThenBy(r => r.ServiceId).ToList();

@@ -263,7 +263,9 @@ public class RfidWorker : BackgroundService
         var version = typeof(RfidWorker).Assembly.GetName().Version?.ToString() ?? "unknown";
         try
         {
-            await _connection!.InvokeAsync("ReportServiceVersion", "RFID reader", _serviceId, version);
+            // true: this service ships from the Foundation repo and carries the
+            // same release tag, so the server can judge it against its own.
+            await _connection!.InvokeAsync("ReportServiceVersion", "RFID reader", _serviceId, version, true);
         }
         catch (Exception ex)
         {
