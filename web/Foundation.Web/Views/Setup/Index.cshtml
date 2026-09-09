@@ -50,6 +50,9 @@
         <li class="nav-item">
             <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabApi" type="button">API</button>
         </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabServices" type="button">Services</button>
+        </li>
         @if (ViewBag.ShowResetDatabase == true)
         {
             <li class="nav-item">
@@ -1069,6 +1072,44 @@
             </div>
         </div>
 
+        <!-- TAB: Services -->
+        <div class="tab-pane fade" id="tabServices">
+            <div class="row g-3">
+                <div class="col-md-9">
+                    <div class="card">
+                        <div class="card-header py-1 d-flex align-items-center justify-content-between" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Connected Services</strong>
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0" id="btnRefreshServices">
+                                <i class="fa fa-refresh"></i> Refresh
+                            </button>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="small mb-2" style="color: var(--bw-text-muted);">
+                                This server is running <strong><span id="serverVersion">—</span></strong>.
+                                Everything below is connected to it right now. A service that is powered
+                                off or off the network does not appear at all.
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Service</th>
+                                            <th>ID</th>
+                                            <th>Version</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="servicesTableBody">
+                                        <tr><td colspan="4" class="text-muted small">Loading…</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- TAB: Database -->
         @if (ViewBag.ShowResetDatabase == true)
         {
@@ -1537,6 +1578,71 @@
                 if (target) document.getElementById('activeTabField').value = target;
             });
         });
+    })();
+
+    // --- Services tab: what is connected, and what version it is running ---
+    // Loaded on demand rather than with the page: it is a live read of hub
+    // connection state, so a value fetched at page load would be stale by the
+    // time anyone clicked through to look at it.
+    (function () {
+        var body = document.getElementById('servicesTableBody');
+        if (!body) return;
+
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+
+        function statusCell(svc) {
+            if (svc.version === null || svc.version === undefined) {
+                // Connected but silent. Almost always a service predating the
+                // version handshake, so say what to do rather than just "?".
+                return '<span class="badge bg-secondary">Not reported</span>' +
+                    '<div class="small text-muted">Update it to report its version</div>';
+            }
+            // "Mismatch", not "older": a service can also be ahead of the server
+            // mid-rollout, and calling that out as out of date would send someone
+            // to update the wrong machine.
+            return svc.upToDate
+                ? '<span class="badge bg-success">Up to date</span>'
+                : '<span class="badge bg-warning text-dark">Does not match server</span>';
+        }
+
+        function load() {
+            body.innerHTML = '<tr><td colspan="4" class="text-muted small">Loading…</td></tr>';
+            fetch('/api/setup/service-versions')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    document.getElementById('serverVersion').textContent = data.server;
+                    if (!data.services.length) {
+                        body.innerHTML = '<tr><td colspan="4" class="text-muted small">' +
+                            'Nothing connected. Scale readers, print services, card readers, ' +
+                            'cameras and the QuickBooks sync appear here while they are running.' +
+                            '</td></tr>';
+                        return;
+                    }
+                    body.innerHTML = data.services.map(function (s) {
+                        return '<tr>' +
+                            '<td>' + escapeHtml(s.kind) + '</td>' +
+                            '<td><code class="small">' + escapeHtml(s.serviceId) + '</code></td>' +
+                            '<td>' + (s.version ? escapeHtml(s.version) : '<span class="text-muted">—</span>') + '</td>' +
+                            '<td>' + statusCell(s) + '</td>' +
+                            '</tr>';
+                    }).join('');
+                })
+                .catch(function () {
+                    body.innerHTML = '<tr><td colspan="4" class="text-danger small">' +
+                        'Could not read service versions from the server.</td></tr>';
+                });
+        }
+
+        document.getElementById('btnRefreshServices').addEventListener('click', load);
+        var tabBtn = document.querySelector('[data-bs-target="#tabServices"]');
+        if (tabBtn) tabBtn.addEventListener('shown.bs.tab', load);
+        // The tab can also be the one restored after a save, in which case no
+        // click ever fires.
+        if (document.querySelector('#tabServices.active')) load();
     })();
 
     // --- Auto-save: every change posts the whole form (no Save button) ---

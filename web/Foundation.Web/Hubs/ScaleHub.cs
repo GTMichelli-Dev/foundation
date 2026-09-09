@@ -542,7 +542,129 @@ public class ScaleHub : Hub
             await Clients.All.SendAsync("SignaturePadStatusChanged", GetConnectedSignaturePadIds());
         }
 
+        // Check reported version. Unconditional, and last, because a version row
+        // is not tied to any one group — a connection that never reported one
+        // simply is not in the map.
+        bool hadVersion;
+        lock (_serviceVersionLock) { hadVersion = _serviceVersions.Remove(Context.ConnectionId); }
+        if (hadVersion)
+        {
+            await Clients.All.SendAsync("ServiceVersionsChanged", GetServiceVersions());
+        }
+
         await base.OnDisconnectedAsync(exception);
+    }
+
+    // ===== SERVICE VERSIONS =====
+
+    public record ServiceVersionEntry(string Kind, string ServiceId, string Version, DateTime ConnectedUtc);
+
+    /// <summary>
+    /// What each connected service reports itself as: connectionId -> its kind,
+    /// its service id, and the version it is running.
+    ///
+    /// Keyed by connection, not by service id, so a service that drops and
+    /// reconnects cannot leave a stale row behind claiming a version that is no
+    /// longer out there, and so the disconnect handler can drop the row without
+    /// knowing which kind of service it belonged to.
+    ///
+    /// A service too old to call ReportServiceVersion never appears here. That
+    /// is deliberate: the Services tab shows it as connected with an unknown
+    /// version, which is the honest answer, rather than assuming it matches.
+    /// </summary>
+    private static readonly Dictionary<string, ServiceVersionEntry> _serviceVersions = new();
+    private static readonly object _serviceVersionLock = new();
+
+    /// <summary>
+    /// Called by each service immediately after it joins its group, so the
+    /// Services tab can answer "is the latest actually installed out there"
+    /// without anyone walking out to a Pi to check.
+    /// </summary>
+    public async Task ReportServiceVersion(string kind, string serviceId, string version)
+    {
+        lock (_serviceVersionLock)
+        {
+            _serviceVersions[Context.ConnectionId] =
+                new ServiceVersionEntry(kind, serviceId, version, DateTime.UtcNow);
+        }
+        await Clients.All.SendAsync("ServiceVersionsChanged", GetServiceVersions());
+    }
+
+    /// <summary>
+    /// Static so the Setup API can read the same map the hub maintains — the
+    /// versions live with the connections, not in the database.
+    /// </summary>
+    public static List<ServiceVersionEntry> GetServiceVersions()
+    {
+        lock (_serviceVersionLock)
+        {
+            return _serviceVersions.Values
+                .OrderBy(v => v.Kind)
+                .ThenBy(v => v.ServiceId)
+                .ToList();
+        }
+    }
+
+    public record ConnectedService(string Kind, string ServiceId, string? Version);
+
+    /// <summary>
+    /// Every service connected right now, with the version it reported if it
+    /// reported one.
+    ///
+    /// Built from the per-kind connection maps rather than from the version map
+    /// alone, so a service running a build too old to report still appears —
+    /// connected, version unknown — instead of vanishing from the list and
+    /// reading as "not installed", which is the opposite of the truth.
+    ///
+    /// Then unioned with any version row whose connection is in none of those
+    /// maps. The gate controller joins its group without registering a
+    /// connection, and doing this as a union rather than a special case means a
+    /// service type added later is listed the moment it reports.
+    /// </summary>
+    public static List<ConnectedService> GetConnectedServices()
+    {
+        Dictionary<string, ServiceVersionEntry> versions;
+        lock (_serviceVersionLock) { versions = new(_serviceVersions); }
+
+        var rows = new List<ConnectedService>();
+        var accountedFor = new HashSet<string>();
+
+        void AddAll(string kind, Dictionary<string, string> connections, object gate)
+        {
+            lock (gate)
+            {
+                foreach (var (connectionId, serviceId) in connections)
+                {
+                    accountedFor.Add(connectionId);
+                    rows.Add(new ConnectedService(kind, serviceId,
+                        versions.TryGetValue(connectionId, out var v) ? v.Version : null));
+                }
+            }
+        }
+
+        AddAll("Scale reader", _scaleConnections, _scaleLock);
+        AddAll("Print service", _printConnections, _printLock);
+        AddAll("RFID reader", _readerConnections, _readerLock);
+        AddAll("Camera service", _cameraConnections, _cameraLock);
+        AddAll("Signature pad", _signaturePadConnections, _signaturePadLock);
+
+        lock (_qbLock)
+        {
+            foreach (var connectionId in _qbSyncConnections)
+            {
+                accountedFor.Add(connectionId);
+                rows.Add(new ConnectedService("QuickBooks sync", "default",
+                    versions.TryGetValue(connectionId, out var v) ? v.Version : null));
+            }
+        }
+
+        foreach (var (connectionId, v) in versions)
+        {
+            if (!accountedFor.Contains(connectionId))
+                rows.Add(new ConnectedService(v.Kind, v.ServiceId, v.Version));
+        }
+
+        return rows.OrderBy(r => r.Kind).ThenBy(r => r.ServiceId).ToList();
     }
 
     // ===== SCALE READER SERVICE =====

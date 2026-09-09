@@ -788,6 +788,37 @@ public class SetupController : Controller
     /// <summary>
     /// Returns the current system settings (excludes sensitive data like icon bytes).
     /// </summary>
+    /// <summary>
+    /// The services connected to this server and the version each is running,
+    /// so a tech can confirm an update actually landed in the yard without
+    /// walking out to every Pi and weigh PC.
+    ///
+    /// Reads the hub's live connection state, so it reflects this moment — a
+    /// service that is powered off or off the network is absent rather than
+    /// listed as stale.
+    /// </summary>
+    [HttpGet("api/setup/service-versions")]
+    public IActionResult GetServiceVersions()
+    {
+        var server = GetType().Assembly.GetName().Version?.ToString() ?? "unknown";
+        return Json(new
+        {
+            server,
+            services = Hubs.ScaleHub.GetConnectedServices()
+                .Select(s => new
+                {
+                    kind = s.Kind,
+                    serviceId = s.ServiceId,
+                    version = s.Version,
+                    // A service is "current" only when it reports and matches.
+                    // Not reporting is its own state, not a mismatch: the build
+                    // may well be right, we just cannot see it from here.
+                    upToDate = s.Version == null ? (bool?)null : s.Version == server,
+                })
+                .ToList(),
+        });
+    }
+
     [HttpGet("api/setup/settings")]
     public IActionResult GetSettings()
     {

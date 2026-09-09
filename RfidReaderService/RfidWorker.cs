@@ -247,6 +247,28 @@ public class RfidWorker : BackgroundService
     private async Task JoinGroups()
     {
         await _connection!.InvokeAsync("JoinReaderGroup", _serviceId);
+        await ReportVersion();
+    }
+
+    /// <summary>
+    /// Tells the server which build is running out here, so Setup > Services can
+    /// confirm an update actually landed without a trip to the reader.
+    ///
+    /// Best effort by design: a server older than this handshake has no such hub
+    /// method and will fault the invocation. That must not take the connection
+    /// down with it — reading cards matters, reporting a version does not.
+    /// </summary>
+    private async Task ReportVersion()
+    {
+        var version = typeof(RfidWorker).Assembly.GetName().Version?.ToString() ?? "unknown";
+        try
+        {
+            await _connection!.InvokeAsync("ReportServiceVersion", "RFID reader", _serviceId, version);
+        }
+        catch (Exception ex)
+        {
+            _log.LogDebug(ex, "Server did not accept a version report; it is probably older than this build.");
+        }
     }
 
     private async Task AnnounceReaders()

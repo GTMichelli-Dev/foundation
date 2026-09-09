@@ -62,6 +62,10 @@ public class PrintService : BackgroundService
         {
             _logger.LogInformation("Reconnected. Rejoining print group...");
             await _connection.InvokeAsync("JoinPrintGroup", stoppingToken);
+            // The server drops the version row with the old connection, so it
+            // has to be re-reported or this agent reads as "Not reported" from
+            // the first network blip onward.
+            await ReportVersionAsync(stoppingToken);
         };
 
         _connection.Closed += error =>
@@ -90,10 +94,33 @@ public class PrintService : BackgroundService
 
         // Join the PrintClients group
         await _connection.InvokeAsync("JoinPrintGroup", stoppingToken);
+        await ReportVersionAsync(stoppingToken);
         _logger.LogInformation("Joined print group. Waiting for print requests...");
 
         // Keep alive until cancelled
         await Task.Delay(Timeout.Infinite, stoppingToken);
+    }
+
+    /// <summary>
+    /// Tells the server which build is running out here, so Setup > Services can
+    /// confirm an update actually landed without a trip to the kiosk.
+    ///
+    /// Best effort by design: a server older than this handshake has no such hub
+    /// method and will fault the invocation. That must not take the connection
+    /// down with it — printing tickets matters, reporting a version does not.
+    /// </summary>
+    private async Task ReportVersionAsync(CancellationToken stoppingToken)
+    {
+        var version = typeof(PrintService).Assembly.GetName().Version?.ToString() ?? "unknown";
+        try
+        {
+            await _connection!.InvokeAsync("ReportServiceVersion",
+                "Print service", "default", version, stoppingToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Server did not accept a version report; it is probably older than this build.");
+        }
     }
 
     private async Task PrintTicketAsync(PrintRequest request)
