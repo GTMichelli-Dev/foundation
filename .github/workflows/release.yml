@@ -31,9 +31,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Pinned, not "10.0.x", so a release is built with the SDK we chose rather
+      # than whichever patch the runner resolved that morning. Bump it
+      # deliberately, having built on it locally first.
+      #
+      # This is reproducibility, not a fix for anything: v1.23.0 failed and then
+      # passed on re-run with no source change, both attempts on 10.0.401, so a
+      # floating SDK was not the cause. See the note on the Razor flake below.
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "10.0.x"
+          dotnet-version: "10.0.401"
 
       # DevExpress licensing is a build-time step, not a deployment one: a
       # source generator in DevExpress.Data reads this file and bakes the key
@@ -65,6 +72,22 @@ jobs:
           echo "Building $VERSION"
 
       # ---- Foundation web app -------------------------------------------------
+      #
+      # Known flake: the win-x64 publish has failed once (v1.23.0) with a wall of
+      # Razor errors — RZ1021, RZ1026, RZ2008 — across .cshtml files the commit
+      # never touched, complaining about things that are not in the source: an
+      # empty asp-for on a line that has a value, an unclosed <br> on a line that
+      # reads <br />. It appeared 2.5s after restore, far too fast for a real
+      # Razor compile of this app.
+      #
+      # It is the toolchain, not the code. The linux-x64 and linux-arm64 publishes
+      # above had already compiled the same views successfully in the same run,
+      # the same command succeeds locally, and a re-run of the same commit passed
+      # with nothing changed — both attempts on SDK 10.0.401.
+      #
+      # If it recurs: re-run first, and do not go hunting in the .cshtml files it
+      # names. Worth reporting upstream if it becomes frequent.
+      #
       # linux-x64 for the Debian server, linux-arm64 for a LAN Pi. Layout mirrors
       # deploy/publish.sh: the app under ./foundation, with the unit file and
       # installer beside it.
