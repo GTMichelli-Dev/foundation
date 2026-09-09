@@ -72,14 +72,16 @@ jobs:
         run: |
           dotnet publish web/Foundation.Web/Foundation.Web.csproj \
             -c Release -r linux-x64 --self-contained true \
-            -o out/web-x64/foundation -p:PublishSingleFile=false
+            -o out/web-x64/foundation -p:PublishSingleFile=false \
+            -p:Version=${{ steps.ver.outputs.version }}
           cp deploy/foundation.service deploy/install.sh out/web-x64/
 
       - name: Publish Foundation.Web (linux-arm64)
         run: |
           dotnet publish web/Foundation.Web/Foundation.Web.csproj \
             -c Release -r linux-arm64 --self-contained true \
-            -o out/web-arm64/foundation -p:PublishSingleFile=false
+            -o out/web-arm64/foundation -p:PublishSingleFile=false \
+            -p:Version=${{ steps.ver.outputs.version }}
           cp deploy/foundation-pi.service out/web-arm64/
           cp deploy/install-pi-web.sh out/web-arm64/install.sh
 
@@ -92,7 +94,8 @@ jobs:
         run: |
           dotnet publish web/Foundation.Web/Foundation.Web.csproj \
             -c Release -r win-x64 --self-contained true \
-            -o out/web-win/app -p:PublishSingleFile=false
+            -o out/web-win/app -p:PublishSingleFile=false \
+            -p:Version=${{ steps.ver.outputs.version }}
           cp deploy/install-web.ps1 deploy/INSTALL-WEB.bat out/web-win/
           cp deploy/package-README-web.txt out/web-win/README.txt
 
@@ -112,7 +115,8 @@ jobs:
         run: |
           dotnet publish KioskPrintAgent/KioskPrintAgent.csproj \
             -c Release -r linux-arm64 --self-contained true \
-            -o out/kiosk-arm64/app -p:PublishSingleFile=false
+            -o out/kiosk-arm64/app -p:PublishSingleFile=false \
+            -p:Version=${{ steps.ver.outputs.version }}
 
       # ---- RFID card reader service ------------------------------------------
       # arm64 for a Pi, win-x64 because a card reader is often on the weigh PC
@@ -122,7 +126,8 @@ jobs:
         run: |
           dotnet publish RfidReaderService/RfidReaderService.csproj \
             -c Release -r linux-arm64 --self-contained true \
-            -o out/rfid-arm64/app -p:PublishSingleFile=false
+            -o out/rfid-arm64/app -p:PublishSingleFile=false \
+            -p:Version=${{ steps.ver.outputs.version }}
           cp RfidReaderService/deploy/install.sh out/rfid-arm64/
 
       # The Windows package carries the installer, the double-clickable wrapper
@@ -133,7 +138,8 @@ jobs:
         run: |
           dotnet publish RfidReaderService/RfidReaderService.csproj \
             -c Release -r win-x64 --self-contained true \
-            -o out/rfid-win/app -p:PublishSingleFile=false
+            -o out/rfid-win/app -p:PublishSingleFile=false \
+            -p:Version=${{ steps.ver.outputs.version }}
           cp RfidReaderService/deploy/install.ps1 RfidReaderService/deploy/INSTALL.bat out/rfid-win/
           cp RfidReaderService/deploy/package-README.txt out/rfid-win/README.txt
 
@@ -144,7 +150,8 @@ jobs:
         run: |
           dotnet publish GateControllerService/GateControllerService.csproj \
             -c Release -r linux-arm64 --self-contained true \
-            -o out/gate-arm64/app -p:PublishSingleFile=false
+            -o out/gate-arm64/app -p:PublishSingleFile=false \
+            -p:Version=${{ steps.ver.outputs.version }}
           cp GateControllerService/deploy/install.sh out/gate-arm64/
           cp GateControllerService/deploy/package-README.txt out/gate-arm64/README.txt
 

@@ -5,6 +5,13 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!--
+      Fallback for local builds. The release workflow passes -p:Version from the
+      git tag, so a published artifact reports the release it shipped in. Left
+      unset it would default to 1.0.0 forever, which is what every agent in the
+      field reported before this.
+    -->
+    <Version>1.20.1</Version>
     <Product>Kiosk Print Agent</Product>
     <Description>Remote print agent for Foundation kiosk. Receives SignalR print requests and prints tickets via CUPS on Linux.</Description>
   </PropertyGroup>
