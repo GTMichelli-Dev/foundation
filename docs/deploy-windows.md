@@ -14,7 +14,8 @@ and keep it running.
 ## Contents
 
 - [Minimum System Requirements](#minimum-system-requirements)
-- [What You Need](#what-you-need)
+- [Install from the Release Package](#install-from-the-release-package)
+- [Building It Yourself](#building-it-yourself)
 - [Step 1: Publish](#step-1-publish)
 - [Step 2: Run It](#step-2-run-it)
 - [Step 3: Open the Firewall Port](#step-3-open-the-firewall-port)
@@ -70,6 +71,56 @@ A few notes worth having before you buy anything:
   [Microsoft Visual C++ Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe).
   A bare Windows Server install can lack it; a normal desktop almost never
   does.
+
+## Install from the Release Package
+
+The short path, and the one to use unless you have a reason not to. Every
+tagged release ships a prebuilt, self-contained Windows package: no .NET, no
+SDK, no git and no DevExpress licence needed on the machine.
+
+1. Download `foundation-web-win-x64.zip` from
+   [Releases](https://github.com/GTMichelli-Dev/foundation/releases) and unzip
+   it.
+2. Right-click **INSTALL-WEB.bat** → *Run as administrator*. Or, from an
+   **admin** command prompt in that folder:
+
+   ```
+   INSTALL-WEB.bat
+   ```
+
+That is the whole install. It:
+
+- copies the app to `C:\Foundation`,
+- registers a Windows service named **Foundation** that starts at boot and
+  restarts itself if it crashes,
+- opens the firewall port,
+- starts it and waits until the site actually answers before reporting
+  success — the first start also applies database migrations, which is
+  precisely when a bad install shows up,
+- prints the network address to point kiosks, the scale reader and the print
+  service at.
+
+Useful switches:
+
+| | |
+|---|---|
+| `-Port 8080` | Listen somewhere other than 5110. |
+| `-InstallDir D:\Foundation` | Install somewhere other than `C:\Foundation`. |
+| `-ResetDb` | Start from an empty database. Destroys every ticket and setting; a timestamped backup is taken first regardless. |
+| `-SkipFirewall` | Do not add the inbound rule. Only when firewall rules are managed centrally — without one, nothing else on the network reaches the site. |
+
+**Updating is the same command.** Re-run it against a newer package: the
+service is stopped, the database, data-protection keys and any Report Designer
+templates are kept, the binaries are replaced, and it starts again.
+
+Managing it afterwards is ordinary service management — `sc query Foundation`,
+`sc stop Foundation`, `sc start Foundation` — and startup errors land in Event
+Viewer under Windows Logs → Application.
+
+## Building It Yourself
+
+Only needed if you are working from source rather than a release — a modified
+build, or a revision that has not been tagged. Otherwise use the package above.
 
 ## What You Need
 

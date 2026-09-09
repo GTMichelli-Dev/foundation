@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -32,6 +32,10 @@
          Raspberry Pi ARM builds without the native-asset juggling SkiaSharp
          needs below. ClosedXML writes the .xlsx server-side (the Reports page
          builds its own client-side with ExcelJS); MailKit is the SMTP client. -->
+    <!-- Lets the published .exe run under the Windows Service Control Manager,
+         which is how the Windows package installs it. No-op on Linux, so the
+         Debian and Pi builds are unaffected. -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.*" />
     <PackageReference Include="ClosedXML" Version="0.105.1" />
     <PackageReference Include="MailKit" Version="4.17.0" />
     <PackageReference Include="QRCoder" Version="1.8.0" />

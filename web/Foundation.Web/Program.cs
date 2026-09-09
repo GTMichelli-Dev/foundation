@@ -1,4 +1,4 @@
-using Foundation.Web.Controllers;
+﻿using Foundation.Web.Controllers;
 using Foundation.Web.Data;
 using Foundation.Web.Hubs;
 using Foundation.Web.Services;
@@ -9,7 +9,26 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 
+// A Windows service starts in C:\Windows\System32, and this app resolves several
+// things relative to the working directory — the SQLite file from the connection
+// string, and the site's saved Reports\*.repx templates. Left alone, an installed
+// service would create a second, empty database under System32 and ignore the
+// site's ticket layouts, while running the same .exe by hand worked perfectly.
+// Anchor to the binaries instead. Only when actually running as a service: in
+// development the content root is the project folder, not bin/.
+if (Microsoft.Extensions.Hosting.WindowsServices.WindowsServiceHelpers.IsWindowsService())
+    Directory.SetCurrentDirectory(AppContext.BaseDirectory);
+
 var builder = WebApplication.CreateBuilder(args);
+
+// Windows Service support. Without it the Service Control Manager starts the
+// process, waits for a service-control handler that never registers, and kills
+// it after 30s with "Error 1053: the service did not respond in time". No-op
+// on Linux, where systemd runs the same binary unchanged.
+builder.Services.AddWindowsService(options =>
+{
+    options.ServiceName = "Foundation";
+});
 
 // Suppress noisy EF Core SQL logging
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);

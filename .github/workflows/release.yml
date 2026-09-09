@@ -65,6 +65,19 @@ jobs:
           cp deploy/foundation-pi.service out/web-arm64/
           cp deploy/install-pi-web.sh out/web-arm64/install.sh
 
+      # win-x64 so a site that already runs Windows can install the server on a
+      # PC it owns instead of adding a Linux box. Self-contained for the same
+      # reason as everything else here, plus one specific to this app: the
+      # DevExpress reporting packages are licensed and not on nuget.org, so
+      # building on the target is not an option a customer has.
+      - name: Publish Foundation.Web (win-x64)
+        run: |
+          dotnet publish web/Foundation.Web/Foundation.Web.csproj \
+            -c Release -r win-x64 --self-contained true \
+            -o out/web-win/app -p:PublishSingleFile=false
+          cp deploy/install-web.ps1 deploy/INSTALL-WEB.bat out/web-win/
+          cp deploy/package-README-web.txt out/web-win/README.txt
+
       # ---- Kiosk print agent (Pi only) ---------------------------------------
       - name: Publish KioskPrintAgent (linux-arm64)
         run: |
@@ -131,8 +144,9 @@ jobs:
           tar -czf gate-controller-linux-arm64.tar.gz  -C out/gate-arm64 .
           tar -czf kiosk-pi.tar.gz                     -C out/kiosk-pi .
           (cd out/rfid-win && zip -qr ../../rfid-reader-win-x64.zip .)
+          (cd out/web-win  && zip -qr ../../foundation-web-win-x64.zip .)
 
-          ls -lh foundation-web-*.tar.gz kiosk-*.tar.gz rfid-* gate-*.tar.gz
+          ls -lh foundation-web-* kiosk-*.tar.gz rfid-* gate-*.tar.gz
 
       - name: Check the packages
         run: |
@@ -147,12 +161,16 @@ jobs:
           test -f out/rfid-win/app/RfidReaderService.exe    || { echo "rfid exe missing";         exit 1; }
           test -f out/gate-arm64/app/GateControllerService  || { echo "gate binary missing";      exit 1; }
           test -f out/gate-arm64/install.sh                 || { echo "gate installer missing";   exit 1; }
+          test -f out/web-win/app/Foundation.Web.exe        || { echo "windows web exe missing";  exit 1; }
 
           # A package with no installer in it is worse than a failed build: it
           # looks complete right up to the moment someone unzips it on site.
           test -f out/rfid-win/install.ps1                  || { echo "rfid installer missing";   exit 1; }
           test -f out/rfid-win/INSTALL.bat                  || { echo "rfid wrapper missing";     exit 1; }
           test -f out/rfid-win/README.txt                   || { echo "rfid README missing";      exit 1; }
+          test -f out/web-win/install-web.ps1               || { echo "windows web installer missing"; exit 1; }
+          test -f out/web-win/INSTALL-WEB.bat               || { echo "windows web wrapper missing";   exit 1; }
+          test -f out/web-win/README.txt                    || { echo "windows web README missing";    exit 1; }
           test -f out/gate-arm64/README.txt                 || { echo "gate README missing";      exit 1; }
 
           # The Pi kiosk package is scripts only - an installer shipped without
@@ -178,6 +196,8 @@ jobs:
             || { echo "::error::x64 web build is not an x86-64 binary"; exit 1; }
           file out/gate-arm64/app/GateControllerService | grep -q "ARM aarch64" \
             || { echo "::error::gate build is not an aarch64 binary"; exit 1; }
+          file out/web-win/app/Foundation.Web.exe | grep -q "PE32+" \
+            || { echo "::error::windows web build is not a PE32+ executable"; exit 1; }
           echo "Packages OK"
 
       - name: Publish release
@@ -203,6 +223,29 @@ jobs:
 
           Omit DOMAIN/EMAIL for a LAN install without Let's Encrypt. The database
           is preserved across reinstalls.
+
+          Windows (Server, 10 or 11): download
+          \`foundation-web-win-x64.zip\`, unzip it, then right-click
+          **INSTALL-WEB.bat** and choose *Run as administrator* — or from an
+          **admin** command prompt in that folder:
+
+          \`\`\`
+          INSTALL-WEB.bat
+          \`\`\`
+
+          Installs a Windows service that starts at boot and restarts itself if
+          it crashes, opens the firewall port, and waits until the site actually
+          answers before reporting success. It prints the network address to
+          point kiosks and services at. Useful switches:
+
+          - \`-Port 8080\` — listen somewhere other than 5110.
+          - \`-InstallDir D:\Foundation\` — install somewhere other than \`C:\Foundation\`.
+          - \`-ResetDb\` — start from an empty database. Destroys every ticket
+            and setting; a timestamped backup is taken first regardless.
+
+          Re-run the same command to update: the database, the login keys and
+          any ticket layouts edited in the Report Designer are kept. Back up
+          \`C:\Foundation\Foundation.db\` — that one file is the site's data.
 
           ## Raspberry Pi kiosk
 
@@ -340,4 +383,5 @@ jobs:
             kiosk-print-agent-linux-arm64.tar.gz \
             rfid-reader-linux-arm64.tar.gz \
             rfid-reader-win-x64.zip \
+            foundation-web-win-x64.zip \
             gate-controller-linux-arm64.tar.gz             kiosk-pi.tar.gz
