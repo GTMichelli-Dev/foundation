@@ -14,6 +14,7 @@ Foundation is a web-based truck scale management application for weighing inboun
   - [Raspberry Pi (LAN only, HTTP)](docs/deploy-pi.md)
   - [Windows Server (LAN or HTTPS)](docs/deploy-windows.md)
   - [Raspberry Pi Kiosk Display](RaspberryPiKiosk/README.md)
+  - [DeskPi Lite: Enabling the Extra USB Ports](docs/deskpi-lite-usb.md)
 - [Deploy Script Reference](#deploy-script-reference)
   - [Server (Debian x64)](#server-debian-x64)
   - [Multiple Sites at Once](#multiple-sites-at-once)
@@ -88,6 +89,8 @@ Pick the path that matches where the app will run. Each guide is self-contained 
 After the app is running, see [Server Management](#server-management) for updates and routine ops, and [Configuration](#configuration) for app settings.
 
 > **Field commissioning tip:** to configure a headless Pi's network from a phone (tech access point + browser-based Wi-Fi/ethernet setup and connectivity test), install [pi-network-setup](https://github.com/GTMichelli-Dev/pi-network-setup) on the Pi alongside the app.
+
+> **DeskPi Lite hardware note:** the extra USB ports on a DeskPi Lite adapter board are dead out of the box — the Pi 4's USB-C port they hang off is left in peripheral mode. One line in `/boot/firmware/config.txt` fixes it: [DeskPi Lite: Enabling the Extra USB Ports](docs/deskpi-lite-usb.md). Applies to any Pi role, not just the web app.
 
 ### Pi access to private repos (GitHub App token)
 
