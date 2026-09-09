@@ -219,29 +219,27 @@
                         </div>
                     </div>
 
-                    <!-- Kiosk Options -->
+                    <!-- Icon -->
                     <div class="card mb-3">
                         <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
-                            <strong>Kiosk</strong>
+                            <strong>Icon</strong>
                         </div>
                         <div class="card-body py-2">
-                            <div class="row g-2 mb-2">
-                                <div class="col-6">
-                                    <label asp-for="KioskCount" class="form-label mb-0 small"></label>
-                                    <select asp-for="KioskCount" class="form-select form-select-sm" id="KioskCount">
-                                        <option value="0">No Kiosk</option>
-                                        <option value="1">One Kiosk</option>
-                                        <option value="2">In/Out Kiosk</option>
-                                    </select>
-                                </div>
-                                <div class="col-6" id="kioskDarkModeSection" style="display: @(Model.KioskCount > 0 ? "block" : "none");">
-                                    <label asp-for="KioskDarkMode" class="form-label mb-0 small"></label>
-                                    <select asp-for="KioskDarkMode" class="form-select form-select-sm">
-                                        <option value="true">Dark</option>
-                                        <option value="false">Light</option>
-                                    </select>
-                                </div>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <img id="iconPreview" src="/api/setup/icon" alt="Current Icon" style="height: 36px; width: 36px;" />
+                                @if (Model.Icon != null)
+                                {
+                                    <label class="form-check-label small">
+                                        <input type="checkbox" name="removeIcon" id="removeIconCb" value="true" class="form-check-input" />
+                                        Remove
+                                    </label>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">Default</span>
+                                }
                             </div>
+                            <input type="file" name="iconFile" id="iconFileInput" class="form-control form-control-sm" accept="image/*" />
                         </div>
                     </div>
 
@@ -268,91 +266,65 @@
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="col-md-6">
+                    <!-- Scales -->
                     <div class="card mb-3">
                         <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
-                            <strong>Icon</strong>
+                            <strong>Scales</strong>
                         </div>
                         <div class="card-body py-2">
-                            <div class="d-flex align-items-center gap-2 mb-1">
-                                <img id="iconPreview" src="/api/setup/icon" alt="Current Icon" style="height: 36px; width: 36px;" />
-                                @if (Model.Icon != null)
-                                {
-                                    <label class="form-check-label small">
-                                        <input type="checkbox" name="removeIcon" id="removeIconCb" value="true" class="form-check-input" />
-                                        Remove
-                                    </label>
-                                }
-                                else
-                                {
-                                    <span class="text-muted small">Default</span>
-                                }
-                            </div>
-                            <input type="file" name="iconFile" id="iconFileInput" class="form-control form-control-sm" accept="image/*" />
-                        </div>
-                    </div>
-                    <!-- Options (Cameras, QuickBooks, Scale) -->
-                    <div class="card mb-3">
-                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
-                            <strong>Options</strong>
-                        </div>
-                        <div class="card-body py-2">
-                            <div class="row g-2 mb-2">
-                                <div class="col-4">
-                                    <label asp-for="SavePicture" class="form-label mb-0 small"></label>
-                                    <select asp-for="SavePicture" class="form-select form-select-sm" id="SavePicture">
-                                        <option value="false">No</option>
-                                        <option value="true">Yes</option>
-                                    </select>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-8">
+                                    <div class="form-text small mt-0">Named scales and hardware feeds live on the Scales page.</div>
                                 </div>
-                                <div class="col-2 d-flex align-items-end" id="cameraManageSection" style="display: @(Model.SavePicture ? "flex" : "none") !important;">
-                                    <a href="/Camera" class="btn btn-outline-secondary btn-sm w-100">
-                                        Cameras
-                                    </a>
-                                </div>
-                                @* Independent of SavePicture on purpose: a site can want
-                                   operators watching the lane without storing ticket photos,
-                                   or the reverse. *@
-                                <div class="col-4">
-                                    <label asp-for="UseLiveView" class="form-label mb-0 small"></label>
-                                    <select asp-for="UseLiveView" class="form-select form-select-sm" id="UseLiveView">
-                                        <option value="false">No</option>
-                                        <option value="true">Yes</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="row g-2 mb-2">
-                                <div class="col-4">
-                                    <label asp-for="UseQuickBooks" class="form-label mb-0 small"></label>
-                                    <select asp-for="UseQuickBooks" class="form-select form-select-sm" id="UseQuickBooks">
-                                        <option value="false">No</option>
-                                        <option value="true">Yes</option>
-                                    </select>
-                                </div>
-                                <div class="col-2 d-flex align-items-end" id="qbCheckSection" style="display: @(Model.UseQuickBooks ? "flex" : "none") !important;">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm w-100" id="btnCheckQBService" onclick="checkQBService()">
-                                        Check
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="row g-2 mb-2">
-                                <div class="col-4">
-                                    <label class="form-label mb-0 small">Scales &amp; Kiosks</label>
-                                    <div class="form-text small mt-0">Named scales and hardware feeds live on the Scales page. Kiosks register themselves and are listed on the Kiosks page.</div>
-                                </div>
-                                <div class="col-2 d-flex align-items-end">
+                                <div class="col-4 d-flex align-items-end">
                                     <a href="/Scale" class="btn btn-outline-secondary btn-sm w-100">
                                         Scales
                                     </a>
                                 </div>
-                                <div class="col-2 d-flex align-items-end">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <!-- Kiosk -->
+                    <div class="card mb-3">
+                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Kiosk</strong>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="form-text small mt-0 mb-1">Kiosks register themselves and are listed on the Kiosks page.</div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-5">
+                                    <label asp-for="KioskCount" class="form-label mb-0 small"></label>
+                                    <select asp-for="KioskCount" class="form-select form-select-sm" id="KioskCount">
+                                        <option value="0">No Kiosk</option>
+                                        <option value="1">One Kiosk</option>
+                                        <option value="2">In/Out Kiosk</option>
+                                    </select>
+                                </div>
+                                <div class="col-4" id="kioskDarkModeSection" style="display: @(Model.KioskCount > 0 ? "block" : "none");">
+                                    <label asp-for="KioskDarkMode" class="form-label mb-0 small"></label>
+                                    <select asp-for="KioskDarkMode" class="form-select form-select-sm">
+                                        <option value="true">Dark</option>
+                                        <option value="false">Light</option>
+                                    </select>
+                                </div>
+                                <div class="col-3 d-flex align-items-end">
                                     <a href="/Kiosks" class="btn btn-outline-secondary btn-sm w-100" title="Kiosk displays that have registered themselves, and the scale, printer and reader each one uses">
                                         Kiosks
                                     </a>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                    <!-- Card Reader -->
+                    <div class="card mb-3">
+                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Card Reader</strong>
+                        </div>
+                        <div class="card-body py-2">
                             <div class="row g-2 mb-2">
                                 <div class="col-4">
                                     <label asp-for="UseCardReader" class="form-label mb-0 small"></label>
@@ -379,6 +351,62 @@
                                     <a href="/Reader" class="btn btn-outline-secondary btn-sm w-100" title="Serial ports and card-read diagnostics for connected RFID Reader Services">
                                         Readers
                                     </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Camera -->
+                    <div class="card mb-3">
+                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Camera</strong>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="row g-2 mb-2">
+                                <div class="col-5">
+                                    <label asp-for="SavePicture" class="form-label mb-0 small"></label>
+                                    <select asp-for="SavePicture" class="form-select form-select-sm" id="SavePicture">
+                                        <option value="false">No</option>
+                                        <option value="true">Yes</option>
+                                    </select>
+                                </div>
+                                @* Independent of SavePicture on purpose: a site can want
+                                   operators watching the lane without storing ticket photos,
+                                   or the reverse. *@
+                                <div class="col-4">
+                                    <label asp-for="UseLiveView" class="form-label mb-0 small"></label>
+                                    <select asp-for="UseLiveView" class="form-select form-select-sm" id="UseLiveView">
+                                        <option value="false">No</option>
+                                        <option value="true">Yes</option>
+                                    </select>
+                                </div>
+                                <div class="col-3 d-flex align-items-end" id="cameraManageSection" style="display: @(Model.SavePicture ? "flex" : "none") !important;">
+                                    <a href="/Camera" class="btn btn-outline-secondary btn-sm w-100">
+                                        Cameras
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Other -->
+                    <div class="card mb-3">
+                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Other</strong>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="row g-2 mb-2">
+                                <div class="col-4">
+                                    <label asp-for="UseQuickBooks" class="form-label mb-0 small"></label>
+                                    <select asp-for="UseQuickBooks" class="form-select form-select-sm" id="UseQuickBooks">
+                                        <option value="false">No</option>
+                                        <option value="true">Yes</option>
+                                    </select>
+                                </div>
+                                <div class="col-2 d-flex align-items-end" id="qbCheckSection" style="display: @(Model.UseQuickBooks ? "flex" : "none") !important;">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm w-100" id="btnCheckQBService" onclick="checkQBService()">
+                                        Check
+                                    </button>
                                 </div>
                             </div>
                             <div class="row g-2 mb-2">
@@ -1747,23 +1775,35 @@
         });
     }
 
+    // Show or hide one of the button cells that sit beside a Yes/No select.
+    //
+    // Those cells carry Bootstrap's .d-flex, which is `display: flex !important`,
+    // so a plain el.style.display = 'none' loses to it and the button stays on
+    // screen after its feature is switched off. Razor gets the first render
+    // right by writing !important inline; this keeps the runtime toggles right
+    // too. Only needed for .d-flex cells — the plain block ones are fine as they
+    // are.
+    function setSectionDisplay(el, value) {
+        if (el) el.style.setProperty('display', value, 'important');
+    }
+
     // --- QB Service Check ---
     document.getElementById('UseQuickBooks').addEventListener('change', function () {
         var el = document.getElementById('qbCheckSection');
-        el.style.display = this.value === 'true' ? 'flex' : 'none';
+        setSectionDisplay(el, this.value === 'true' ? 'flex' : 'none');
     });
 
     document.getElementById('SavePicture').addEventListener('change', function () {
         var el = document.getElementById('cameraManageSection');
-        el.style.display = this.value === 'true' ? 'flex' : 'none';
+        setSectionDisplay(el, this.value === 'true' ? 'flex' : 'none');
     });
 
     // --- Card reader options ---
     document.getElementById('UseCardReader').addEventListener('change', function () {
         var on = this.value === 'true';
         document.getElementById('recycleCardsSection').style.display = on ? 'block' : 'none';
-        document.getElementById('cardManageSection').style.display = on ? 'flex' : 'none';
-        document.getElementById('readerManageSection').style.display = on ? 'flex' : 'none';
+        setSectionDisplay(document.getElementById('cardManageSection'), on ? 'flex' : 'none');
+        setSectionDisplay(document.getElementById('readerManageSection'), on ? 'flex' : 'none');
     });
 
     // --- Driver Signature options ---
@@ -2072,7 +2112,7 @@
 
     document.getElementById('UseRetainedTare').addEventListener('change', function () {
         var on = this.value === 'true';
-        document.getElementById('retainedTareManageSection').style.display = on ? 'flex' : 'none';
+        setSectionDisplay(document.getElementById('retainedTareManageSection'), on ? 'flex' : 'none');
         var autoClear = document.getElementById('autoClearStaleSection');
         if (autoClear) autoClear.style.display = on ? 'block' : 'none';
         var resetGates = document.getElementById('tareResetGates');
@@ -2103,7 +2143,7 @@
 
     document.getElementById('RemotePrintMode').addEventListener('change', function () {
         var el = document.getElementById('printerManageSection');
-        el.style.display = this.value === 'RemotePrinter' ? 'flex' : 'none';
+        setSectionDisplay(el, this.value === 'RemotePrinter' ? 'flex' : 'none');
     });
 
     function checkQBService() {
@@ -2223,7 +2263,7 @@
 
     document.getElementById('UseBinInventory').addEventListener('change', function () {
         var on = this.value === 'true';
-        document.getElementById('binManageSection').style.display = on ? 'flex' : 'none';
+        setSectionDisplay(document.getElementById('binManageSection'), on ? 'flex' : 'none');
         document.getElementById('binRequiredSection').style.display = on ? 'block' : 'none';
         document.getElementById('binLockSection').style.display = on ? 'block' : 'none';
         var orderRow = document.getElementById('binFieldOrderRow');
