@@ -35,6 +35,24 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      # DevExpress licensing is a build-time step, not a deployment one: a
+      # source generator in DevExpress.Data reads this file and bakes the key
+      # into Foundation.Web.dll, which is why the customer's PC needs no
+      # licence. The runner has no key of its own, so without this step every
+      # report the published app renders carries a trial watermark. Publishing
+      # by hand from a dev machine works because the key is already there, at
+      # %AppData%\DevExpress\DevExpress_License.txt on Windows.
+      - name: Register the DevExpress licence
+        env:
+          DEVEXPRESS_LICENSE: ${{ secrets.DEVEXPRESS_LICENSE }}
+        run: |
+          if [ -z "$DEVEXPRESS_LICENSE" ]; then
+            echo "::error::DEVEXPRESS_LICENSE secret is not set. Every artifact this workflow builds would ship with DevExpress trial watermarks on its reports."
+            exit 1
+          fi
+          mkdir -p "$HOME/.config/DevExpress"
+          printf '%s' "$DEVEXPRESS_LICENSE" > "$HOME/.config/DevExpress/DevExpress_License.txt"
+
       - name: Resolve version
         id: ver
         run: |
@@ -68,8 +86,8 @@ jobs:
       # win-x64 so a site that already runs Windows can install the server on a
       # PC it owns instead of adding a Linux box. Self-contained for the same
       # reason as everything else here, plus one specific to this app: the
-      # DevExpress reporting packages are licensed and not on nuget.org, so
-      # building on the target is not an option a customer has.
+      # DevExpress reporting packages need a licence key at build time, which a
+      # customer does not have, so building on the target is not an option.
       - name: Publish Foundation.Web (win-x64)
         run: |
           dotnet publish web/Foundation.Web/Foundation.Web.csproj \
@@ -77,6 +95,17 @@ jobs:
             -o out/web-win/app -p:PublishSingleFile=false
           cp deploy/install-web.ps1 deploy/INSTALL-WEB.bat out/web-win/
           cp deploy/package-README-web.txt out/web-win/README.txt
+
+      # The licence is embedded, so it can also silently not be — an unset
+      # secret is caught above, but an expired or malformed key fails soft and
+      # the watermark only turns up once a customer prints a ticket. Assert the
+      # generator actually wrote the attribute into the assembly.
+      - name: Verify the licence was embedded
+        run: |
+          if ! grep -qa DXLicenseInformation out/web-win/app/Foundation.Web.dll; then
+            echo "::error::No DevExpress licence attribute in the published Foundation.Web.dll. The key in DEVEXPRESS_LICENSE was rejected, so reports would carry trial watermarks."
+            exit 1
+          fi
 
       # ---- Kiosk print agent (Pi only) ---------------------------------------
       - name: Publish KioskPrintAgent (linux-arm64)
