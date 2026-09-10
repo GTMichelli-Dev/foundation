@@ -27,12 +27,10 @@
         text-align: center;
     }
 
-    /* Style DevExtreme batch-edit Delete / Undelete links (and the truck
-       grids' Clear Tare) as Bootstrap buttons. Delete is outline-danger;
-       Undelete is outline-info; Clear Tare is amber so it doesn't read as
-       a second Delete. */
+    /* Style the grids' Delete link (and the truck grids' Clear Tare) as
+       Bootstrap buttons. Delete is outline-danger; Clear Tare is amber so
+       it doesn't read as a second Delete. */
     .dx-datagrid .dx-link-delete,
-    .dx-datagrid .dx-link-undelete,
     .dx-datagrid .btn-clear-tare {
         display: inline-block;
         padding: 0.2rem 0.55rem;
@@ -53,15 +51,6 @@
         color: #fff;
         background: #dc3545;
         border-color: #dc3545;
-    }
-    .dx-datagrid .dx-link-undelete {
-        color: #0dcaf0;
-        border-color: #0dcaf0;
-        background: transparent;
-    }
-    .dx-datagrid .dx-link-undelete:hover {
-        color: #000;
-        background: #0dcaf0;
     }
     .dx-datagrid .btn-clear-tare {
         color: #b58105;
@@ -173,11 +162,12 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                You have unsaved changes. Continue without saving?
+                You have unsaved changes. Save them before continuing?
             </div>
             <div class="modal-footer py-1">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Stay</button>
-                <button type="button" class="btn btn-danger btn-sm" id="mdLeaveConfirmBtn">Continue</button>
+                <button type="button" class="btn btn-outline-danger btn-sm" id="mdLeaveDiscardBtn">Discard &amp; Continue</button>
+                <button type="button" class="btn btn-primary btn-sm" id="mdLeaveSaveBtn">Save &amp; Continue</button>
             </div>
         </div>
     </div>
@@ -295,12 +285,94 @@
         });
     }
 
-    /// Boolean column with a header checkbox that toggles every visible row.
-    /// Stages the changes via grid.cellValue() so they go through the same
-    /// batch-edit pipeline as per-row edits — operator clicks Save in the
-    /// grid toolbar to commit, matching the per-row behavior. minWidth keeps
-    /// the column from shrinking below 200px even when stateStoring restores
-    /// a smaller manual width from a previous session.
+    // Replaces the bare + icon with a labelled "Add <noun>" button.
+    function labelAddButton(e, noun) {
+        e.toolbarOptions.items.forEach(function (item) {
+            if (item.name !== 'addRowButton') return;
+            item.showText = 'always';
+            item.options = $.extend({}, item.options, { text: 'Add ' + noun });
+        });
+    }
+
+    // Toolbar for an Edit Tables grid: Show All plus "Add <noun>". Grids
+    // save each change as it is made, so there is no Save / Undo pair.
+    function toolbarWithAdd(noun) {
+        return function (e) {
+            attachShowAllButton(e);
+            labelAddButton(e, noun);
+        };
+    }
+
+    // Edit Tables grids save each change as it is made: a cell edit when it
+    // loses focus, a new row once its required fields are filled, a delete
+    // once confirmed. Nothing waits on a Save button that is easy to miss.
+    function autoSaveEditing(canAdd, canDelete) {
+        return {
+            mode: 'cell',
+            allowAdding: canAdd,
+            allowUpdating: true,
+            allowDeleting: canDelete,
+            useIcons: false
+        };
+    }
+
+    // Cell mode saves an edited cell as soon as it closes, but holds a new
+    // row back until focus leaves the row — so a new truck sat unsaved while
+    // the operator tabbed on through Description and Notes. Save a new row
+    // the moment every required column has a value.
+    function saveNewRowsWhenComplete(e) {
+        if (e.fullName.indexOf('editing.changes') !== 0) return;
+        var grid = e.component;
+        setTimeout(function () {
+            var required = (grid.option('columns') || []).filter(function (c) {
+                return (c.validationRules || []).some(function (r) { return r.type === 'required'; });
+            }).map(function (c) { return c.dataField; });
+            var ready = (grid.option('editing.changes') || []).some(function (c) {
+                return c.type === 'insert' && required.every(function (f) {
+                    var v = c.data && c.data[f];
+                    return v != null && String(v).trim() !== '';
+                });
+            });
+            if (ready) grid.saveEditData();
+        });
+    }
+
+    // A grid remembers its layout — column widths, order, visibility, sort
+    // and page size — but never its filters. A filter left typed in a filter
+    // box came back on every visit and made the grid look empty, with no
+    // hint why. Stripping on load too clears filters browsers already saved.
+    function stripFilters(state) {
+        if (!state) return state;
+        delete state.filterValue;
+        delete state.searchText;
+        delete state.filterPanel;
+        (state.columns || []).forEach(function (c) {
+            delete c.filterValue;
+            delete c.filterValues;
+            delete c.filterType;
+            delete c.selectedFilterOperation;
+        });
+        return state;
+    }
+    function layoutStateStoring(storageKey) {
+        return {
+            enabled: true,
+            type: 'custom',
+            customLoad: function () {
+                try { return stripFilters(JSON.parse(localStorage.getItem(storageKey))); }
+                catch (e) { return null; }
+            },
+            customSave: function (state) {
+                try { localStorage.setItem(storageKey, JSON.stringify(stripFilters(JSON.parse(JSON.stringify(state))))); }
+                catch (e) { }
+            }
+        };
+    }
+
+    /// Boolean column with a header checkbox that toggles every visible row
+    /// and saves them in one go, as a single checkbox click does. minWidth
+    /// keeps the column from shrinking below 200px even when stateStoring
+    /// restores a smaller manual width from a previous session.
     /// `endpoint` is currently unused (kept for forward compatibility with
     /// the /api/masterdata/{table}/bulk-set server endpoint).
     function boolToggleHeaderCol(dataField, caption, endpoint, width) {
@@ -320,7 +392,7 @@
                 });
                 $('<span>').text(caption).appendTo($wrap);
                 $('<input type="checkbox" class="form-check-input">')
-                    .attr('title', 'Toggle every row — then click Save to commit')
+                    .attr('title', 'Toggle every row')
                     .css({ cursor: 'pointer', margin: 0 })
                     .on('click', function (e) {
                         e.stopPropagation();
@@ -339,9 +411,7 @@
                             }
                             grid.cellValue(r.rowIndex, dataField, checked);
                         });
-                        // Intentionally do NOT call grid.saveEditData() —
-                        // operator clicks Save in the edit toolbar to commit,
-                        // for consistency with how row edits work.
+                        grid.saveEditData();
                     })
                     .appendTo($wrap);
                 $wrap.appendTo(container);
@@ -496,22 +566,13 @@
                 allowColumnReordering: true,
                 allowColumnResizing: true,
                 columnChooser: { enabled: true, mode: 'select' },
-                stateStoring: {
-                    enabled: true,
-                    type: 'localStorage',
-                    // v2 suffix — abandons pre-v1.3.44 saved column widths so
-                    // the new 200px Active/Kiosk defaults take effect. Future
-                    // manual resizes are saved under this key as before.
-                    storageKey: 'masterData_v2_' + endpoint
-                },
-                editing: {
-                    mode: 'batch',
-                    allowAdding: !lockName,
-                    allowUpdating: true,
-                    allowDeleting: !lockName,
-                    useIcons: false
-                },
-                onToolbarPreparing: attachShowAllButton,
+                // v2 suffix — abandons pre-v1.3.44 saved column widths so
+                // the new 200px Active/Kiosk defaults take effect. Future
+                // manual resizes are saved under this key as before.
+                stateStoring: layoutStateStoring('masterData_v2_' + endpoint),
+                editing: autoSaveEditing(!lockName, !lockName),
+                onToolbarPreparing: toolbarWithAdd(nameCaption.replace(/ Name$/, '')),
+                onOptionChanged: saveNewRowsWhenComplete,
                 onEditorPreparing: disableKioskOnInactiveRow,
                 columns: cols
             });
@@ -731,13 +792,29 @@
             customerSuggestions = data;
         });
 
-        // Carrier choices for the Trucks tab. Raw mode caches the list; the
-        // cache is dropped whenever the Carriers grid saves.
-        var carrierLookupStore = new DevExpress.data.CustomStore({
-            key: 'carrierName',
-            loadMode: 'raw',
-            load: function () { return $.getJSON('/api/masterdata/carriers'); }
-        });
+        // Carrier dropdown for the Trucks tab. The list is fetched each time
+        // the editor opens, so a carrier added a moment ago — on the Carriers
+        // tab or with Customers → Add to Carriers — is always offered.
+        // The grid builds this editor itself: a dropdown built in an
+        // editCellTemplate lost its pick in cell mode, leaving the new row
+        // with no carrier.
+        function pickCarrierEditor(e) {
+            if (e.parentType !== 'dataRow' || e.dataField !== 'carrierName') return;
+            e.editorName = 'dxSelectBox';
+            e.editorOptions.dataSource = {
+                store: new DevExpress.data.CustomStore({
+                    loadMode: 'raw',
+                    load: function () {
+                        return $.getJSON('/api/masterdata/carriers').then(function (rows) {
+                            return rows.map(function (r) { return r.carrierName; });
+                        });
+                    }
+                }),
+                paginate: false
+            };
+            e.editorOptions.searchEnabled = true;
+            e.editorOptions.placeholder = 'Select carrier…';
+        }
 
         // Truck columns, shared by the Trucks tab and each carrier's
         // expandable truck list. withCarrier adds the Carrier column for the
@@ -750,8 +827,8 @@
                     caption: 'Carrier',
                     sortOrder: 'asc',
                     sortIndex: 0,
-                    validationRules: [{ type: 'required' }],
-                    lookup: { dataSource: carrierLookupStore, valueExpr: 'carrierName', displayExpr: 'carrierName' }
+                    validationRules: [{ type: 'required' }]
+                    // Editor: pickCarrierEditor, from the grid's onEditorPreparing.
                 });
             }
             cols.push(
@@ -806,45 +883,35 @@
             // A type:'buttons' column replaces the grid's built-in command
             // column, so Delete has to be listed here or the Clear column
             // above hides it. Two buttons columns need distinct names.
-            cols.push({ type: 'buttons', name: 'rowActions', width: 110, buttons: ['delete', 'undelete'] });
+            cols.push({ type: 'buttons', name: 'rowActions', width: 110, buttons: ['delete'] });
             return cols;
         }
 
         var carrierCols = [
             { dataField: 'id', caption: 'ID', width: 60, allowEditing: false },
-            {
-                dataField: 'carrierName', caption: 'Carrier Name', sortOrder: 'asc', validationRules: [{ type: 'required' }],
-                editCellTemplate: function (cellElement, cellInfo) {
-                    if (cellInfo.row.isNewRow) {
-                        $('<div>').dxAutocomplete({
-                            dataSource: customerSuggestions,
-                            value: cellInfo.value || '',
-                            minSearchLength: 0,
-                            showDropDownButton: true,
-                            onValueChanged: function (e) {
-                                cellInfo.setValue(e.value);
-                            }
-                        }).appendTo(cellElement);
-                    } else {
-                        $('<div>').dxTextBox({
-                            value: cellInfo.value || '',
-                            onValueChanged: function (e) {
-                                cellInfo.setValue(e.value);
-                            }
-                        }).appendTo(cellElement);
-                    }
-                }
-            },
+            { dataField: 'carrierName', caption: 'Carrier Name', sortOrder: 'asc', validationRules: [{ type: 'required' }] },
             {
                 dataField: 'truckCount',
                 caption: '# Trucks',
                 dataType: 'number',
-                width: 100,
+                width: 110,
                 allowEditing: false,
                 alignment: 'center',
                 cellTemplate: function (container, options) {
                     var n = options.value || 0;
-                    container.text(n);
+                    if (!options.data || !options.data.id) { container.text(n); return; }
+                    // The count opens the carrier's truck list — the expand
+                    // arrow at the row's left edge is easy to miss.
+                    $('<button type="button" class="btn btn-link btn-sm p-0">')
+                        .text(n + (n === 1 ? ' truck' : ' trucks'))
+                        .css(n === 0 ? { color: 'inherit' } : {})
+                        .on('click', function (e) {
+                            e.stopPropagation();
+                            var grid = options.component;
+                            if (grid.isRowExpanded(options.key)) grid.collapseRow(options.key);
+                            else grid.expandRow(options.key);
+                        })
+                        .appendTo(container);
                     if (n === 0) {
                         // Pink the whole cell so zero-truck carriers stand out
                         // — those carriers can't pass the kiosk no-trucks check.
@@ -870,25 +937,23 @@
             allowColumnReordering: true,
             allowColumnResizing: true,
             columnChooser: { enabled: true, mode: 'select' },
-            stateStoring: {
-                enabled: true,
-                type: 'localStorage',
-                storageKey: 'masterData_v3_carriers'
+            stateStoring: layoutStateStoring('masterData_v3_carriers'),
+            editing: autoSaveEditing(true, true),
+            onToolbarPreparing: toolbarWithAdd('Carrier'),
+            onOptionChanged: saveNewRowsWhenComplete,
+            onEditorPreparing: function (e) {
+                disableKioskOnInactiveRow(e);
+                // A new carrier's name suggests customers that are not yet
+                // carriers. Grid-built for the same reason as pickCarrierEditor.
+                if (e.parentType === 'dataRow' && e.dataField === 'carrierName' && e.row && e.row.isNewRow) {
+                    e.editorName = 'dxAutocomplete';
+                    e.editorOptions.dataSource = customerSuggestions;
+                    e.editorOptions.minSearchLength = 0;
+                    e.editorOptions.showDropDownButton = true;
+                }
             },
-            editing: {
-                mode: 'batch',
-                allowAdding: true,
-                allowUpdating: true,
-                allowDeleting: true,
-                useIcons: false
-            },
-            onToolbarPreparing: attachShowAllButton,
-            onEditorPreparing: disableKioskOnInactiveRow,
             columns: carrierCols,
-            onSaved: function () {
-                carrierLookupStore.clearRawDataCache();
-                refreshTrucksGrid();
-            },
+            onSaved: refreshTrucksGrid,
             onInitNewRow: function () {
                 $.getJSON('/api/masterdata/customers-not-carriers').done(function (data) {
                     customerSuggestions = data;
@@ -926,6 +991,10 @@
                                     method: 'PUT',
                                     contentType: 'application/json',
                                     data: JSON.stringify(values)
+                                }).catch(function (xhr) {
+                                    // e.g. "Farm Trucks already has a truck FT-1."
+                                    var msg = (xhr.responseJSON && xhr.responseJSON.message) || 'Save failed.';
+                                    return $.Deferred().reject(msg);
                                 });
                             },
                             remove: function (key) {
@@ -938,13 +1007,9 @@
                         showBorders: true,
                         columnAutoWidth: true,
                         onSaved: refreshTrucksGrid,
-                        editing: {
-                            mode: 'batch',
-                            allowAdding: true,
-                            allowUpdating: true,
-                            allowDeleting: true,
-                            useIcons: false
-                        },
+                        editing: autoSaveEditing(true, true),
+                        onToolbarPreparing: function (e) { labelAddButton(e, 'Truck'); },
+                        onOptionChanged: saveNewRowsWhenComplete,
                         columns: truckCols
                     }).appendTo(container);
                 }
@@ -952,7 +1017,7 @@
         });
 
         // Trucks tab: every truck in one list, so trucks can be managed
-        // without expanding each carrier on the Carriers & Trucks tab.
+        // without expanding each carrier on the Carriers tab.
         if ($('#trucksGrid').length)
         $('#trucksGrid').dxDataGrid({
             hoverStateEnabled: true,
@@ -963,43 +1028,49 @@
             allowColumnReordering: true,
             allowColumnResizing: true,
             columnChooser: { enabled: true, mode: 'select' },
-            stateStoring: {
-                enabled: true,
-                type: 'localStorage',
-                storageKey: 'masterData_v1_trucks'
-            },
-            editing: {
-                mode: 'batch',
-                allowAdding: true,
-                allowUpdating: true,
-                allowDeleting: true,
-                useIcons: false
-            },
-            onToolbarPreparing: attachShowAllButton,
+            stateStoring: layoutStateStoring('masterData_v1_trucks'),
+            editing: autoSaveEditing(true, true),
+            onToolbarPreparing: toolbarWithAdd('Truck'),
+            onOptionChanged: saveNewRowsWhenComplete,
+            onEditorPreparing: pickCarrierEditor,
             onSaved: refreshCarriersGrid,
             columns: truckColumns(true)
         });
 
         // ===== Unsaved-changes guard =====
-        // Any of the master-data grids has uncommitted batch edits if its
-        // hasEditData() returns true. When the operator clicks an in-app
-        // link or tries to close the tab with pending edits, surface a
-        // Bootstrap modal (in-app navigation) or the browser's native
-        // beforeunload prompt (tab close / hard navigation).
+        // Grids save each change as it is made, so pending edits are rare: a
+        // cell still being typed in, or a new row missing a required field.
+        // When one exists and the operator follows an in-app link or switches
+        // tab, a modal offers Save, Discard or Stay; closing the browser tab
+        // falls back to its native beforeunload prompt.
         var mdIsLeaving = false;
+        var MD_GRIDS = ['#customersGrid', '#carriersGrid', '#trucksGrid', '#locationsGrid',
+                        '#destinationsGrid', '#binsGrid', '#commoditiesGrid'];
+        function mdEachGrid(fn) {
+            MD_GRIDS.forEach(function (sel) {
+                var inst = $(sel).dxDataGrid('instance');
+                if (inst) fn(inst);
+            });
+        }
         function mdAnyGridDirty() {
-            var grids = ['#customersGrid', '#carriersGrid', '#trucksGrid', '#locationsGrid',
-                         '#destinationsGrid', '#binsGrid', '#commoditiesGrid'];
-            for (var i = 0; i < grids.length; i++) {
-                var inst = $(grids[i]).dxDataGrid('instance');
-                if (inst && typeof inst.hasEditData === 'function' && inst.hasEditData()) {
-                    return true;
-                }
-            }
-            return false;
+            var dirty = false;
+            mdEachGrid(function (g) { if (g.hasEditData()) dirty = true; });
+            return dirty;
+        }
+        // Resolves once every dirty grid has round-tripped. A grid can still
+        // be dirty afterwards when a row failed validation — callers check.
+        function mdSaveAllGrids() {
+            var saves = [];
+            mdEachGrid(function (g) { if (g.hasEditData()) saves.push(g.saveEditData()); });
+            return $.when.apply($, saves);
+        }
+        function mdCancelAllGrids() {
+            mdEachGrid(function (g) { g.cancelEditData(); });
         }
         // Exposed for the QB-sync confirmation flow defined in the IIFE below.
         window.mdAnyGridDirty = mdAnyGridDirty;
+        window.mdSaveAllGrids = mdSaveAllGrids;
+        window.mdCancelAllGrids = mdCancelAllGrids;
 
         $(window).on('beforeunload', function () {
             if (mdAnyGridDirty() && !mdIsLeaving) return 'You have unsaved changes.';
@@ -1034,8 +1105,29 @@
             new bootstrap.Modal('#mdLeaveConfirmModal').show();
         });
 
-        $('#mdLeaveConfirmBtn').on('click', function () {
+        function mdHideLeaveModal() {
             bootstrap.Modal.getInstance(document.getElementById('mdLeaveConfirmModal')).hide();
+        }
+
+        $('#mdLeaveDiscardBtn').on('click', function () {
+            mdHideLeaveModal();
+            mdCancelAllGrids();
+            mdProceed();
+        });
+
+        $('#mdLeaveSaveBtn').on('click', function () {
+            var $btn = $(this).prop('disabled', true).text('Saving…');
+            mdSaveAllGrids().always(function () {
+                $btn.prop('disabled', false).text('Save & Continue');
+                mdHideLeaveModal();
+                // A row that failed validation stays dirty and shows its error
+                // in the grid — stay so the operator can fix it.
+                if (!mdAnyGridDirty()) mdProceed();
+            });
+        });
+
+        // Carry on with whatever the modal interrupted: a tab switch or a link.
+        function mdProceed() {
             if (mdPendingTabBtn) {
                 // Tab switch: tell the show.bs.tab handler to skip its guard
                 // for this one programmatic call so we don't loop.
@@ -1050,7 +1142,7 @@
                 mdIsLeaving = true; // suppresses beforeunload on the upcoming nav
                 window.location.href = mdPendingHref;
             }
-        });
+        }
     });
 </script>
 <script src="~/js/signalr/signalr.min.js"></script>
@@ -1139,8 +1231,8 @@
 
         window.triggerQBSync = function () {
             // Sync refreshes every grid on completion, which silently drops
-            // any uncommitted batch edits. Warn first so the operator can
-            // save before continuing.
+            // any unsaved edit. Warn first so the operator can save before
+            // continuing.
             if (typeof window.mdAnyGridDirty === 'function' && window.mdAnyGridDirty()) {
                 new bootstrap.Modal('#mdSyncConfirmModal').show();
                 return;
@@ -1148,44 +1240,23 @@
             doQBSync();
         };
 
-        var MD_GRID_SELECTORS = ['#customersGrid', '#carriersGrid', '#trucksGrid', '#locationsGrid',
-                                 '#destinationsGrid', '#binsGrid', '#commoditiesGrid'];
-
         $(function () {
             $('#mdSyncDiscardBtn').on('click', function () {
                 bootstrap.Modal.getInstance(document.getElementById('mdSyncConfirmModal')).hide();
-                // Cancel staged edits across every grid so the upcoming refresh
-                // doesn't race against in-flight batch edits.
-                MD_GRID_SELECTORS.forEach(function (sel) {
-                    var inst = $(sel).dxDataGrid('instance');
-                    if (inst && typeof inst.cancelEditData === 'function') inst.cancelEditData();
-                });
+                // Cancel pending edits so the upcoming refresh doesn't race them.
+                window.mdCancelAllGrids();
                 doQBSync();
             });
 
-            // Save staged edits across every dirty grid, then proceed to sync.
-            // saveEditData() returns a jQuery Deferred; $.when waits for all
-            // grids in parallel so we only kick off the sync once every batch
-            // round-trips successfully. Any save failure aborts the sync so
-            // the operator can fix the offending row.
+            // Save pending edits across every grid, then sync. A row that
+            // failed validation leaves its grid dirty — stay so the operator
+            // can fix the inline error.
             $('#mdSyncSaveBtn').on('click', function () {
                 var $btn = $(this).prop('disabled', true).text('Saving…');
-                var saves = [];
-                MD_GRID_SELECTORS.forEach(function (sel) {
-                    var inst = $(sel).dxDataGrid('instance');
-                    if (inst && typeof inst.hasEditData === 'function' && inst.hasEditData()) {
-                        saves.push(inst.saveEditData());
-                    }
-                });
-                $.when.apply($, saves).then(function () {
-                    // Some grids may still be dirty if a row failed validation
-                    // — bail out and let the operator address the inline error.
-                    if (window.mdAnyGridDirty && window.mdAnyGridDirty()) {
-                        $btn.prop('disabled', false).text('Save & Sync');
-                        return;
-                    }
-                    bootstrap.Modal.getInstance(document.getElementById('mdSyncConfirmModal')).hide();
+                window.mdSaveAllGrids().then(function () {
                     $btn.prop('disabled', false).text('Save & Sync');
+                    if (window.mdAnyGridDirty()) return;
+                    bootstrap.Modal.getInstance(document.getElementById('mdSyncConfirmModal')).hide();
                     doQBSync();
                 }, function () {
                     $btn.prop('disabled', false).text('Save & Sync');
