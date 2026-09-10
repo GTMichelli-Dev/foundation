@@ -167,7 +167,23 @@ public class MasterDataController : Controller
         var id = body.GetProperty("id").GetInt32();
         var existing = _db.Carriers.Find(id);
         if (existing == null) return NotFound();
-        if (body.TryGetProperty("carrierName", out var name)) existing.CarrierName = name.GetString()!;
+        if (body.TryGetProperty("carrierName", out var name) && name.GetString() is { } newName
+            && newName != existing.CarrierName)
+        {
+            // Trucks link to their carrier by name, so they move with a
+            // rename. Past tickets keep the carrier name they were weighed
+            // under — Transactions.Carrier is deliberately left as-is.
+            var trucks = _db.Trucks.Where(t => t.CarrierName == existing.CarrierName).ToList();
+            var movingIds = trucks.Select(t => t.Id).ToHashSet();
+            var taken = _db.Trucks
+                .Where(t => t.CarrierName == newName && !movingIds.Contains(t.Id))
+                .Select(t => t.TruckId)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (trucks.FirstOrDefault(t => taken.Contains(t.TruckId)) is { } clash)
+                return BadRequest(new { message = $"{newName} already has a truck {clash.TruckId}." });
+            foreach (var t in trucks) t.CarrierName = newName;
+            existing.CarrierName = newName;
+        }
         if (body.TryGetProperty("active", out var active))
         {
             existing.Active = active.GetBoolean();
@@ -394,6 +410,11 @@ public class MasterDataController : Controller
         var existing = _db.Trucks.Find(id);
         if (existing == null) return NotFound();
         if (body.TryGetProperty("truckId", out var truckId)) existing.TruckId = truckId.GetString()!;
+        if (body.TryGetProperty("carrierName", out var carrier)) existing.CarrierName = carrier.GetString()!;
+        // (TruckId, CarrierName) is unique — say so instead of a 500 when an
+        // edit lands on a truck that already exists.
+        if (_db.Trucks.Any(t => t.Id != id && t.TruckId == existing.TruckId && t.CarrierName == existing.CarrierName))
+            return BadRequest(new { message = $"{existing.CarrierName} already has a truck {existing.TruckId}." });
         if (body.TryGetProperty("description", out var desc)) existing.Description = desc.ValueKind == JsonValueKind.Null ? null : desc.GetString();
         if (body.TryGetProperty("notes", out var notes)) existing.Notes = notes.ValueKind == JsonValueKind.Null ? null : notes.GetString();
         if (body.TryGetProperty("useAtKiosk", out var kiosk)) existing.UseAtKiosk = kiosk.GetBoolean();

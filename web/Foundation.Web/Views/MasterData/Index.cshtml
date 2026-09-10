@@ -11,7 +11,8 @@
     // no point managing master data for a field the forms never show.
     var standardTabs = new List<(string Tab, string Grid, string Label)>();
     if (!setup.HideCustomer) standardTabs.Add(("customersTab", "customersGrid", "Customers"));
-    if (!setup.HideCarrier) standardTabs.Add(("carriersTab", "carriersGrid", "Carriers & Trucks"));
+    if (!setup.HideCarrier) standardTabs.Add(("carriersTab", "carriersGrid", "Carriers"));
+    if (!setup.HideTruckId) standardTabs.Add(("trucksTab", "trucksGrid", "Trucks"));
     if (!setup.HideLocation) standardTabs.Add(("locationsTab", "locationsGrid", "Locations"));
     if (!setup.HideDestination) standardTabs.Add(("destinationsTab", "destinationsGrid", "Destinations"));
     if (setup.UseBinInventory) standardTabs.Add(("binsTab", "binsGrid", "Bins"));
@@ -26,11 +27,13 @@
         text-align: center;
     }
 
-    /* Style DevExtreme batch-edit Delete / Undelete links as Bootstrap
-       buttons. Delete is inverse-danger (solid red default, outline on
-       hover); Undelete is outline-info. */
+    /* Style DevExtreme batch-edit Delete / Undelete links (and the truck
+       grids' Clear Tare) as Bootstrap buttons. Delete is outline-danger;
+       Undelete is outline-info; Clear Tare is amber so it doesn't read as
+       a second Delete. */
     .dx-datagrid .dx-link-delete,
-    .dx-datagrid .dx-link-undelete {
+    .dx-datagrid .dx-link-undelete,
+    .dx-datagrid .btn-clear-tare {
         display: inline-block;
         padding: 0.2rem 0.55rem;
         font-size: 0.8125rem;
@@ -59,6 +62,15 @@
     .dx-datagrid .dx-link-undelete:hover {
         color: #000;
         background: #0dcaf0;
+    }
+    .dx-datagrid .btn-clear-tare {
+        color: #b58105;
+        border-color: #b58105;
+        background: transparent;
+    }
+    .dx-datagrid .btn-clear-tare:hover {
+        color: #fff;
+        background: #b58105;
     }
 </style>
 
@@ -245,6 +257,13 @@
     // "# Trucks" column stays accurate without a manual page reload.
     function refreshCarriersGrid() {
         var grid = $('#carriersGrid').dxDataGrid('instance');
+        if (grid) grid.refresh();
+    }
+
+    // Refresh the Trucks tab after a truck or carrier edit elsewhere on the
+    // page, so it never shows a stale list.
+    function refreshTrucksGrid() {
+        var grid = $('#trucksGrid').dxDataGrid('instance');
         if (grid) grid.refresh();
     }
 
@@ -712,6 +731,85 @@
             customerSuggestions = data;
         });
 
+        // Carrier choices for the Trucks tab. Raw mode caches the list; the
+        // cache is dropped whenever the Carriers grid saves.
+        var carrierLookupStore = new DevExpress.data.CustomStore({
+            key: 'carrierName',
+            loadMode: 'raw',
+            load: function () { return $.getJSON('/api/masterdata/carriers'); }
+        });
+
+        // Truck columns, shared by the Trucks tab and each carrier's
+        // expandable truck list. withCarrier adds the Carrier column for the
+        // Trucks tab; a carrier's own list already knows whose trucks they are.
+        function truckColumns(withCarrier) {
+            var cols = [{ dataField: 'id', caption: 'ID', width: 60, allowEditing: false }];
+            if (withCarrier) {
+                cols.push({
+                    dataField: 'carrierName',
+                    caption: 'Carrier',
+                    sortOrder: 'asc',
+                    sortIndex: 0,
+                    validationRules: [{ type: 'required' }],
+                    lookup: { dataSource: carrierLookupStore, valueExpr: 'carrierName', displayExpr: 'carrierName' }
+                });
+            }
+            cols.push(
+                { dataField: 'truckId', caption: 'Truck ID', sortOrder: 'asc', sortIndex: withCarrier ? 1 : 0, validationRules: [{ type: 'required' }] },
+                { dataField: 'description', caption: 'Description' },
+                { dataField: 'notes', caption: 'Notes' }
+            );
+            if (showKiosk) {
+                cols.push({ dataField: 'useAtKiosk', caption: 'Use At Kiosk', dataType: 'boolean', width: 130 });
+            }
+            if (useRetainedTare) {
+                cols.push({
+                    dataField: 'retainedTare',
+                    caption: 'Retained Tare (lb)',
+                    dataType: 'number',
+                    format: { type: 'fixedPoint', precision: 0 },
+                    width: 150,
+                    // Editable inline. Type a value or clear the cell to
+                    // wipe the stored tare. Server stamps the
+                    // retainedTareUpdated column on save.
+                    editorOptions: { min: 0, step: 1 }
+                });
+                cols.push({
+                    dataField: 'retainedTareUpdated',
+                    caption: 'Tare Updated',
+                    dataType: 'datetime',
+                    format: 'MM/dd/yyyy hh:mm a',
+                    width: 160,
+                    allowEditing: false
+                });
+                cols.push({
+                    type: 'buttons',
+                    name: 'clearTare',
+                    width: 110,
+                    buttons: [{
+                        hint: 'Clear retained tare — the next weigh-in runs a normal two-pass cycle',
+                        text: 'Clear Tare',
+                        cssClass: 'btn-clear-tare',
+                        // Always visible so the column header is consistent;
+                        // disabled when there's nothing to clear.
+                        disabled: function (e) {
+                            return !e.row || !e.row.data || e.row.data.retainedTare == null;
+                        },
+                        onClick: function (e) {
+                            var rowData = e.row && e.row.data;
+                            if (!rowData || rowData.retainedTare == null) return;
+                            promptClearTare(rowData, e.component);
+                        }
+                    }]
+                });
+            }
+            // A type:'buttons' column replaces the grid's built-in command
+            // column, so Delete has to be listed here or the Clear column
+            // above hides it. Two buttons columns need distinct names.
+            cols.push({ type: 'buttons', name: 'rowActions', width: 110, buttons: ['delete', 'undelete'] });
+            return cols;
+        }
+
         var carrierCols = [
             { dataField: 'id', caption: 'ID', width: 60, allowEditing: false },
             {
@@ -787,6 +885,10 @@
             onToolbarPreparing: attachShowAllButton,
             onEditorPreparing: disableKioskOnInactiveRow,
             columns: carrierCols,
+            onSaved: function () {
+                carrierLookupStore.clearRawDataCache();
+                refreshTrucksGrid();
+            },
             onInitNewRow: function () {
                 $.getJSON('/api/masterdata/customers-not-carriers').done(function (data) {
                     customerSuggestions = data;
@@ -798,56 +900,7 @@
                     var carrierData = options.data;
                     var carrierName = carrierData.carrierName;
 
-                    var truckCols = [
-                        { dataField: 'id', caption: 'ID', width: 60, allowEditing: false },
-                        { dataField: 'truckId', caption: 'Truck ID', sortOrder: 'asc', validationRules: [{ type: 'required' }] },
-                        { dataField: 'description', caption: 'Description' },
-                        { dataField: 'notes', caption: 'Notes' }
-                    ];
-                    if (showKiosk) {
-                        truckCols.push({ dataField: 'useAtKiosk', caption: 'Use At Kiosk', dataType: 'boolean', width: 130 });
-                    }
-                    if (useRetainedTare) {
-                        truckCols.push({
-                            dataField: 'retainedTare',
-                            caption: 'Retained Tare (lb)',
-                            dataType: 'number',
-                            format: { type: 'fixedPoint', precision: 0 },
-                            width: 150,
-                            // Editable inline. Type a value or clear the cell to
-                            // wipe the stored tare. Server stamps the
-                            // retainedTareUpdated column on save.
-                            editorOptions: { min: 0, step: 1 }
-                        });
-                        truckCols.push({
-                            dataField: 'retainedTareUpdated',
-                            caption: 'Tare Updated',
-                            dataType: 'datetime',
-                            format: 'MM/dd/yyyy hh:mm a',
-                            width: 160,
-                            allowEditing: false
-                        });
-                        truckCols.push({
-                            type: 'buttons',
-                            caption: 'Clear',
-                            width: 90,
-                            buttons: [{
-                                hint: 'Clear retained tare',
-                                text: 'Clear',
-                                cssClass: 'text-danger fw-bold',
-                                // Always visible so the column header is consistent;
-                                // disabled when there's nothing to clear.
-                                disabled: function (e) {
-                                    return !e.row || !e.row.data || e.row.data.retainedTare == null;
-                                },
-                                onClick: function (e) {
-                                    var rowData = e.row && e.row.data;
-                                    if (!rowData || rowData.retainedTare == null) return;
-                                    promptClearTare(rowData, e.component);
-                                }
-                            }]
-                        });
-                    }
+                    var truckCols = truckColumns(false);
 
                     $('<div>').dxDataGrid({
                         hoverStateEnabled: true,
@@ -884,6 +937,7 @@
                         }),
                         showBorders: true,
                         columnAutoWidth: true,
+                        onSaved: refreshTrucksGrid,
                         editing: {
                             mode: 'batch',
                             allowAdding: true,
@@ -897,6 +951,35 @@
             }
         });
 
+        // Trucks tab: every truck in one list, so trucks can be managed
+        // without expanding each carrier on the Carriers & Trucks tab.
+        if ($('#trucksGrid').length)
+        $('#trucksGrid').dxDataGrid({
+            hoverStateEnabled: true,
+            dataSource: createIdStore('trucks'),
+            showBorders: true,
+            filterRow: { visible: true },
+            headerFilter: { visible: true },
+            allowColumnReordering: true,
+            allowColumnResizing: true,
+            columnChooser: { enabled: true, mode: 'select' },
+            stateStoring: {
+                enabled: true,
+                type: 'localStorage',
+                storageKey: 'masterData_v1_trucks'
+            },
+            editing: {
+                mode: 'batch',
+                allowAdding: true,
+                allowUpdating: true,
+                allowDeleting: true,
+                useIcons: false
+            },
+            onToolbarPreparing: attachShowAllButton,
+            onSaved: refreshCarriersGrid,
+            columns: truckColumns(true)
+        });
+
         // ===== Unsaved-changes guard =====
         // Any of the master-data grids has uncommitted batch edits if its
         // hasEditData() returns true. When the operator clicks an in-app
@@ -905,7 +988,7 @@
         // beforeunload prompt (tab close / hard navigation).
         var mdIsLeaving = false;
         function mdAnyGridDirty() {
-            var grids = ['#customersGrid', '#carriersGrid', '#locationsGrid',
+            var grids = ['#customersGrid', '#carriersGrid', '#trucksGrid', '#locationsGrid',
                          '#destinationsGrid', '#binsGrid', '#commoditiesGrid'];
             for (var i = 0; i < grids.length; i++) {
                 var inst = $(grids[i]).dxDataGrid('instance');
@@ -1065,7 +1148,7 @@
             doQBSync();
         };
 
-        var MD_GRID_SELECTORS = ['#customersGrid', '#carriersGrid', '#locationsGrid',
+        var MD_GRID_SELECTORS = ['#customersGrid', '#carriersGrid', '#trucksGrid', '#locationsGrid',
                                  '#destinationsGrid', '#binsGrid', '#commoditiesGrid'];
 
         $(function () {
