@@ -11,7 +11,7 @@
       derives all three from Version, and setting them here would pin them past
       anything the tag says.
     -->
-    <Version>1.25.0</Version>
+    <Version>1.26.0</Version>
     <Product>RFID Reader Service</Product>
     <Description>Reads HID / prox cards from RS-232 card readers (AWID Sentinel-Prox SP-6820 and similar) and posts card presentations to BasicWeigh via SignalR.</Description>
   </PropertyGroup>

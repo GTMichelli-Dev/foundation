@@ -11,7 +11,7 @@
       unset it would default to 1.0.0 forever, which is what every agent in the
       field reported before this.
     -->
-    <Version>1.25.0</Version>
+    <Version>1.26.0</Version>
     <Product>Kiosk Print Agent</Product>
     <Description>Remote print agent for Foundation kiosk. Receives SignalR print requests and prints tickets via CUPS on Linux.</Description>
   </PropertyGroup>
