@@ -11,7 +11,7 @@
       derives all three from Version, and setting them here would pin them past
       anything the tag says. api/setup/settings reports AssemblyVersion.
     -->
-    <Version>1.26.2</Version>
+    <Version>1.27.0</Version>
     <Product>Foundation</Product>
   </PropertyGroup>
 
