@@ -1,5 +1,5 @@
 @{
-    ViewData["Title"] = "Edit Tables";
+    ViewData["Title"] = "Tables";
     var kioskCount = (int)ViewBag.KioskCount;
     var showKiosk = kioskCount > 0;
     var useQuickBooks = (bool)ViewBag.UseQuickBooks;
@@ -64,7 +64,7 @@
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-2">
-    <h3 class="mb-0">Edit Tables</h3>
+    <h3 class="mb-0">Tables</h3>
     <div>
         <span id="qbSyncStatus" class="me-2 text-muted small"></span>
         @if (useQuickBooks)

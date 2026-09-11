@@ -300,9 +300,40 @@ app.Use(async (context, next) =>
     // PIN. Its session is a cookie holding one open ticket, and the page can
     // only ever touch the load it opened — so it stays outside the PIN gate.
     // /api/mobile/ticket/{id}/pdf is the ticket download (TicketController).
-    if (path.StartsWith("/Mobile") || path.StartsWith("/api/mobile/"))
+    // With login on it needs a signed-in user of any role: a Mobile-role
+    // account is how a driver gets in, and every other role may use it too.
+    if (path.StartsWith("/Mobile", StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWith("/api/mobile/", StringComparison.OrdinalIgnoreCase))
     {
+        var mobileSetup = context.RequestServices.GetRequiredService<ScaleDbContext>().AppSetup.First();
+        if (mobileSetup.UseLogin && context.User.Identity?.IsAuthenticated != true)
+        {
+            // The page's own requests get a status it turns into a sign-in.
+            if (path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return;
+            }
+            context.Response.Redirect("/Account/Login?returnUrl=" + Uri.EscapeDataString("/Mobile"));
+            return;
+        }
         await next();
+        return;
+    }
+
+    // A Mobile-role user gets the phone app and nothing else: their pages go
+    // back to it and anything else answers 403. Only while login is on — with
+    // it off there are no roles to hold anyone to.
+    if (context.User.Identity?.IsAuthenticated == true
+        && context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value == "Mobile"
+        && context.RequestServices.GetRequiredService<ScaleDbContext>().AppSetup.First().UseLogin)
+    {
+        if (path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;
+        }
+        context.Response.Redirect("/Mobile");
         return;
     }
 
@@ -453,7 +484,9 @@ app.Use(async (context, next) =>
         var role = context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "User";
 
         // Setup page: Admin only
-        if (path.StartsWith("/Setup") && role != "Admin")
+        // Routing ignores case, so these checks must too — otherwise /setup
+        // would reach the Setup page past its role check.
+        if (path.StartsWith("/Setup", StringComparison.OrdinalIgnoreCase) && role != "Admin")
         {
             context.Response.StatusCode = 403;
             await context.Response.WriteAsync("Access denied. Admin role required.");
@@ -473,8 +506,8 @@ app.Use(async (context, next) =>
             }
         }
 
-        // Edit Tables: Manager or Admin only
-        if (path.StartsWith("/MasterData") && role == "User")
+        // Tables (/MasterData): Manager or Admin only
+        if (path.StartsWith("/MasterData", StringComparison.OrdinalIgnoreCase) && role is not ("Manager" or "Admin"))
         {
             context.Response.StatusCode = 403;
             await context.Response.WriteAsync("Access denied. Manager or Admin role required.");
@@ -482,21 +515,24 @@ app.Use(async (context, next) =>
         }
 
         // Card readers are device configuration, like the Setup page itself.
-        if ((path.StartsWith("/Reader") || path.StartsWith("/api/readers")) && role != "Admin")
+        if ((path.StartsWith("/Reader", StringComparison.OrdinalIgnoreCase) ||
+             path.StartsWith("/api/readers", StringComparison.OrdinalIgnoreCase)) && role != "Admin")
         {
             context.Response.StatusCode = 403;
             await context.Response.WriteAsync("Access denied. Admin role required.");
             return;
         }
 
-        // Card enrollment (registering physical cards) is Manager or Admin.
-        // Issuing a card — /Card/Setup and the /api/cards/ endpoints it uses —
-        // is the loader operator's job, so it stays open to the User role.
+        // Card enrollment (registering cards, changing a card's number) and
+        // bulk card updates are Manager or Admin. Issuing a card — /Card/Setup
+        // and the /api/cards/ endpoints it uses — is the loader operator's job,
+        // so it stays open to the User role.
         var isCardAdmin = path.Equals("/Card", StringComparison.OrdinalIgnoreCase)
                           || path.Equals("/Card/", StringComparison.OrdinalIgnoreCase)
                           || path.StartsWith("/Card/Index", StringComparison.OrdinalIgnoreCase)
+                          || path.StartsWith("/Card/Bulk", StringComparison.OrdinalIgnoreCase)
                           || path.StartsWith("/api/cardadmin", StringComparison.OrdinalIgnoreCase);
-        if (isCardAdmin && role == "User")
+        if (isCardAdmin && role is not ("Manager" or "Admin"))
         {
             context.Response.StatusCode = 403;
             await context.Response.WriteAsync("Access denied. Manager or Admin role required.");

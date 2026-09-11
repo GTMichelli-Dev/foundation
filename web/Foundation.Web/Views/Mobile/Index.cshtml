@@ -234,6 +234,21 @@
         .btn-row { flex: 0 0 auto; display: flex; gap: 8px; }
         .btn-row .btn { margin-top: 0; }
 
+        /* Card number entry (Setup → Cards → Allow Cards on the Phone). */
+        #card-input {
+            flex: 0 0 auto;
+            width: 100%;
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            background: var(--panel);
+            color: inherit;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 12px;
+        }
+
         /* ===== SCROLLING REGIONS (the only ones on the page) ===== */
         .scroll {
             flex: 1 1 auto;
@@ -441,6 +456,12 @@
     </style>
 </head>
 <body>
+@{
+    // Signed in (login on): offer Sign out. A Mobile-role user has only this
+    // app, so the dashboard button would lead nowhere they are allowed.
+    var signedIn = Model.UseLogin && User.Identity?.IsAuthenticated == true;
+    var mobileOnly = signedIn && User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value == "Mobile";
+}
 <div id="app">
     <div id="hdr">
         <img src="/api/setup/icon" alt="" />
@@ -449,11 +470,25 @@
         {
             <a class="lang-btn" href="@L.SwitchUrl" title='@L.SwitchTitle'>@L.SwitchLabel</a>
         }
+        @if (!mobileOnly)
+        {
         <a class="hdr-btn" id="btn-dashboard" href="/" aria-label='@L["Open the main dashboard"]' title='@L["Main dashboard"]'>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
             </svg>
         </a>
+        }
+        @if (signedIn)
+        {
+        <form method="post" action="/Account/Logout" style="display:inline;margin:0;">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="hdr-btn" aria-label='@L["Sign out"]' title='@L["Sign out"]' style="border:none;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                </svg>
+            </button>
+        </form>
+        }
         <span class="scale-chip" id="scale-chip" style="display:none;"></span>
     </div>
 
@@ -483,11 +518,37 @@
             <button class="btn btn-ghost" id="picker-back" style="margin-top:8px;display:none;">@L["Back"]</button>
         </div>
 
+        <!-- LOCATION: required, but not available yet or not at a scale -->
+        <div class="screen" id="scr-location">
+            <div class="spacer"></div>
+            <div class="screen-title" id="loc-title">@L["Finding your location…"]</div>
+            <div class="screen-sub" id="loc-text"></div>
+            <button class="btn btn-green" id="loc-retry" style="margin-top:8px;display:none;">@L["Try Again"]</button>
+            <div class="spacer"></div>
+        </div>
+
         <!-- HOME: nothing weighed in -->
         <div class="screen" id="scr-home">
             <div class="spacer"></div>
             <div class="screen-sub" id="home-hint">@L["Pull onto the scale, then tap Weigh In."]</div>
             <button class="btn btn-green btn-hero" id="btn-weighin">@L["WEIGH IN"]</button>
+            @if (Model.UseCardReader && Model.AllowCardMobile)
+            {
+            <button class="btn btn-ghost" id="btn-card" style="margin-top:10px;">@L["USE CARD"]</button>
+            }
+            <div class="spacer"></div>
+        </div>
+
+        <!-- CARD: key in a card number and it answers the weigh-in -->
+        <div class="screen" id="scr-card">
+            <div class="spacer"></div>
+            <div class="screen-title">@L["Enter Card Number"]</div>
+            <input type="text" id="card-input" inputmode="numeric" autocomplete="off" maxlength="50" aria-label='@L["Enter Card Number"]' />
+            <div class="screen-sub" id="card-error" style="margin-top:8px;">&nbsp;</div>
+            <div class="btn-row" style="margin-top:8px;">
+                <button class="btn btn-ghost" id="card-cancel">@L["Cancel"]</button>
+                <button class="btn btn-green" id="card-go">@L["Use Card"]</button>
+            </div>
             <div class="spacer"></div>
         </div>
 
@@ -622,13 +683,23 @@
         binCommodityLock: @(Model.BinCommodityLock.ToString().ToLower()),
         useRetainedTare: @(Model.UseRetainedTare.ToString().ToLower()),
         allowTareReset: @(Model.AllowTareResetMobile.ToString().ToLower()),
-        demoMode: @(Model.DemoMode.ToString().ToLower())
+        // Setup → Cards → Allow Cards on the Phone.
+        useCards: @((Model.UseCardReader && Model.AllowCardMobile).ToString().ToLower()),
+        demoMode: @(Model.DemoMode.ToString().ToLower()),
+        // Weigh only at the scale the phone is standing at (Setup → Mobile).
+        requireLocation: @(Model.MobileRequireLocation.ToString().ToLower()),
+        rangeMeters: @Model.MobileRangeMeters
     };
 
     // Truck-on-scale threshold, matching the kiosk.
     var ON_SCALE_LB = 1000;
     var MOTION_TIMEOUT_MS = 10000;
     var POLL_MS = 500;
+
+    // With login on, a session that expired answers 401: back to sign in.
+    $(document).ajaxError(function (e, xhr) {
+        if (xhr.status === 401) window.location.href = '/Account/Login?returnUrl=%2FMobile';
+    });
 
     // Cookies the phone owns. The open-ticket cookie is server-set and
     // HttpOnly — these two are just this handset's preferences.
@@ -646,6 +717,7 @@
     var flow = null;           // 'weighin' | 'weighout'
     var answers = {};          // this run's prompt answers
     var queue = [], qIdx = 0;
+    var activeCard = null;     // card number answering this weigh-in (sent on save)
     var editingKey = null;     // set while changing one row from the confirm screen
     var currentItems = [];
     var numValue = '';
@@ -706,9 +778,9 @@
         // Leaving mid-flow would throw away the answers collected so far, so
         // the way out is only offered while the driver is between steps.
         $('#btn-dashboard').toggleClass('hidden',
-            id === 'prompt' || id === 'number' || id === 'confirm' || id === 'busy');
+            id === 'prompt' || id === 'number' || id === 'confirm' || id === 'busy' || id === 'card');
         // The weight only matters where the driver is about to act on it.
-        var showWeight = (id === 'home' || id === 'open' || id === 'busy' || id === 'confirm');
+        var showWeight = (id === 'home' || id === 'open' || id === 'busy' || id === 'confirm' || id === 'card');
         $('#weight-bar').toggle(showWeight)
             .toggleClass('compact', id === 'confirm' || id === 'busy');
     }
@@ -780,7 +852,7 @@
 
     /// A weighment needs a truck actually on the scale and a healthy reading.
     function canWeigh() {
-        return !scaleData.error && scaleData.weight >= ON_SCALE_LB && !offScale();
+        return inRange && !scaleData.error && scaleData.weight >= ON_SCALE_LB && !offScale();
     }
 
     /// An end detector says part of the truck is off the deck. Only an explicit
@@ -793,8 +865,9 @@
         var ready = canWeigh();
         // A load that can be closed on a stored tare does not need the truck
         // back on the scale, so Weigh Out stays available for it.
-        var canCloseOnTare = !!(openTicket && openTicketTare);
+        var canCloseOnTare = inRange && !!(openTicket && openTicketTare);
         $('#btn-weighin').prop('disabled', !ready);
+        $('#btn-card').prop('disabled', !ready);
         $('#btn-weighout').prop('disabled', !ready && !canCloseOnTare);
         $('#home-hint').text(scaleData.error
             ? T('Scale is not reporting — see the office.')
@@ -832,6 +905,13 @@
                 var needsPicker = scalesRes[0].needsPicker;
                 openTicket = sessionRes[0].openTicket || null;
                 ticketCustomValues = sessionRes[0].customFields || {};
+
+                // The scale is wherever the phone is: no picker, no remembered
+                // choice. startLocation takes it from here.
+                if (cfg.requireLocation) {
+                    startLocation();
+                    return;
+                }
 
                 var saved = (getCookie(CK_SCALE) || '').split(':');
                 var savedSite = saved.length === 2 ? parseInt(saved[0]) : NaN;
@@ -923,8 +1003,132 @@
     // Tapping the chip in the header re-opens the picker between loads.
     $('#scale-chip').on('click', function () {
         if (flow) return;             // never mid-weighment
+        if (cfg.requireLocation) return; // the phone's position picks the scale
         if (sites.length === 0) return;
         showSitePicker();
+    });
+
+    // ===== LOCATION =====
+    // With location required the phone may only weigh on the scale it is
+    // standing at: the nearest scale with a position, within range. The server
+    // re-checks every weighment against the position sent with it.
+    var geo = { lat: null, lng: null, accuracy: null };
+    var geoWatch = null;
+    var inRange = !cfg.requireLocation;
+
+    /// Every scale with a position, once each — a scale with no location is
+    /// listed under every site.
+    function locatedScales() {
+        var seen = {}, out = [];
+        sites.forEach(function (site) {
+            (site.scales || []).forEach(function (sc) {
+                if (seen[sc.id] || sc.latitude == null || sc.longitude == null) return;
+                seen[sc.id] = true;
+                out.push({ siteId: site.id, scale: sc });
+            });
+        });
+        return out;
+    }
+
+    function metersBetween(lat1, lng1, lat2, lng2) {
+        var rad = Math.PI / 180;
+        var dLat = (lat2 - lat1) * rad, dLng = (lng2 - lng1) * rad;
+        var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        return 2 * 6371000 * Math.asin(Math.min(1, Math.sqrt(a)));
+    }
+
+    /// Between loads the phone can be moved to the location screen; during a
+    /// flow it stays put and the capture check refuses instead.
+    function atRest() {
+        return ['boot', 'location', 'home', 'open', 'picker'].some(function (id) {
+            return $('#scr-' + id).hasClass('active');
+        });
+    }
+
+    function locationBlocked(title, text, canRetry) {
+        inRange = false;
+        $('#loc-title').text(title);
+        $('#loc-text').text(text);
+        $('#loc-retry').toggle(!!canRetry);
+        refreshActionButtons();
+        if (atRest()) show('location');
+    }
+
+    function startLocation() {
+        // Browsers only share location with https:// pages (and localhost).
+        if (!window.isSecureContext) {
+            locationBlocked(T('Secure connection needed'),
+                T('Phones only share their location with a secure (https://) site. Ask the office for the secure address of this page.'), false);
+            return;
+        }
+        if (!navigator.geolocation) {
+            locationBlocked(T('Location not available'), T('This browser cannot share its location. Try another browser.'), false);
+            return;
+        }
+        if (!locatedScales().length) {
+            locationBlocked(T('No scale has a position yet'),
+                T('The office needs to set each scale’s position before phones can weigh. See the office.'), true);
+            return;
+        }
+        $('#loc-title').text(T('Finding your location…'));
+        $('#loc-text').text('');
+        $('#loc-retry').hide();
+        if (atRest()) show('location');
+        if (geoWatch !== null) navigator.geolocation.clearWatch(geoWatch);
+        geoWatch = navigator.geolocation.watchPosition(onPosition, onPositionError,
+            { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+    }
+
+    function onPosition(pos) {
+        geo = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
+        // Mid-weighment the scale is fixed — the answers and the reading belong
+        // to it — so only the distance to it counts, even if another scale is
+        // nearer. Between loads the nearest scale wins.
+        var best = null;
+        locatedScales().forEach(function (x) {
+            if (flow && scaleId !== null && x.scale.id !== scaleId) return;
+            var m = metersBetween(geo.lat, geo.lng, x.scale.latitude, x.scale.longitude);
+            if (!best || m < best.meters) best = { entry: x, meters: m };
+        });
+        if (!best) {
+            locationBlocked(T('No scale has a position yet'),
+                T('The office needs to set each scale’s position before phones can weigh. See the office.'), true);
+            return;
+        }
+
+        var wasInRange = inRange;
+        inRange = !!best && best.meters <= cfg.rangeMeters;
+        if (!inRange) {
+            if (flow) banner(T('Out of range of the scale.'), 'warn');
+            locationBlocked(T('Not at a scale'),
+                TF('You are {0} m from {1}. Move within {2} m of the scale to weigh.',
+                   Math.round(best.meters), best.entry.scale.name, cfg.rangeMeters), false);
+            return;
+        }
+
+        if (scaleId !== best.entry.scale.id) {
+            applyScale(best.entry.siteId, best.entry.scale.id, best.entry.scale.name);
+        }
+        $('#scale-chip').text(best.entry.scale.name + ' · ' + Math.round(best.meters) + ' m').show();
+        refreshActionButtons();
+        if (!wasInRange && atRest()) afterScaleChosen();
+    }
+
+    function onPositionError(err) {
+        if (err.code === 1) {
+            locationBlocked(T('Allow location'),
+                T('This app needs your location to weigh. Allow location for this site in your browser settings, then tap Try Again.'), true);
+        } else if (geo.lat === null) {
+            locationBlocked(T('Finding your location…'),
+                T('Could not get a location fix yet. Move into the open and tap Try Again.'), true);
+        }
+        // A later timeout with a fix already in hand keeps using that fix.
+    }
+
+    $('#loc-retry').on('click', function () {
+        if (!locatedScales().length) { boot(); return; } // re-read the scales too
+        startLocation();
     });
 
     // ===== MASTER DATA =====
@@ -1095,6 +1299,7 @@
         if (!canWeigh()) return;
         flow = 'weighin';
         answers = {};
+        activeCard = null;
         tareOffer = null; useTareChoice = null;
         show('busy');
         $('#busy-text').text(T('Loading…'));
@@ -1108,18 +1313,25 @@
     /// the questions the recalled set can't answer. With nothing recalled this
     /// is just the normal walk through every prompt.
     function startQueueWithRecall() {
-        var recall = flow === 'weighin' ? loadRecall() : {};
-        if (!Object.keys(recall).length) { runPrompts(queue); return; }
+        startQueueWithPreset(flow === 'weighin' ? loadRecall() : {}, false);
+    }
 
-        // The truck list is fetched per carrier, so a recalled truck has nothing
+    /// Answer the queue from a set of values — the last load, or a card — and
+    /// ask only what the set can't answer. A card also passes over optional
+    /// prompts it leaves blank, as a card does at the kiosk: the driver still
+    /// sees every row on the confirmation and can tap one to fill it in.
+    function startQueueWithPreset(preset, fromCard) {
+        if (!fromCard && !Object.keys(preset).length) { runPrompts(queue); return; }
+
+        // The truck list is fetched per carrier, so a preset truck has nothing
         // to validate against until that fetch happens. Do it up front,
         // otherwise the driver is re-asked for the truck on every single trip —
         // the one answer they least want to repeat.
         var truckPrompt = queue.find(function (p) { return p.key === 'truck'; });
         var pre;
-        if (truckPrompt && recall.carrier && recall.truck
-            && (lists.carriers || []).indexOf(recall.carrier) >= 0) {
-            pre = $.getJSON('/api/mobile/trucks/' + encodeURIComponent(recall.carrier))
+        if (truckPrompt && preset.carrier && preset.truck
+            && (lists.carriers || []).indexOf(preset.carrier) >= 0) {
+            pre = $.getJSON('/api/mobile/trucks/' + encodeURIComponent(preset.carrier))
                 .done(function (trucks) { truckPrompt.items = trucks || []; });
         } else {
             pre = $.Deferred().resolve().promise();
@@ -1127,14 +1339,99 @@
 
         pre.always(function () {
             queue.forEach(function (p) {
-                if (!Object.prototype.hasOwnProperty.call(recall, p.key)) return;
-                var v = recall[p.key];
-                // Only reuse a value that is still a legal choice — master data
-                // may have changed since the last trip.
-                if (p.type === 'number' || itemsFor(p).indexOf(v) >= 0) answers[p.key] = v;
+                if (Object.prototype.hasOwnProperty.call(preset, p.key)) {
+                    var v = preset[p.key];
+                    // Only reuse a value that is still a legal choice — master
+                    // data may have changed since the last trip.
+                    if (p.type === 'number' || itemsFor(p).indexOf(v) >= 0) { answers[p.key] = v; return; }
+                }
+                if (fromCard && p.allowSkip !== false) answers[p.key] = '';
             });
             askMissingThenConfirm();
         });
+    }
+
+    // ===== CARD =====
+    // Setup → Cards → Allow Cards on the Phone. Keying in a card number
+    // answers the prompts from the card; the phone asks only what the card
+    // leaves blank and the site won't let a driver skip. A card whose truck is
+    // already in the yard hands that load to this phone to weigh out, as
+    // presenting it at a kiosk would.
+    $('#btn-card').on('click', function () {
+        if (!canWeigh()) return;
+        $('#card-input').val('');
+        $('#card-error').html('&nbsp;');
+        show('card');
+        setTimeout(function () { $('#card-input').trigger('focus'); }, 50);
+    });
+
+    $('#card-cancel').on('click', function () { show('home'); });
+
+    $('#card-input').on('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); $('#card-go').trigger('click'); }
+    });
+
+    $('#card-go').on('click', function () {
+        var number = ($('#card-input').val() || '').trim();
+        if (!number) { $('#card-error').text(T('Enter the card number.')); return; }
+        if (!canWeigh()) {
+            $('#card-error').text(captureBlocker() || T('Pull onto the scale, then tap Weigh In.'));
+            return;
+        }
+        show('busy');
+        $('#busy-text').text(T('Reading card…'));
+        $.ajax({
+            url: '/api/mobile/card',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                cardNumber: number,
+                scaleId: scaleId,
+                latitude: geo.lat,
+                longitude: geo.lng,
+                accuracy: geo.accuracy
+            })
+        }).done(function (r) {
+            if (r.action === 'weighout') {
+                openTicket = r.openTicket;
+                ticketCustomValues = r.customFields || {};
+                showOpenTicket();
+                banner(TF('Card {0} — ticket #{1} is waiting to weigh out.', number, r.openTicket.ticket));
+                return;
+            }
+            startCardWeighIn(number, r.values || {});
+        }).fail(function (xhr) {
+            if (xhr.status === 409 && xhr.responseJSON && xhr.responseJSON.openTicket) {
+                openTicket = xhr.responseJSON.openTicket;
+                ticketCustomValues = xhr.responseJSON.customFields || {};
+                showOpenTicket();
+                banner(T('This phone already has an open ticket.'), 'warn');
+                return;
+            }
+            show('card');
+            $('#card-error').text((xhr.responseJSON && xhr.responseJSON.message) || T('Could not read the card. Try again.'));
+        });
+    });
+
+    function startCardWeighIn(number, values) {
+        flow = 'weighin';
+        answers = {};
+        activeCard = number;
+        tareOffer = null; useTareChoice = null;
+        $('#busy-text').text(T('Loading…'));
+        loadLists().always(function () {
+            queue = buildPrompts('inbound');
+            banner(TF('Using card {0}', number));
+            startQueueWithPreset(values, true);
+        });
+    }
+
+    /// What the driver does with the card once its load has closed.
+    function cardGuidance(r) {
+        if (!r || !r.cardUsed || !r.cardClosed) return null;
+        return r.cardRecycled
+            ? T('Keep your card for your next load.')
+            : T('Return the card to the loader operator.');
     }
 
     /// Ask whatever still has no answer, then show the confirm screen. Used
@@ -1584,6 +1881,7 @@
     /// driver taps: the truck can roll off, or the feed can drop, during the
     /// settle wait that follows.
     function captureBlocker() {
+        if (!inRange) return T('Move within range of the scale to weigh.');
         if (scaleData.error) return T('Scale is not reporting — see the office.');
         // Only an explicit false blocks: a feed that says nothing about end
         // detectors (no sensors wired, an older reader service) is not a claim
@@ -1687,6 +1985,9 @@
             data: JSON.stringify({
                 weight: weight,
                 scaleId: scaleId,
+                latitude: geo.lat,
+                longitude: geo.lng,
+                accuracy: geo.accuracy,
                 commodity: answers.commodity || null,
                 customer: answers.customer || null,
                 carrier: answers.carrier || null,
@@ -1695,12 +1996,15 @@
                 destination: answers.destination || null,
                 bin: answers.bin || null,
                 customFields: customFieldPayload(),
-                useRetainedTare: useTareChoice
+                useRetainedTare: useTareChoice,
+                cardNumber: activeCard
             })
         }).done(function (r) {
             saveRecall(answers);
             flow = null;
+            activeCard = null;
             clearTareState();
+            var cardNote = cardGuidance(r);
 
             if (r.retared) {
                 // A re-tare replaced the truck's stored empty weight and wrote
@@ -1716,6 +2020,7 @@
                 // no open ticket to come back to.
                 openTicket = null;
                 showDone(r, T('Weighed in and out on a retained tare.'));
+                if (cardNote) banner(cardNote);
                 return;
             }
             // Use the server's copy of the ticket rather than the answers that
@@ -1753,6 +2058,9 @@
             data: JSON.stringify({
                 weight: scaleData.weight,
                 scaleId: scaleId,
+                latitude: geo.lat,
+                longitude: geo.lng,
+                accuracy: geo.accuracy,
                 useRetainedTare: useTareChoice === true,
                 // Every field the driver could see, so a correction sticks.
                 // edited() sends null for a field the screen never held and an
@@ -1773,6 +2081,8 @@
             openTicket = null;
             openTicketTare = null;
             showDone(r, r.tareReused ? T('Closed on this truck’s stored empty weight.') : null);
+            var cardNote = cardGuidance(r);
+            if (cardNote) banner(cardNote);
         }).fail(function (xhr) {
             if (xhr.status === 404) {
                 // The office closed or voided it while the driver was prompting.
@@ -1803,6 +2113,7 @@
         clearTimeout(motionTimer);
         flow = null;
         answers = {};
+        activeCard = null;
         queue = [];
         editingKey = null;
         tareOffer = null;

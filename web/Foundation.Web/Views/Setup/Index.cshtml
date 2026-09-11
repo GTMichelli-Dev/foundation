@@ -320,6 +320,34 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Mobile -->
+                    <div class="card mb-3">
+                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Mobile</strong>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="form-text small mt-0 mb-1">
+                                The driver's phone app. With location required, a phone only weighs on the
+                                scale it is standing at — set each scale's position on the Scales page.
+                                Phones only share their location with an https:// site.
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label asp-for="MobileRequireLocation" class="form-label mb-0 small"></label>
+                                    <select asp-for="MobileRequireLocation" class="form-select form-select-sm"
+                                            title="The phone must allow location and be within range of a scale with a position set">
+                                        <option value="true">Yes</option>
+                                        <option value="false">No</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label asp-for="MobileRangeMeters" class="form-label mb-0 small"></label>
+                                    <input asp-for="MobileRangeMeters" type="number" min="10" max="1000" step="5" class="form-control form-control-sm"
+                                           title="How close the phone must be to the scale, in meters (10 to 1000)" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <!-- Cards -->
                     <div class="card mb-3">
                         <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
@@ -352,6 +380,34 @@
                                     <a href="/Reader" class="btn btn-outline-secondary btn-sm w-100" title="Serial ports and card-read diagnostics for connected RFID Reader Services">
                                         Readers
                                     </a>
+                                </div>
+                            </div>
+                            @* Where a card may fill in a load. Off at one place makes it
+                               behave there as if cards were off; the others carry on. *@
+                            <div class="row g-2 mb-2 align-items-end" id="cardSurfaceGates" style="display: @(Model.UseCardReader ? "flex" : "none");">
+                                <div class="col-4">
+                                    <label asp-for="AllowCardKiosk" class="form-label mb-0 small"></label>
+                                    <select asp-for="AllowCardKiosk" class="form-select form-select-sm"
+                                            title="Kiosks take a card at their reader or keyed in on the keypad">
+                                        <option value="true">Yes</option>
+                                        <option value="false">No</option>
+                                    </select>
+                                </div>
+                                <div class="col-4">
+                                    <label asp-for="AllowCardDesktop" class="form-label mb-0 small"></label>
+                                    <select asp-for="AllowCardDesktop" class="form-select form-select-sm"
+                                            title="The Weigh In page has a Card box that fills in the ticket">
+                                        <option value="true">Yes</option>
+                                        <option value="false">No</option>
+                                    </select>
+                                </div>
+                                <div class="col-4">
+                                    <label asp-for="AllowCardMobile" class="form-label mb-0 small"></label>
+                                    <select asp-for="AllowCardMobile" class="form-select form-select-sm"
+                                            title="The phone app has a Use Card button that answers the prompts">
+                                        <option value="true">Yes</option>
+                                        <option value="false">No</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -467,7 +523,7 @@
                                     </select>
                                 </div>
                                 <div class="col-2 d-flex align-items-end" id="binManageSection" style="display: @(Model.UseBinInventory ? "flex" : "none") !important;">
-                                    <a href="/MasterData?tab=binsTab" class="btn btn-outline-secondary btn-sm w-100" title="Manage bins on Edit Tables → Bins">
+                                    <a href="/MasterData?tab=binsTab" class="btn btn-outline-secondary btn-sm w-100" title="Manage bins on Tables → Bins">
                                         Bins
                                     </a>
                                 </div>
@@ -492,7 +548,7 @@
                                 <div class="col-4">
                                     <label asp-for="DefaultReportUnit" class="form-label mb-0 small"></label>
                                     <select asp-for="DefaultReportUnit" class="form-select form-select-sm"
-                                            title="Report unit columns use each commodity's Reporting Unit (Edit Tables → Commodities); commodities without one fall back to this">
+                                            title="Report unit columns use each commodity's Reporting Unit (Tables → Commodities); commodities without one fall back to this">
                                         <option value="lbs">Pounds (lbs)</option>
                                         <option value="kg">Kilograms (kg)</option>
                                     </select>
@@ -636,7 +692,7 @@
                             <p class="small mb-2" style="color: var(--bw-text-muted);">
                                 Custom fields appear on the Weigh In / Weigh Out / Edit / Basic
                                 Ticket forms, as grid columns, and on printed tickets. Dropdown
-                                fields also get their own tab on Edit Tables. Order shares one
+                                fields also get their own tab on Tables. Order shares one
                                 scale with the standard fields.
                             </p>
                             <table class="table table-sm align-middle mb-0" id="customFieldsTable">
@@ -670,7 +726,7 @@
                                 chooses where they are, and that workstation only sees its
                                 location's scales. Assign scales to locations on the
                                 <a href="/Scale">Scales page</a>; bins and commodities can be
-                                limited to a location on <a href="/MasterData">Edit Tables</a>.
+                                limited to a location on <a href="/MasterData">Tables</a>.
                                 Leave this empty for a single-location setup. Changes save
                                 immediately.
                             </p>
@@ -1517,7 +1573,7 @@
                     <div class="alert alert-info py-1 mb-0 small">
                         <i class="fa fa-circle-info"></i>
                         Manage this field's choices per parent value on
-                        <a href="/MasterData">Edit Tables</a> after saving — the field gets
+                        <a href="/MasterData">Tables</a> after saving — the field gets
                         its own tab there.
                     </div>
                 </div>
@@ -1805,6 +1861,7 @@
         document.getElementById('recycleCardsSection').style.display = on ? 'block' : 'none';
         setSectionDisplay(document.getElementById('cardManageSection'), on ? 'flex' : 'none');
         setSectionDisplay(document.getElementById('readerManageSection'), on ? 'flex' : 'none');
+        document.getElementById('cardSurfaceGates').style.display = on ? 'flex' : 'none';
     });
 
     // --- Driver Signature options ---

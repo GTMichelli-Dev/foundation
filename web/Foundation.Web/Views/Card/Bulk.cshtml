@@ -1,0 +1,346 @@
+@{
+    ViewData["Title"] = "Bulk Card Update";
+    var recycleCards = (bool)(ViewBag.RecycleCards ?? false);
+}
+
+@section Styles {
+<style>
+    /* Fields to set, side by side like Card Setup's desktop layout. A field
+       only changes when its box is ticked; unticked inputs stay greyed out. */
+    .bulk-fields {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 12px 16px;
+    }
+    .bulk-field label { font-size: 0.875rem; font-weight: 600; margin-bottom: 2px; cursor: pointer; }
+    .bulk-field.on .form-control,
+    .bulk-field.on .form-select { border-color: var(--bw-primary, #0d6efd); }
+    #bulkToast { position: fixed; top: 70px; right: 20px; z-index: 9999; min-width: 320px; max-width: 520px; }
+</style>
+}
+
+<div class="d-flex justify-content-between align-items-center mb-2 gap-2">
+    <h3 class="mb-0">Bulk Card Update</h3>
+    <div class="d-flex gap-2">
+        <a href="/Card/Setup" class="btn btn-outline-primary btn-sm">Card Setup</a>
+        <a href="/Card" class="btn btn-outline-secondary btn-sm">Cards</a>
+    </div>
+</div>
+<p class="text-muted small mb-2">
+    Filter the cards by any field, tick the ones to change (the header box ticks every card the
+    filter shows), then tick the fields to set below. Only ticked fields change, and a ticked field
+    left blank is cleared. Cards partway through a load are skipped.
+</p>
+
+<div id="bulkToast"></div>
+
+<div id="bulkGrid"></div>
+
+<div class="card mt-3">
+    <div class="card-header py-2 d-flex justify-content-between align-items-center">
+        <strong>Set on the selected cards</strong>
+        <span id="bulkSelCount" class="small text-muted">No cards selected</span>
+    </div>
+    <div class="card-body py-2">
+        <div id="bulkFields" class="bulk-fields"></div>
+        <div class="d-flex justify-content-end gap-2 mt-3">
+            <button type="button" class="btn btn-outline-secondary" id="btnBulkClear">Clear Selection</button>
+            <button type="button" class="btn btn-success" id="btnBulkApply" disabled>Apply to Selected Cards</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="bulkConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkConfirmTitle">Update Cards</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="bulkConfirmBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="bulkConfirmOk">Update</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    'use strict';
+
+    var RECYCLE_DEFAULT = '@(recycleCards ? "recycle" : "deactivate")';
+    var fields = [];     // descriptors from /api/cards/fields
+    var cards = [];      // every registered card
+    var grid = null;
+    var truckCache = {}; // carrier -> [truckId]
+
+    function byId(id) { return document.getElementById(id); }
+
+    Promise.all([
+        fetch('/api/cards/fields').then(readJson),
+        fetch('/api/cardadmin').then(readJson)
+    ]).then(function (r) {
+        fields = r[0].fields || [];
+        cards = r[1] || [];
+        buildGrid();
+        buildPanel();
+        refreshApply();
+    }).catch(function (err) { toast('danger', err.message || 'Could not load the cards.'); });
+
+    // ===== GRID =====
+
+    function rowsFrom(list) {
+        return list.map(function (c) {
+            var row = {
+                id: c.id,
+                cardNumber: c.cardNumber,
+                description: c.description || '',
+                status: statusText(c),
+                recycle: recycleText(c)
+            };
+            fields.forEach(function (f) { row[f.key] = (c.values || {})[f.key] || ''; });
+            return row;
+        });
+    }
+
+    function buildGrid() {
+        var columns = [
+            { dataField: 'cardNumber', caption: 'Card', width: 90, sortOrder: 'asc',
+              calculateSortValue: function (r) { return parseInt(r.cardNumber, 10) || 0; } },
+            { dataField: 'description', caption: 'Description' },
+            { dataField: 'status', caption: 'Status', width: 130 },
+            { dataField: 'recycle', caption: 'After Load', width: 150 }
+        ].concat(fields.map(function (f) { return { dataField: f.key, caption: f.label }; }));
+
+        grid = $('#bulkGrid').dxDataGrid({
+            dataSource: rowsFrom(cards),
+            keyExpr: 'id',
+            showBorders: true,
+            columnAutoWidth: true,
+            allowColumnResizing: true,
+            hoverStateEnabled: true,
+            filterRow: { visible: true },
+            headerFilter: { visible: true },
+            // The header box takes every card the current filter shows, on
+            // every page — filter first, then tick it.
+            selection: { mode: 'multiple', showCheckBoxesMode: 'always', selectAllMode: 'allPages' },
+            paging: { pageSize: 25 },
+            pager: { visible: true, showInfo: true },
+            onSelectionChanged: refreshApply,
+            columns: columns
+        }).dxDataGrid('instance');
+    }
+
+    function reloadCards() {
+        return fetch('/api/cardadmin').then(readJson).then(function (list) {
+            cards = list || [];
+            grid.option('dataSource', rowsFrom(cards));
+            grid.clearSelection();
+        });
+    }
+
+    // ===== FIELDS TO SET =====
+
+    function buildPanel() {
+        var panel = byId('bulkFields');
+        panel.innerHTML = '';
+        fields.concat([{ key: '__recycle', label: 'After this load', type: 'recycle' }]).forEach(function (f) {
+            var wrap = document.createElement('div');
+            wrap.className = 'bulk-field';
+
+            var label = document.createElement('label');
+            label.className = 'd-flex align-items-center gap-2';
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.className = 'form-check-input m-0';
+            cb.id = 'bfc_' + f.key;
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(f.label));
+            wrap.appendChild(label);
+
+            var input = buildInput(f);
+            input.id = 'bf_' + f.key;
+            input.disabled = true;
+            wrap.appendChild(input);
+
+            if (f.type === 'truck') {
+                var hint = document.createElement('div');
+                hint.className = 'form-text';
+                hint.textContent = 'Trucks belong to a carrier: tick Carrier to choose one. Left blank, it clears the truck.';
+                wrap.appendChild(hint);
+            }
+
+            cb.addEventListener('change', function () {
+                input.disabled = !cb.checked;
+                wrap.classList.toggle('on', cb.checked);
+                if (f.key === 'carrier') syncTrucks();
+                refreshApply();
+            });
+            if (f.key === 'carrier') input.addEventListener('change', syncTrucks);
+
+            panel.appendChild(wrap);
+        });
+    }
+
+    function buildInput(f) {
+        var input;
+        if (f.type === 'recycle') {
+            input = document.createElement('select');
+            input.className = 'form-select form-select-sm';
+            [['Default', 'Site default (' + RECYCLE_DEFAULT + ')'], ['Recycle', 'Recycle'], ['Deactivate', 'Deactivate']]
+                .forEach(function (o) { input.appendChild(option(o[0], o[1])); });
+        } else if (f.type === 'number' || f.type === 'text') {
+            input = document.createElement('input');
+            input.type = f.type === 'number' ? 'number' : 'text';
+            input.className = 'form-control form-control-sm';
+            input.placeholder = 'Blank clears it';
+            if (f.type === 'number' && f.integer) input.step = '1';
+        } else {
+            input = document.createElement('select');
+            input.className = 'form-select form-select-sm';
+            input.appendChild(option('', '— blank (clears it) —'));
+            (f.type === 'truck' ? [] : (f.items || [])).forEach(function (item) { input.appendChild(option(item, item)); });
+        }
+        return input;
+    }
+
+    function option(value, text) {
+        var o = document.createElement('option');
+        o.value = value;
+        o.textContent = text;
+        return o;
+    }
+
+    /// The truck list follows the carrier being set here. Without one there is
+    /// no carrier to pick a truck from, so blank (clear) is the only choice.
+    function syncTrucks() {
+        var truck = byId('bf_truck');
+        if (!truck) return;
+        var carrierCb = byId('bfc_carrier');
+        var carrier = carrierCb && carrierCb.checked ? byId('bf_carrier').value : '';
+        var keep = truck.value;
+
+        function fill(list) {
+            truck.innerHTML = '';
+            truck.appendChild(option('', '— blank (clears it) —'));
+            list.forEach(function (t) { truck.appendChild(option(t, t)); });
+            truck.value = list.indexOf(keep) >= 0 ? keep : '';
+        }
+        if (!carrier) { fill([]); return; }
+        if (truckCache[carrier]) { fill(truckCache[carrier]); return; }
+        fetch('/api/cards/trucks?carrier=' + encodeURIComponent(carrier))
+            .then(readJson)
+            .then(function (list) { truckCache[carrier] = list || []; fill(truckCache[carrier]); })
+            .catch(function () { fill([]); });
+    }
+
+    function collect() {
+        var values = {}, recycleMode = null, lines = [];
+        fields.forEach(function (f) {
+            var cb = byId('bfc_' + f.key);
+            if (!cb || !cb.checked) return;
+            var v = byId('bf_' + f.key).value || '';
+            values[f.key] = v;
+            lines.push(f.label + ': ' + (v || '(cleared)'));
+        });
+        var rc = byId('bfc___recycle');
+        if (rc && rc.checked) {
+            var sel = byId('bf___recycle');
+            recycleMode = sel.value;
+            lines.push('After this load: ' + sel.options[sel.selectedIndex].textContent);
+        }
+        return { values: values, recycleMode: recycleMode, lines: lines };
+    }
+
+    function refreshApply() {
+        var n = grid ? grid.getSelectedRowKeys().length : 0;
+        byId('bulkSelCount').textContent = n ? n + ' card' + (n === 1 ? '' : 's') + ' selected' : 'No cards selected';
+        var btn = byId('btnBulkApply');
+        btn.disabled = n === 0 || collect().lines.length === 0;
+        btn.textContent = n ? 'Apply to ' + n + ' Card' + (n === 1 ? '' : 's') : 'Apply to Selected Cards';
+    }
+
+    // ===== APPLY =====
+
+    byId('btnBulkClear').addEventListener('click', function () { if (grid) grid.clearSelection(); });
+
+    byId('btnBulkApply').addEventListener('click', function () {
+        var ids = grid.getSelectedRowKeys();
+        var c = collect();
+        if (!ids.length || !c.lines.length) return;
+
+        byId('bulkConfirmTitle').textContent = 'Update ' + ids.length + ' Card' + (ids.length === 1 ? '' : 's');
+        byId('bulkConfirmBody').innerHTML = 'Set on every selected card:<ul class="mt-2 mb-0">' +
+            c.lines.map(function (l) { return '<li>' + escHtml(l) + '</li>'; }).join('') + '</ul>';
+        var modal = bootstrap.Modal.getOrCreateInstance(byId('bulkConfirmModal'));
+        byId('bulkConfirmOk').onclick = function () {
+            modal.hide();
+            apply(ids, c);
+        };
+        modal.show();
+    });
+
+    function apply(ids, c) {
+        byId('btnBulkApply').disabled = true;
+        fetch('/api/cardadmin/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cardIds: ids, values: c.values, recycleMode: c.recycleMode })
+        })
+            .then(readJson)
+            .then(function (res) {
+                toast('success', res.updated + ' card' + (res.updated === 1 ? '' : 's') + ' updated.');
+                (res.skipped || []).forEach(function (s) {
+                    toast('warning', 'Card ' + s.cardNumber + ' skipped: ' + s.reason + '.', 12000);
+                });
+                (res.partial || []).forEach(function (p) {
+                    toast('warning', 'Card ' + p.cardNumber + ': ' + p.fields.join(', ') +
+                        ' not changed — not a choice that card can take.', 12000);
+                });
+                return reloadCards();
+            })
+            .catch(function (err) { toast('danger', err.message || 'The update failed.'); })
+            .finally(refreshApply);
+    }
+
+    // ===== HELPERS =====
+
+    function statusText(c) {
+        if (!c.enabled) return 'Disabled';
+        if (c.openTicket) return 'On ticket #' + c.openTicket;
+        if (c.issued) return 'Issued';
+        return 'Available';
+    }
+
+    function recycleText(c) {
+        if (c.recycleMode === 'Recycle') return 'Recycle';
+        if (c.recycleMode === 'Deactivate') return 'Deactivate';
+        return 'Site default (' + (c.recycles ? 'recycle' : 'deactivate') + ')';
+    }
+
+    function readJson(response) {
+        return response.json().catch(function () { return {}; }).then(function (body) {
+            if (!response.ok) throw new Error(body.message || ('Request failed (' + response.status + ')'));
+            return body;
+        });
+    }
+
+    function toast(kind, message, ms) {
+        var el = document.createElement('div');
+        el.className = 'alert alert-' + kind + ' py-2 shadow';
+        el.textContent = message;
+        byId('bulkToast').appendChild(el);
+        setTimeout(function () { el.remove(); }, ms || 5000);
+    }
+
+    function escHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+})();
+</script>
+}

@@ -140,7 +140,7 @@ public class MobileController : Controller
         {
             // No locations configured — one implicit site holding every scale.
             groups.Add(new SiteGroup(0, "",
-                scales.Select(s => new ScaleOption(s.Id, s.Name)).ToList()));
+                scales.Select(s => new ScaleOption(s.Id, s.Name, s.Latitude, s.Longitude)).ToList()));
         }
         else
         {
@@ -148,7 +148,7 @@ public class MobileController : Controller
             {
                 var forSite = scales
                     .Where(s => s.SiteId == null || s.SiteId == site.Id)
-                    .Select(s => new ScaleOption(s.Id, s.Name))
+                    .Select(s => new ScaleOption(s.Id, s.Name, s.Latitude, s.Longitude))
                     .ToList();
                 if (forSite.Count > 0) groups.Add(new SiteGroup(site.Id, site.Name, forSite));
             }
@@ -158,7 +158,30 @@ public class MobileController : Controller
         return Json(new { sites = groups, needsPicker });
     }
 
-    public record ScaleOption(int Id, string Name);
+    /// <summary>Latitude/Longitude are null for a scale with no position set;
+    /// with location required the phone never uses such a scale.</summary>
+    public record ScaleOption(int Id, string Name, double? Latitude, double? Longitude);
+
+    /// <summary>
+    /// With Require Location on Mobile, a weighment only goes through for a
+    /// phone within range of the scale it names. The page applies the same rule
+    /// before the driver can tap; this is the check a stale page or a
+    /// hand-made request cannot get around. Returns the refusal, or null.
+    /// </summary>
+    private string? LocationRefusal(AppSetup setup, Scale? scale, double? latitude, double? longitude)
+    {
+        if (!setup.MobileRequireLocation) return null;
+        if (!GeoDistance.IsValid(latitude, longitude))
+            return _t["Your location is needed to weigh. Allow location and try again."];
+        if (scale == null || !scale.Active || !GeoDistance.IsValid(scale.Latitude, scale.Longitude))
+            return _t["That scale has no position set — see the office."];
+
+        var meters = GeoDistance.Meters(latitude!.Value, longitude!.Value, scale.Latitude!.Value, scale.Longitude!.Value);
+        return meters <= setup.MobileRangeMeters
+            ? null
+            : string.Format(_t["You are {0} m from the scale. Move within {1} m to weigh."],
+                Math.Round(meters), setup.MobileRangeMeters);
+    }
     public record SiteGroup(int Id, string Name, List<ScaleOption> Scales);
 
     [HttpGet("api/mobile/lists")]
@@ -209,6 +232,73 @@ public class MobileController : Controller
             .Select(t => t.TruckId)
             .ToList());
 
+    // ===== CARD =====
+
+    /// <summary>
+    /// The driver keyed in a card number (Setup → Cards → Allow Cards on the
+    /// Phone). Resolved exactly as at a kiosk: a card whose load is already in
+    /// the yard hands that ticket to this phone to weigh out; otherwise the
+    /// page gets the card's values to answer the weigh-in prompts.
+    /// </summary>
+    [HttpPost("api/mobile/card")]
+    public IActionResult UseCard([FromBody] MobileCardRequest request)
+    {
+        var setup = _setupCache.Get();
+        if (!setup.UseCardReader || !setup.AllowCardMobile)
+            return BadRequest(new { message = _t["Card weighing is turned off"] });
+
+        var existing = OpenTicket();
+        if (existing != null)
+            return Conflict(new
+            {
+                message = _t["This phone already has an open ticket."],
+                openTicket = TicketPayload(existing),
+                customFields = TicketCustomValues(existing.Ticket)
+            });
+
+        // Taking a load onto this phone is part of weighing, so it follows the
+        // same rule: only at the scale.
+        var scale = SiteScales.Resolve(_db, request.ScaleId);
+        if (LocationRefusal(setup, scale, request.Latitude, request.Longitude) is { } refusal)
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = refusal });
+
+        var r = CardFields.Resolve(_db, setup, request.CardNumber, scale?.Id, k => _t[k]);
+        if (!r.Ok)
+            return BadRequest(new { message = r.Message });
+
+        if (r.Action == "weighout")
+        {
+            // The card is the driver's claim on the load, as it is at a kiosk:
+            // this phone now carries it and weighs it out.
+            SetTicketCookie(r.Ticket!.Ticket);
+            return Json(new
+            {
+                action = "weighout",
+                card = r.Summary,
+                openTicket = TicketPayload(r.Ticket),
+                customFields = TicketCustomValues(r.Ticket.Ticket)
+            });
+        }
+
+        return Json(new
+        {
+            action = "weighin",
+            card = r.Summary,
+            values = r.Values,
+            missingRequired = r.MissingRequired,
+            retainedTare = r.RetainedTare
+        });
+    }
+
+    public class MobileCardRequest
+    {
+        public string? CardNumber { get; set; }
+        public int? ScaleId { get; set; }
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
+        public double? Accuracy { get; set; }
+    }
+
     // ===== WEIGH IN =====
 
     [HttpPost("api/mobile/weighin")]
@@ -229,9 +319,41 @@ public class MobileController : Controller
         var scale = SiteScales.Resolve(_db, request.ScaleId);
         if (scale == null)
             return BadRequest(new { message = _t["No scale configured."] });
+        if (LocationRefusal(setup, scale, request.Latitude, request.Longitude) is { } refusal)
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = refusal });
 
         if (request.Weight < MinCaptureWeight)
             return BadRequest(new { message = _t["No truck on the scale — nothing to weigh in."] });
+
+        // Card weigh-in (Setup → Cards → Allow Cards on the Phone): the card
+        // fills in whatever the driver's answers left blank. The same merge
+        // the kiosk does, so fields a phone can't prompt for (free text) still
+        // come off the card, and a card edited since the lookup wins the blanks.
+        Card? card = null;
+        if (!string.IsNullOrWhiteSpace(request.CardNumber))
+        {
+            if (!setup.UseCardReader || !setup.AllowCardMobile)
+                return BadRequest(new { message = _t["Card weighing is turned off"] });
+
+            card = CardFields.Find(_db, request.CardNumber);
+            if (card == null || !card.Enabled)
+                return BadRequest(new { message = _t["Card not recognized."] });
+            if (!card.Issued)
+                return BadRequest(new { message = _t["Card is not active — see the loader operator."] });
+            var onTicket = card.OpenTicket;
+            if (!string.IsNullOrEmpty(onTicket)
+                && _db.Transactions.Any(t => t.Ticket == onTicket && !t.Void && t.DateOut == null))
+                return BadRequest(new { message = _t["That card already has a load in the yard — use it to weigh out."] });
+
+            var cardValues = CardFields.ValuesOf(_db, card);
+            request.Commodity ??= cardValues.GetValueOrDefault("commodity");
+            request.Customer ??= cardValues.GetValueOrDefault("customer");
+            request.Carrier ??= cardValues.GetValueOrDefault("carrier");
+            request.TruckId ??= cardValues.GetValueOrDefault("truck");
+            request.Location ??= cardValues.GetValueOrDefault("location");
+            request.Destination ??= cardValues.GetValueOrDefault("destination");
+            request.Bin ??= cardValues.GetValueOrDefault("bin");
+        }
 
         // Ensure ticket number doesn't collide with existing tickets
         while (_db.Transactions.Any(t => t.Ticket == setup.TicketNumber.ToString()))
@@ -296,6 +418,8 @@ public class MobileController : Controller
             Location = request.Location,
             Destination = request.Destination,
             Bin = request.Bin,
+            Notes = card?.Notes,
+            CardNumber = card?.CardNumber,
             Void = false,
             ManualInbound = false
         };
@@ -315,7 +439,11 @@ public class MobileController : Controller
         setup.TicketNumber++;
         _db.AppSetup.Update(setup);
         _db.Transactions.Add(transaction);
-        KioskLists.SaveCustomFields(_db, ticketNumber, request.CustomFields);
+        var writtenFieldIds = KioskLists.SaveCustomFields(_db, ticketNumber, request.CustomFields);
+        if (card != null) CardFields.CopyCustomValues(_db, ticketNumber, card, writtenFieldIds);
+        // Presenting the card again weighs this load out; a load a retained
+        // tare already closed frees the card straight away.
+        bool cardRecycled = card != null && CardFields.Bind(card, setup, ticketNumber, closed: tareApplied);
         _db.SaveChanges();
         FormulaFields.RecomputeAndSave(_db, transaction);
         _setupCache.Invalidate();
@@ -357,7 +485,10 @@ public class MobileController : Controller
             // out against what was actually written or it will show — and then
             // save — blanks over them.
             openTicket = tareApplied ? null : TicketPayload(transaction),
-            customFields = tareApplied ? null : TicketCustomValues(ticketNumber)
+            customFields = tareApplied ? null : TicketCustomValues(ticketNumber),
+            cardUsed = card != null,
+            cardClosed = card != null && tareApplied,
+            cardRecycled
         });
     }
 
@@ -374,6 +505,10 @@ public class MobileController : Controller
 
         var scale = SiteScales.Resolve(_db, request.ScaleId);
         var setupForTare = _setupCache.Get();
+        // Every weigh-out, a stored-tare close included: the rule is that the
+        // phone works at the scale, not only when a reading is taken.
+        if (LocationRefusal(setupForTare, scale, request.Latitude, request.Longitude) is { } refusal)
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = refusal });
 
         // The driver may close the load on the truck's stored empty weight
         // instead of driving back onto the scale. The value comes from the
@@ -437,6 +572,17 @@ public class MobileController : Controller
             KioskLists.SaveCustomFields(_db, transaction.Ticket, request.CustomFields);
         }
 
+        // The load is done: free its card the way a kiosk weigh-out does —
+        // whether the card weighed it in here, at a kiosk, or on the forms.
+        var card = CardFields.ForTicket(_db, transaction);
+        bool cardRecycled = false;
+        if (card != null)
+        {
+            cardRecycled = card.RecyclesUnder(setup);
+            CardFields.Release(card, setup, transaction.Ticket);
+            transaction.CardNumber ??= card.CardNumber;
+        }
+
         _db.SaveChanges();
         FormulaFields.RecomputeAndSave(_db, transaction);
         ClearTicketCookie();
@@ -462,7 +608,10 @@ public class MobileController : Controller
             netWeight = transaction.NetWeight,
             dateIn = transaction.DateIn.AsUtc(),
             dateOut = transaction.DateOut.AsUtc(),
-            tareReused = reusedTare.HasValue
+            tareReused = reusedTare.HasValue,
+            cardUsed = card != null,
+            cardClosed = card != null,
+            cardRecycled
         });
     }
 
@@ -481,6 +630,9 @@ public class MobileController : Controller
             return Json(new { voided = false });
 
         transaction.Void = true;
+        // A voided load frees its card, as voiding from the office does.
+        if (CardFields.ForTicket(_db, transaction) is { } card)
+            CardFields.Release(card, _setupCache.Get(), transaction.Ticket);
         _db.SaveChanges();
         _log.LogInformation("Mobile: voided open ticket {Ticket} on driver reset", transaction.Ticket);
 
@@ -564,6 +716,13 @@ public class MobileController : Controller
         /// false opens a normal ticket to be weighed out later, and null means
         /// the page never asked (falls back to applying it automatically).</summary>
         public bool? UseRetainedTare { get; set; }
+        /// <summary>The phone's position when it asked, for Require Location on Mobile.</summary>
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
+        public double? Accuracy { get; set; }
+        /// <summary>Card that answered this weigh-in, when the driver keyed one in.
+        /// Its stored values fill every field left null above.</summary>
+        public string? CardNumber { get; set; }
     }
 
     public class MobileWeighOutRequest
@@ -587,5 +746,9 @@ public class MobileController : Controller
         public string? Customer { get; set; }
         public string? Location { get; set; }
         public string? Bin { get; set; }
+        /// <summary>The phone's position when it asked, for Require Location on Mobile.</summary>
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
+        public double? Accuracy { get; set; }
     }
 }

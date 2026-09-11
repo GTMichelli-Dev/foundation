@@ -60,6 +60,10 @@ public class AccountController : Controller
 
         await SignInUser(user);
 
+        // A Mobile-role user only has the phone app, wherever they were headed.
+        if (user.Role == "Mobile")
+            return Redirect("/Mobile");
+
         if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
             return Redirect(returnUrl);
 
@@ -127,7 +131,7 @@ public class AccountController : Controller
 
         await SignInUser(user);
         TempData["Message"] = "Password changed successfully.";
-        return RedirectToAction("Index", "Home");
+        return user.Role == "Mobile" ? Redirect("/Mobile") : RedirectToAction("Index", "Home");
     }
 
     // POST: /Account/Logout
@@ -138,6 +142,10 @@ public class AccountController : Controller
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return RedirectToAction("Login");
     }
+
+    /// <summary>Every role a user can hold. Mobile is the driver's phone app and
+    /// nothing else (enforced in Program.cs).</summary>
+    private static readonly string[] Roles = { "User", "Manager", "Admin", "Mobile" };
 
     // ---- User Management (Admin only) ----
 
@@ -187,6 +195,12 @@ public class AccountController : Controller
             return View(model);
         }
 
+        if (!Roles.Contains(model.Role))
+        {
+            ViewBag.Error = "Choose a role.";
+            return View(model);
+        }
+
         model.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
         _db.Users.Add(model);
         _db.SaveChanges();
@@ -218,6 +232,13 @@ public class AccountController : Controller
         if (_db.Users.Any(u => u.Username.ToLower() == model.Username.ToLower() && u.Id != id))
         {
             ViewBag.Error = "Username already exists.";
+            ViewBag.AdminCount = _db.Users.Count(u => u.Role == "Admin" && u.Active && u.Username != "support");
+            return View(user);
+        }
+
+        if (!Roles.Contains(model.Role))
+        {
+            ViewBag.Error = "Choose a role.";
             ViewBag.AdminCount = _db.Users.Count(u => u.Role == "Admin" && u.Active && u.Username != "support");
             return View(user);
         }

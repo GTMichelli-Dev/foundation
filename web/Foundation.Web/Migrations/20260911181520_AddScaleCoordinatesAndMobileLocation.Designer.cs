@@ -3,6 +3,7 @@ using System;
 using Foundation.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Foundation.Web.Migrations
 {
     [DbContext(typeof(ScaleDbContext))]
-    partial class ScaleDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260911181520_AddScaleCoordinatesAndMobileLocation")]
+    partial class AddScaleCoordinatesAndMobileLocation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
@@ -22,21 +25,6 @@ namespace Foundation.Web.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
-
-                    b.Property<bool>("AllowCardDesktop")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasDefaultValue(true);
-
-                    b.Property<bool>("AllowCardKiosk")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasDefaultValue(true);
-
-                    b.Property<bool>("AllowCardMobile")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasDefaultValue(true);
 
                     b.Property<bool>("AllowSkipBin")
                         .ValueGeneratedOnAdd()
@@ -352,9 +340,6 @@ namespace Foundation.Web.Migrations
                         new
                         {
                             Id = 1,
-                            AllowCardDesktop = true,
-                            AllowCardKiosk = true,
-                            AllowCardMobile = true,
                             AllowSkipBin = true,
                             AllowSkipCarrier = true,
                             AllowSkipCommodity = true,

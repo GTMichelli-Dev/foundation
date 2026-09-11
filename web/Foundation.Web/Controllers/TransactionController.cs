@@ -111,6 +111,7 @@ public class TransactionController : Controller
 
         var setup = _setupCache.Get();
         ViewBag.SavePicture = setup.SavePicture;
+        ViewBag.UseCards = setup.UseCardReader && setup.AllowCardDesktop;
 
         if (!string.IsNullOrEmpty(id))
         {
@@ -197,6 +198,33 @@ public class TransactionController : Controller
             transaction.ManualInbound = manualWeight;
             transaction.InScale = manualWeight ? null : inScaleUsed;
 
+            // Card shortcut (Setup → Cards → Allow Cards on the Weigh Forms).
+            // The card filled in the form and the operator saw and could change
+            // every value, so the form is what gets saved; the card is checked
+            // here and tied to the ticket so that weighing it out frees the card.
+            Card? card = null;
+            if (!string.IsNullOrWhiteSpace(transaction.CardNumber) && setup.UseCardReader && setup.AllowCardDesktop)
+            {
+                card = CardFields.Find(_db, transaction.CardNumber);
+                var onTicket = card?.OpenTicket;
+                string? cardError = null;
+                if (card == null || !card.Enabled)
+                    cardError = "Card not recognized.";
+                else if (!card.Issued)
+                    cardError = "Card is not active — see the loader operator.";
+                else if (!string.IsNullOrEmpty(onTicket)
+                         && _db.Transactions.Any(t => t.Ticket == onTicket && !t.Void && t.DateOut == null))
+                    cardError = $"Card {card.CardNumber} is already on ticket {onTicket} — weigh that ticket out.";
+                if (cardError != null)
+                {
+                    TempData["Error"] = cardError;
+                    return RedirectToAction("WeighIn");
+                }
+            }
+            // A card number from a page where cards have since been switched off
+            // is dropped: the form still holds every value it filled in.
+            transaction.CardNumber = card?.CardNumber;
+
             // Complete-with-retained-tare path. Look up the truck server-side
             // (don't trust the client) and, if the feature is on and a tare is
             // stored, save the ticket as already completed using that tare.
@@ -239,6 +267,7 @@ public class TransactionController : Controller
 
             _db.Transactions.Add(transaction);
             SaveCustomFieldValues(transaction.Ticket, customFields);
+            if (card != null) CardFields.Bind(card, setup, transaction.Ticket, closed: completed);
             _db.SaveChanges();
             FormulaFields.RecomputeAndSave(_db, transaction);
             _setupCache.Invalidate();

@@ -271,6 +271,21 @@ public class AppSetup
     public bool AllowTareResetMobile { get; set; } = true;
 
     /// <summary>
+    /// The phone app only weighs on the scale the phone is standing at: it
+    /// needs the phone's location, uses the nearest scale that has a position
+    /// (Scale page), and only lets the driver weigh within MobileRangeMeters of
+    /// it. The server re-checks the distance on every weighment. Phones only
+    /// share their location with an https:// site, so on plain http this
+    /// leaves the phone app unable to weigh.
+    /// </summary>
+    [Display(Name = "Require Location on Mobile")]
+    public bool MobileRequireLocation { get; set; } = true;
+
+    /// <summary>How close, in metres, a phone must be to the scale.</summary>
+    [Display(Name = "Mobile Range (meters)")]
+    public int MobileRangeMeters { get; set; } = 50;
+
+    /// <summary>
     /// Whether a prox-card weigh-in is asked about the stored tare at all. Off
     /// keeps card presentations prompt-free the way they were before: the tare
     /// applies automatically and the load closes in one weighment.
@@ -299,6 +314,23 @@ public class AppSetup
     /// </summary>
     [Display(Name = "Recycle Cards")]
     public bool RecycleCards { get; set; }
+
+    /// <summary>
+    /// Where a card may fill in a load, each only while Use Cards is on. Off
+    /// at one place makes it behave there as if cards were off — the others
+    /// carry on — and the server refuses a card from that place.
+    /// Kiosk: presented at a reader or keyed in on the keypad.
+    /// </summary>
+    [Display(Name = "Allow Cards at the Kiosk")]
+    public bool AllowCardKiosk { get; set; } = true;
+
+    /// <summary>The office Weigh In page's Card box fills in the form.</summary>
+    [Display(Name = "Allow Cards on the Weigh Forms")]
+    public bool AllowCardDesktop { get; set; } = true;
+
+    /// <summary>The phone app's Use Card button answers the prompts.</summary>
+    [Display(Name = "Allow Cards on the Phone")]
+    public bool AllowCardMobile { get; set; } = true;
 
     // Remote printing mode: None, Scale, RemotePrinter
     [StringLength(20)]

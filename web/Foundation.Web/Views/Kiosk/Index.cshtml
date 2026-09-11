@@ -977,7 +977,7 @@
                     @L["PRESS ENTER TO WEIGH IN"]
                 </button>
                 <button class="kiosk-btn btn-blue btn-wide" id="btn-enter-ticket">
-                    @(Model.UseCardReader ? L["SCAN BAR CODE OR KEY IN TICKET OR CARD #"] : L["SCAN BAR CODE OR KEY IN TICKET #"])
+                    @(Model.UseCardReader && Model.AllowCardKiosk ? L["SCAN BAR CODE OR KEY IN TICKET OR CARD #"] : L["SCAN BAR CODE OR KEY IN TICKET #"])
                 </button>
             </div>
             <!-- Shown only when on-screen buttons are hidden — operator drives via Enter. -->
@@ -991,7 +991,7 @@
         <!-- ENTERING TICKET: Numpad -->
         <div id="state-entering-ticket" class="kiosk-state">
             <div class="ticket-entry">
-                <div class="ticket-label">@(Model.UseCardReader ? L["Enter Ticket or Card Number"] : L["Enter Ticket Number"])</div>
+                <div class="ticket-label">@(Model.UseCardReader && Model.AllowCardKiosk ? L["Enter Ticket or Card Number"] : L["Enter Ticket Number"])</div>
                 <div class="ticket-value" id="ticket-display">&nbsp;</div>
                 <div class="numpad">
                     <button class="numpad-btn" data-num="1">1</button>
@@ -1222,7 +1222,8 @@
         allowTareResetCard: @(Model.AllowTareResetCard.ToString().ToLower()),
         demoMode: @(Model.DemoMode.ToString().ToLower()),
         // Card weighing on: a number keyed below the first ticket is a card.
-        useCardReader: @(Model.UseCardReader.ToString().ToLower()),
+        // Off when Setup → Cards turns cards off at the kiosk.
+        useCardReader: @((Model.UseCardReader && Model.AllowCardKiosk).ToString().ToLower()),
         ticketMinimum: @Foundation.Web.Services.TicketNumbers.Minimum,
         header1: '@Html.Raw((Model.Header1 ?? "").Replace("'", "\\'"))',
         header2: '@Html.Raw((Model.Header2 ?? "").Replace("'", "\\'"))',

@@ -350,6 +350,174 @@ public static class CardFields
         }
     }
 
+    /// <summary>The enrolled card with this number (trimmed, any case), or null.</summary>
+    public static Card? Find(ScaleDbContext db, string? number)
+    {
+        var n = (number ?? "").Trim();
+        if (n.Length == 0) return null;
+        return db.Cards.AsEnumerable()
+            .FirstOrDefault(c => string.Equals(c.CardNumber, n, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>What a card means right now, wherever it was used.</summary>
+    public class Resolution
+    {
+        public bool Ok { get; init; }
+        /// <summary>Why not, for callers that branch on it: "empty", "unknown",
+        /// "disabled-card" or "not-issued".</summary>
+        public string? Reason { get; init; }
+        public string? Message { get; init; }
+        /// <summary>"weighin", or "weighout" when the card's load is already open.</summary>
+        public string? Action { get; init; }
+        public Card? Card { get; init; }
+        public Dictionary<string, string> Values { get; init; } = new();
+        /// <summary>The open ticket a weigh-out resolves to.</summary>
+        public Transaction? Ticket { get; init; }
+        /// <summary>Required fields the card leaves blank, which must be asked.</summary>
+        public List<string> MissingRequired { get; init; } = new();
+        public int? RetainedTare { get; init; }
+
+        public object? Summary => Card == null ? null
+            : new { id = Card.Id, cardNumber = Card.CardNumber, description = Card.Description };
+    }
+
+    /// <summary>A translate function with a translator's indexer (key in, text out).</summary>
+    public readonly struct Texts
+    {
+        private readonly Func<string, string> _translate;
+        public Texts(Func<string, string> translate) => _translate = translate;
+        public string this[string key] => _translate(key);
+    }
+
+    /// <summary>
+    /// Resolve a card someone presented or keyed in: a weigh-in with the
+    /// card's stored values, or a weigh-out of the load it is already on. The
+    /// kiosk, the phone and the weigh forms all come through here so a card
+    /// means the same thing wherever it is used. <paramref name="translate"/>
+    /// puts the refusal messages in the language of the screen asking.
+    /// </summary>
+    public static Resolution Resolve(ScaleDbContext db, AppSetup setup, string? cardNumber, int? scaleId, Func<string, string> translate)
+    {
+        // Named and indexed like a controller's translator so that
+        // scripts/check-translations.py finds the keys below and checks them.
+        var _t = new Texts(translate);
+
+        if (string.IsNullOrWhiteSpace(cardNumber))
+            return new Resolution { Reason = "empty", Message = _t["No card number"] };
+
+        var card = Find(db, cardNumber);
+        if (card == null)
+            return new Resolution { Reason = "unknown", Message = _t["Card Not Recognized"] };
+        if (!card.Enabled)
+            return new Resolution { Reason = "disabled-card", Message = _t["Card Disabled"] };
+
+        // An open ticket outranks the issued flag: a driver who weighed in must
+        // always be able to weigh out, even if the card was deactivated behind
+        // them. Voided/closed tickets fall through to the weigh-in path.
+        Transaction? openTicket = null;
+        if (!string.IsNullOrEmpty(card.OpenTicket))
+        {
+            openTicket = db.Transactions
+                .FirstOrDefault(x => x.Ticket == card.OpenTicket && !x.Void && x.DateOut == null);
+            if (openTicket == null)
+            {
+                card.OpenTicket = null; // stale link
+                db.SaveChanges();
+            }
+        }
+
+        if (openTicket == null && !card.Issued)
+            return new Resolution { Reason = "not-issued", Message = _t["Card Not Active — See Loader Operator"] };
+
+        var values = ValuesOf(db, card);
+
+        if (openTicket != null)
+            return new Resolution { Ok = true, Action = "weighout", Card = card, Values = values, Ticket = openTicket };
+
+        // No open ticket on the card, but the truck it names might already be
+        // in the yard from a keyed-in weigh-in. Adopt that ticket rather than
+        // opening a second one for the same truck.
+        if (values.TryGetValue("carrier", out var cardCarrier)
+            && values.TryGetValue("truck", out var cardTruck))
+        {
+            var truckTicket = db.Transactions
+                .Where(x => !x.Void && x.DateOut == null && x.Carrier == cardCarrier && x.TruckId == cardTruck)
+                .OrderByDescending(x => x.DateIn)
+                .FirstOrDefault();
+            if (truckTicket != null)
+                return new Resolution { Ok = true, Action = "weighout", Card = card, Values = values, Ticket = truckTicket };
+        }
+
+        var siteId = scaleId.HasValue ? db.Scales.Find(scaleId.Value)?.SiteId : null;
+        var missing = Describe(db, setup, siteId)
+            .Where(d => d.Required && !values.ContainsKey(d.Key))
+            .Select(d => d.Key)
+            .ToList();
+
+        // Retained tare: reported so the screen can tell the driver the load
+        // will finish in one weighment. The weigh-in does the actual completing.
+        int? retainedTare = null;
+        if (setup.UseRetainedTare
+            && values.TryGetValue("carrier", out var c2)
+            && values.TryGetValue("truck", out var t2))
+        {
+            var truck = db.Trucks.FirstOrDefault(x => x.TruckId == t2 && x.CarrierName == c2);
+            if (truck?.RetainedTare.HasValue == true
+                && (!setup.AutoClearStaleRetainedTare
+                    || (truck.RetainedTareUpdated?.Date ?? DateTime.MinValue) >= DateTime.Today))
+            {
+                retainedTare = truck.RetainedTare;
+            }
+        }
+
+        return new Resolution
+        {
+            Ok = true, Action = "weighin", Card = card, Values = values,
+            MissingRequired = missing, RetainedTare = retainedTare
+        };
+    }
+
+    /// <summary>
+    /// Copy the card's custom-field values onto a new ticket, skipping any
+    /// field the driver just answered. Card values were validated when the
+    /// card was issued, and they cover fields a kiosk or phone can't prompt
+    /// for at all (free text), which is much of the point of the card.
+    /// Caller SaveChanges().
+    /// </summary>
+    public static void CopyCustomValues(ScaleDbContext db, string ticket, Card card, HashSet<int> alreadyWritten)
+    {
+        foreach (var v in db.CardCustomValues.Where(v => v.CardId == card.Id).ToList())
+        {
+            if (alreadyWritten.Contains(v.CustomFieldId)) continue;
+            if (string.IsNullOrWhiteSpace(v.Value)) continue;
+            db.TransactionCustomValues.Add(new TransactionCustomValue
+            {
+                Ticket = ticket,
+                CustomFieldId = v.CustomFieldId,
+                Value = v.Value
+            });
+        }
+    }
+
+    /// <summary>
+    /// Tie a card to the ticket it just weighed in on, so presenting it again
+    /// weighs that load out — or release it outright when the ticket closed in
+    /// the same weighment (retained tare). Returns whether a released card
+    /// recycles. Caller SaveChanges().
+    /// </summary>
+    public static bool Bind(Card card, AppSetup setup, string ticket, bool closed)
+    {
+        if (closed)
+        {
+            var recycles = card.RecyclesUnder(setup);
+            Release(card, setup, ticket);
+            return recycles;
+        }
+        card.OpenTicket = ticket;
+        card.LastUsedAt = DateTime.UtcNow;
+        return false;
+    }
+
     /// <summary>
     /// The card bound to a ticket, or null. Looks through Card.OpenTicket
     /// first (the live link) and falls back to the card number stamped on the

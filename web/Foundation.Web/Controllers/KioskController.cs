@@ -83,7 +83,7 @@ public class KioskController : Controller
 
         // Card reader this kiosk listens to, as "serviceId:readerId". Empty
         // means this kiosk ignores card reads and runs the touchscreen flow.
-        ViewBag.ReaderId = setup.UseCardReader ? (readerId ?? kiosk?.ReaderId ?? "") : "";
+        ViewBag.ReaderId = setup.UseCardReader && setup.AllowCardKiosk ? (readerId ?? kiosk?.ReaderId ?? "") : "";
 
         // Each kiosk device is mapped to one site scale. A stored scale that
         // has since been deleted is dropped rather than passed through, so the
@@ -225,7 +225,7 @@ public class KioskController : Controller
             .Select(s => new { id = s.Id, name = s.Name, siteId = s.SiteId })
             .ToList();
 
-        return Json(new { scales, useCardReader = setup.UseCardReader });
+        return Json(new { scales, useCardReader = setup.UseCardReader && setup.AllowCardKiosk });
     }
 
     /// <summary>
@@ -362,130 +362,44 @@ public class KioskController : Controller
     public IActionResult ResolveCard([FromBody] KioskCardRequest request)
     {
         var setup = _setupCache.Get();
-        if (!setup.UseCardReader)
+        if (!setup.UseCardReader || !setup.AllowCardKiosk)
             return Ok(new { ok = false, reason = "disabled", message = _t["Card weighing is turned off"] });
 
-        var number = (request.CardNumber ?? "").Trim();
-        if (number.Length == 0)
-            return BadRequest(new { ok = false, reason = "empty", message = _t["No card number"] });
-
-        var card = _db.Cards.AsEnumerable()
-            .FirstOrDefault(c => string.Equals(c.CardNumber, number, StringComparison.OrdinalIgnoreCase));
-
-        if (card == null)
-            return Ok(new { ok = false, reason = "unknown", message = _t["Card Not Recognized"] });
-        if (!card.Enabled)
-            return Ok(new { ok = false, reason = "disabled-card", message = _t["Card Disabled"] });
-
-        // An open ticket outranks the issued flag: a driver who weighed in must
-        // always be able to weigh out, even if the card was deactivated behind
-        // them. Voided/closed tickets fall through to the weigh-in path.
-        Transaction? openTicket = null;
-        if (!string.IsNullOrEmpty(card.OpenTicket))
+        var r = CardFields.Resolve(_db, setup, request.CardNumber, request.ScaleId, k => _t[k]);
+        if (!r.Ok)
         {
-            openTicket = _db.Transactions
-                .FirstOrDefault(t => t.Ticket == card.OpenTicket && !t.Void && t.DateOut == null);
-            if (openTicket == null) card.OpenTicket = null; // stale link
+            var refusal = new { ok = false, reason = r.Reason, message = r.Message };
+            return r.Reason == "empty" ? BadRequest(refusal) : Ok(refusal);
         }
 
-        if (openTicket == null && !card.Issued)
-            return Ok(new { ok = false, reason = "not-issued", message = _t["Card Not Active — See Loader Operator"] });
-
-        var values = CardFields.ValuesOf(_db, card);
-        var siteId = request.ScaleId.HasValue ? _db.Scales.Find(request.ScaleId.Value)?.SiteId : null;
-        var missing = CardFields.Describe(_db, setup, siteId)
-            .Where(d => d.Required && !values.ContainsKey(d.Key))
-            .Select(d => d.Key)
-            .ToList();
-
-        if (openTicket != null)
-        {
-            return Ok(new
-            {
-                ok = true,
-                action = "weighout",
-                card = new { id = card.Id, cardNumber = card.CardNumber, description = card.Description },
-                values,
-                ticket = new
-                {
-                    ticket = openTicket.Ticket,
-                    inWeight = openTicket.InWeight,
-                    dateIn = openTicket.DateIn.AsUtc(),
-                    customer = openTicket.Customer,
-                    carrier = openTicket.Carrier,
-                    truckId = openTicket.TruckId,
-                    commodity = openTicket.Commodity,
-                    location = openTicket.Location,
-                    destination = openTicket.Destination,
-                    bin = openTicket.Bin
-                }
-            });
-        }
-
-        // No open ticket on the card, but the truck it names might already be
-        // in the yard from a keyed-in weigh-in. Adopt that ticket rather than
-        // opening a second one for the same truck.
-        if (values.TryGetValue("carrier", out var cardCarrier)
-            && values.TryGetValue("truck", out var cardTruck))
-        {
-            var truckTicket = _db.Transactions
-                .Where(t => !t.Void && t.DateOut == null && t.Carrier == cardCarrier && t.TruckId == cardTruck)
-                .OrderByDescending(t => t.DateIn)
-                .FirstOrDefault();
-
-            if (truckTicket != null)
-            {
-                return Ok(new
-                {
-                    ok = true,
-                    action = "weighout",
-                    card = new { id = card.Id, cardNumber = card.CardNumber, description = card.Description },
-                    values,
-                    ticket = new
-                    {
-                        ticket = truckTicket.Ticket,
-                        inWeight = truckTicket.InWeight,
-                        dateIn = truckTicket.DateIn.AsUtc(),
-                        customer = truckTicket.Customer,
-                        carrier = truckTicket.Carrier,
-                        truckId = truckTicket.TruckId,
-                        commodity = truckTicket.Commodity,
-                        location = truckTicket.Location,
-                        destination = truckTicket.Destination,
-                        bin = truckTicket.Bin
-                    }
-                });
-            }
-        }
-
-        // Retained tare: report it so the kiosk can tell the driver the load
-        // will finish in one weighment. WeighIn does the actual auto-complete.
-        int? retainedTare = null;
-        if (setup.UseRetainedTare
-            && values.TryGetValue("carrier", out var c2)
-            && values.TryGetValue("truck", out var t2))
-        {
-            var truck = _db.Trucks.FirstOrDefault(x => x.TruckId == t2 && x.CarrierName == c2);
-            if (truck?.RetainedTare.HasValue == true
-                && (!setup.AutoClearStaleRetainedTare
-                    || (truck.RetainedTareUpdated?.Date ?? DateTime.MinValue) >= DateTime.Today))
-            {
-                retainedTare = truck.RetainedTare;
-            }
-        }
-
-        _db.SaveChanges(); // persist any stale-link clearing above
+        if (r.Action == "weighout")
+            return Ok(new { ok = true, action = "weighout", card = r.Summary, values = r.Values, ticket = CardTicket(r.Ticket!) });
 
         return Ok(new
         {
             ok = true,
             action = "weighin",
-            card = new { id = card.Id, cardNumber = card.CardNumber, description = card.Description },
-            values,
-            missingRequired = missing,
-            retainedTare
+            card = r.Summary,
+            values = r.Values,
+            missingRequired = r.MissingRequired,
+            retainedTare = r.RetainedTare
         });
     }
+
+    /// <summary>The open ticket a card weighs out, as the kiosk shows it.</summary>
+    private static object CardTicket(Transaction t) => new
+    {
+        ticket = t.Ticket,
+        inWeight = t.InWeight,
+        dateIn = t.DateIn.AsUtc(),
+        customer = t.Customer,
+        carrier = t.Carrier,
+        truckId = t.TruckId,
+        commodity = t.Commodity,
+        location = t.Location,
+        destination = t.Destination,
+        bin = t.Bin
+    };
 
     [HttpGet("api/kiosk/ticket/{ticketNumber}")]
     public IActionResult FindTicket(string ticketNumber)
@@ -530,10 +444,15 @@ public class KioskController : Controller
         // card edited after the driver pulled up still wins on the blanks.
         Card? card = null;
         Dictionary<string, string> cardValues = new();
-        if (setup.UseCardReader && !string.IsNullOrWhiteSpace(request.CardNumber))
+        if (!string.IsNullOrWhiteSpace(request.CardNumber))
         {
-            card = _db.Cards.AsEnumerable().FirstOrDefault(c =>
-                string.Equals(c.CardNumber, request.CardNumber.Trim(), StringComparison.OrdinalIgnoreCase));
+            // The card flow skipped every prompt the card answers, so a card
+            // this kiosk may no longer use can't simply be dropped — the ticket
+            // would go out missing all of it.
+            if (!setup.UseCardReader || !setup.AllowCardKiosk)
+                return BadRequest(new { message = _t["Card weighing is turned off"] });
+
+            card = CardFields.Find(_db, request.CardNumber);
             if (card == null || !card.Enabled)
                 return BadRequest(new { message = _t["Card not recognized."] });
             if (!card.Issued && string.IsNullOrEmpty(card.OpenTicket))
@@ -674,24 +593,11 @@ public class KioskController : Controller
         _db.AppSetup.Update(setup);
         _db.Transactions.Add(transaction);
         var savedFieldIds = SaveKioskCustomFields(ticketNumber, request.CustomFields);
-        if (card != null) SaveCardCustomFields(ticketNumber, card, savedFieldIds);
+        if (card != null) CardFields.CopyCustomValues(_db, ticketNumber, card, savedFieldIds);
 
         // Bind the card to this ticket, or release it outright when the
         // retained tare closed the load in one weighment.
-        bool cardRecycled = false;
-        if (card != null)
-        {
-            if (tareApplied)
-            {
-                cardRecycled = card.RecyclesUnder(setup);
-                CardFields.Release(card, setup, ticketNumber);
-            }
-            else
-            {
-                card.OpenTicket = ticketNumber;
-                card.LastUsedAt = DateTime.UtcNow;
-            }
-        }
+        bool cardRecycled = card != null && CardFields.Bind(card, setup, ticketNumber, closed: tareApplied);
         _db.SaveChanges();
         FormulaFields.RecomputeAndSave(_db, transaction);
         _setupCache.Invalidate();
@@ -941,30 +847,6 @@ public class KioskController : Controller
     /// </summary>
     private HashSet<int> SaveKioskCustomFields(string ticket, Dictionary<string, string>? values)
         => KioskLists.SaveCustomFields(_db, ticket, values);
-
-    /// <summary>
-    /// Copy the card's custom-field values onto the new ticket, skipping any
-    /// field the driver just answered at the kiosk. Card values were validated
-    /// when the card was issued, and they cover fields the kiosk can't prompt
-    /// for at all (free text), which is much of the point of the card.
-    /// Caller SaveChanges().
-    /// </summary>
-    private void SaveCardCustomFields(string ticket, Card card, HashSet<int> alreadyWritten)
-    {
-        var cardValues = _db.CardCustomValues.Where(v => v.CardId == card.Id).ToList();
-        foreach (var v in cardValues)
-        {
-            if (alreadyWritten.Contains(v.CustomFieldId)) continue;
-            if (string.IsNullOrWhiteSpace(v.Value)) continue;
-
-            _db.TransactionCustomValues.Add(new TransactionCustomValue
-            {
-                Ticket = ticket,
-                CustomFieldId = v.CustomFieldId,
-                Value = v.Value
-            });
-        }
-    }
 
     /// <summary>What the on-screen setup wizard sends when a display enrolls
     /// itself. PrinterId and ReaderId are null when the installer chose Skip.</summary>

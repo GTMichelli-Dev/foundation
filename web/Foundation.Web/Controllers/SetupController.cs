@@ -97,9 +97,14 @@ public class SetupController : Controller
         existing.AutoClearStaleRetainedTare = setup.AutoClearStaleRetainedTare;
         existing.AllowTareResetKiosk = setup.AllowTareResetKiosk;
         existing.AllowTareResetMobile = setup.AllowTareResetMobile;
+        existing.MobileRequireLocation = setup.MobileRequireLocation;
+        existing.MobileRangeMeters = Math.Clamp(setup.MobileRangeMeters, 10, 1000);
         existing.AllowTareResetCard = setup.AllowTareResetCard;
         existing.UseCardReader = setup.UseCardReader;
         existing.RecycleCards = setup.RecycleCards;
+        existing.AllowCardKiosk = setup.AllowCardKiosk;
+        existing.AllowCardDesktop = setup.AllowCardDesktop;
+        existing.AllowCardMobile = setup.AllowCardMobile;
         existing.SignatureMode = setup.SignatureMode ?? "None";
         existing.SignaturePadId = setup.SignaturePadId;
         existing.SignatureRequired = setup.SignatureRequired;

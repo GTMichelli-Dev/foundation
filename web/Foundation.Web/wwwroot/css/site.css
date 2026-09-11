@@ -300,6 +300,14 @@ body {
   .navbar-expand-lg .nav-link { white-space: nowrap; }
 }
 
+/* Shown on a phone only - a touch device small on whichever side is short,
+   the same test as the Home page's driver tile and Card Setup. */
+.nav-phone-only { display: none; }
+@media (hover: none) and (pointer: coarse) and (max-width: 500px),
+       (hover: none) and (pointer: coarse) and (max-height: 500px) {
+  .nav-phone-only { display: block; }
+}
+
 /* ===== DEVEXTREME GRID ROW HOVER ===== */
 .dx-datagrid-rowsview .dx-row:not(.dx-selection):hover > td {
   background-color: var(--bw-grid-hover);

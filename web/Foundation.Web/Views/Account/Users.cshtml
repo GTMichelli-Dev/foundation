@@ -62,6 +62,10 @@
                             {
                                 <span class="badge bg-warning text-dark role-badge">Manager</span>
                             }
+                            else if (user.Role == "Mobile")
+                            {
+                                <span class="badge bg-secondary role-badge">Mobile</span>
+                            }
                             else
                             {
                                 <span class="badge bg-info text-dark role-badge">User</span>
@@ -122,6 +126,7 @@
             <tr><td><span class="badge bg-info text-dark role-badge">User</span></td><td>Weigh trucks in and out</td></tr>
             <tr><td><span class="badge bg-warning text-dark role-badge">Manager</span></td><td>Weigh trucks + edit master data tables (customers, carriers, etc.)</td></tr>
             <tr><td><span class="badge bg-danger role-badge">Admin</span></td><td>Full access including Setup page and user management</td></tr>
+            <tr><td><span class="badge bg-secondary role-badge">Mobile</span></td><td>The phone app only (/Mobile) — for drivers weighing themselves. Every other role can use the phone app too.</td></tr>
         </table>
         <p class="mt-2 mb-0 text-muted">When an admin resets a password, it is set to <code>michelli</code> and the user must change it on next login.</p>
     </div>

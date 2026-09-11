@@ -57,4 +57,16 @@ public class Scale
     [StringLength(100)]
     [Display(Name = "Gate")]
     public string? GateId { get; set; }
+
+    /// <summary>
+    /// Where the scale is, in decimal degrees — the same system a phone's GPS
+    /// reports in. With Require Location on Mobile, a phone only weighs within
+    /// AppSetup.MobileRangeMeters of a scale that has one. Null until it is set
+    /// on the Scale page; set both or neither.
+    /// </summary>
+    [Display(Name = "Latitude")]
+    public double? Latitude { get; set; }
+
+    [Display(Name = "Longitude")]
+    public double? Longitude { get; set; }
 }

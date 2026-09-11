@@ -94,6 +94,22 @@
                         </div>
                     </div>
 
+                    @if (!isEdit && ViewBag.UseCards == true)
+                    {
+                        @* Card shortcut (Setup → Cards → Allow Cards on the Weigh Forms):
+                           a card fills in the ticket, and a card whose truck is already
+                           in the yard opens that ticket's weigh-out instead. *@
+                        <div class="mb-3">
+                            <label class="form-label" for="cardNumberInput">Card</label>
+                            <div class="input-group" style="max-width: 320px;">
+                                <input type="text" id="cardNumberInput" class="form-control" maxlength="50" autocomplete="off" placeholder="Card number" />
+                                <button type="button" class="btn btn-outline-primary" id="useCardBtn">Use Card</button>
+                            </div>
+                            <input type="hidden" name="CardNumber" id="cardNumberField" value="" />
+                            <div class="form-text" id="cardStatus">Key in a card to fill in the ticket from it.</div>
+                        </div>
+                    }
+
                     @foreach (var slot in slots.Take(leftCount))
                     {
                         <partial name="_TicketFieldSlot" model="slot" />
@@ -561,9 +577,9 @@
             if (!carrier) {
                 truckSelect.html('<option value="">-- Select Carrier First --</option>').prop('disabled', true);
                 addTruckBtn.prop('disabled', true);
-                return;
+                return $.Deferred().resolve().promise();
             }
-            $.getJSON('/api/masterdata/trucks/' + encodeURIComponent(carrier), function (trucks) {
+            return $.getJSON('/api/masterdata/trucks/' + encodeURIComponent(carrier), function (trucks) {
                 truckSelect.html('<option value="">-- Select --</option>');
                 trucks.forEach(function (t) {
                     truckSelect.append($('<option>').val(t.truckId).text(t.truckId));
@@ -608,6 +624,105 @@
 
         $('#modalTruckId').on('keypress', function (e) {
             if (e.which === 13) { e.preventDefault(); $('#saveTruckBtn').click(); }
+        });
+
+        // ===== Card shortcut =====
+        var cardLabels = { commodity: 'Commodity', customer: 'Customer', carrier: 'Carrier', truck: 'Truck ID',
+                           location: 'Location', destination: 'Destination', bin: 'Bin', notes: 'Notes' };
+
+        function cardStatus(text, isError) {
+            $('#cardStatus').text(text).toggleClass('text-danger', !!isError);
+        }
+
+        function fieldLabel($el, key) {
+            var text = $el.closest('.mb-3').find('label').first().text().replace('*', '').trim();
+            return text || cardLabels[key] || key;
+        }
+
+        /// Put the card's values into the form. Resolves to the labels of any
+        /// value the form could not take (a choice no longer on its list).
+        function applyCardValues(values) {
+            var missed = [];
+            function put(name, key) {
+                if (!Object.prototype.hasOwnProperty.call(values, key)) return;
+                var $el = $('[name="' + name + '"]');
+                if (!$el.length) return; // a field this site hides
+                $el.val(values[key]);
+                if (String($el.val() || '') !== String(values[key])) {
+                    $el.val('');
+                    missed.push(fieldLabel($el, key));
+                }
+                $el.trigger('change');
+            }
+
+            // Carrier first: picking a customer copies it into an empty carrier.
+            var trucksLoaded = $.Deferred().resolve().promise();
+            if (values.carrier && carrierSelect.length) {
+                carrierSelect.val(values.carrier);
+                if (carrierSelect.val() === values.carrier) {
+                    trucksLoaded = loadTrucks(values.carrier, values.truck || '').then(function () {
+                        if (values.truck && truckSelect.val() !== values.truck) missed.push(fieldLabel(truckSelect, 'truck'));
+                    });
+                } else {
+                    carrierSelect.val('');
+                    missed.push(fieldLabel(carrierSelect, 'carrier'));
+                }
+            }
+            put('Customer', 'customer');
+            put('Commodity', 'commodity');
+            put('Location', 'location');
+            put('Destination', 'destination');
+            put('Bin', 'bin');
+            put('Notes', 'notes');
+            Object.keys(values).forEach(function (k) {
+                if (/^cf\d+$/.test(k)) put('cf_' + k.substring(2), k);
+            });
+            return trucksLoaded.then(function () {
+                lookupRetainedTare();
+                return missed;
+            });
+        }
+
+        $('#cardNumberInput').on('keydown', function (e) {
+            // Enter here means "use this card", not "save the ticket".
+            if (e.key === 'Enter') { e.preventDefault(); $('#useCardBtn').click(); }
+        }).on('input', function () {
+            if ($('#cardNumberField').val()) {
+                $('#cardNumberField').val('');
+                cardStatus('Card cleared — press Use Card to apply one.');
+            }
+        });
+
+        $('#useCardBtn').on('click', function () {
+            var number = ($('#cardNumberInput').val() || '').trim();
+            if (!number) { cardStatus('Enter a card number.', true); return; }
+            var s = window.bwScale ? bwScale() : { id: null };
+            cardStatus('Reading card…');
+            $.getJSON('/api/cards/resolve', { cardNumber: number, scaleId: s.id || '' })
+                .done(function (r) {
+                    if (!r.ok) {
+                        $('#cardNumberField').val('');
+                        cardStatus(r.message || 'Card not recognized.', true);
+                        return;
+                    }
+                    if (r.action === 'weighout') {
+                        cardStatus('Card ' + r.card.cardNumber + ' is on open ticket ' + r.ticket.ticket + ' — opening its weigh-out…');
+                        isSaving = true; // no unsaved-changes prompt on the way there
+                        window.location.href = '/Transaction/WeighOut/' + encodeURIComponent(r.ticket.ticket);
+                        return;
+                    }
+                    $('#cardNumberField').val(r.card.cardNumber);
+                    applyCardValues(r.values || {}).then(function (missed) {
+                        var name = r.card.cardNumber + (r.card.description ? ' (' + r.card.description + ')' : '');
+                        if (missed.length) {
+                            cardStatus('Card ' + name + ' filled in the ticket except ' + missed.join(', ') +
+                                       ' — no longer a choice here.', true);
+                        } else {
+                            cardStatus('Card ' + name + ' filled in the ticket. Saving ties the card to it.');
+                        }
+                    });
+                })
+                .fail(function () { cardStatus('Could not read the card. Try again.', true); });
         });
 
         // Validate weight before save

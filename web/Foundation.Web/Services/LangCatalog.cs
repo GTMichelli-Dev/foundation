@@ -213,6 +213,36 @@ public static class LangCatalog
         ["Scale at {0}"] = "Báscula en {0}",
         ["Scales"] = "Básculas",
 
+        // ===== MOBILE: location (Require Location on Mobile) =====
+        ["Finding your location…"] = "Buscando su ubicación…",
+        ["Try Again"] = "Intentar de Nuevo",
+        ["Sign out"] = "Cerrar sesión",
+        ["Secure connection needed"] = "Se necesita una conexión segura",
+        ["Phones only share their location with a secure (https://) site. Ask the office for the secure address of this page."] = "Los teléfonos solo comparten su ubicación con un sitio seguro (https://). Pida a la oficina la dirección segura de esta página.",
+        ["Location not available"] = "Ubicación no disponible",
+        ["This browser cannot share its location. Try another browser."] = "Este navegador no puede compartir su ubicación. Pruebe con otro navegador.",
+        ["No scale has a position yet"] = "Ninguna báscula tiene posición todavía",
+        ["The office needs to set each scale’s position before phones can weigh. See the office."] = "La oficina debe fijar la posición de cada báscula antes de que los teléfonos puedan pesar. Consulte la oficina.",
+        ["Allow location"] = "Permita la ubicación",
+        ["This app needs your location to weigh. Allow location for this site in your browser settings, then tap Try Again."] = "Esta aplicación necesita su ubicación para pesar. Permita la ubicación para este sitio en la configuración del navegador y luego toque Intentar de Nuevo.",
+        ["Could not get a location fix yet. Move into the open and tap Try Again."] = "Todavía no se pudo obtener la ubicación. Salga a un lugar abierto y toque Intentar de Nuevo.",
+        ["Not at a scale"] = "No está en una báscula",
+        ["You are {0} m from {1}. Move within {2} m of the scale to weigh."] = "Está a {0} m de {1}. Acérquese a menos de {2} m de la báscula para pesar.",
+        ["Move within range of the scale to weigh."] = "Acérquese a la báscula para poder pesar.",
+        ["Out of range of the scale."] = "Fuera del alcance de la báscula.",
+
+        // ===== MOBILE: cards (Allow Cards on the Phone) =====
+        ["USE CARD"] = "USAR TARJETA",
+        ["Enter Card Number"] = "Ingrese el Número de Tarjeta",
+        ["Use Card"] = "Usar Tarjeta",
+        ["Enter the card number."] = "Ingrese el número de tarjeta.",
+        ["Reading card…"] = "Leyendo la tarjeta…",
+        ["Could not read the card. Try again."] = "No se pudo leer la tarjeta. Intente de nuevo.",
+        ["Using card {0}"] = "Usando la tarjeta {0}",
+        ["Card {0} — ticket #{1} is waiting to weigh out."] = "Tarjeta {0} — la boleta N.° {1} espera el pesaje de salida.",
+        ["Keep your card for your next load."] = "Conserve su tarjeta para su próxima carga.",
+        ["Return the card to the loader operator."] = "Devuelva la tarjeta al operador del cargador.",
+
         // ===== MOBILE: home / open ticket =====
         ["WEIGH IN"] = "PESAR ENTRADA",
         ["WEIGH OUT"] = "PESAR SALIDA",
@@ -324,6 +354,7 @@ public static class LangCatalog
         ["Card Not Active — See Loader Operator"] = "Tarjeta No Activa — Consulte al Operador del Cargador",
         ["Card not recognized."] = "Tarjeta no reconocida.",
         ["Card is not active — see the loader operator."] = "La tarjeta no está activa — consulte al operador del cargador.",
+        ["That card already has a load in the yard — use it to weigh out."] = "Esa tarjeta ya tiene una carga en el patio — úsela para pesar la salida.",
         ["Ticket not found"] = "Boleta no encontrada",
         ["Ticket is voided"] = "La boleta está anulada",
         ["Ticket already completed"] = "La boleta ya fue completada",
@@ -333,6 +364,9 @@ public static class LangCatalog
         ["No truck on the scale — nothing to weigh in."] = "No hay camión en la báscula — nada que pesar de entrada.",
         ["No truck on the scale — nothing to weigh out."] = "No hay camión en la báscula — nada que pesar de salida.",
         ["That truck no longer has a stored empty weight. Weigh out on the scale."] = "Ese camión ya no tiene un peso vacío guardado. Pese salida en la báscula.",
+        ["Your location is needed to weigh. Allow location and try again."] = "Se necesita su ubicación para pesar. Permita la ubicación e intente de nuevo.",
+        ["That scale has no position set — see the office."] = "Esa báscula no tiene posición fijada — consulte la oficina.",
+        ["You are {0} m from the scale. Move within {1} m to weigh."] = "Está a {0} m de la báscula. Acérquese a menos de {1} m para pesar.",
 
         // ===== SIGNATURE PAD =====
         ["Signature Pad"] = "Tableta de Firma",

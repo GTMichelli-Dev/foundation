@@ -34,6 +34,7 @@ Foundation is a web-based truck scale management application for weighing inboun
   - [Email Reports](#email-reports)
   - [Finding the Serial Port](#finding-the-serial-port)
   - [Scales (multi-scale)](#scales-multi-scale)
+  - [Phone App Location (Require Location on Mobile)](#phone-app-location-require-location-on-mobile)
   - [Custom Fields & Ticket Printing](#custom-fields--ticket-printing)
   - [Cards](#cards)
   - [Language (English / Spanish)](#language-english--spanish)
@@ -660,7 +661,7 @@ operator has to retype the SMTP password after every deploy.
   one sheet per commodity. Off puts every load on a single sheet.
 - **Columns** follow the fields enabled on the **Fields** tab (a hidden field never appears in a
   report), plus net weight in pounds and each commodity's own reporting unit — bushels, tons, CWT,
-  whatever is set on **Edit Tables → Commodities**. Gross/Tare are optional.
+  whatever is set on **Tables → Commodities**. Gross/Tare are optional.
 - **Preview** downloads the workbook without emailing anyone; **Send** mails it immediately
   without disturbing the schedule's normal cadence.
 
@@ -737,6 +738,22 @@ The **Scales** page (System → Options → Scales) manages the named site scale
 - Every ticket stores the scale name per weighment (**In Scale** / **Out Scale**). Manually entered weights record no scale.
 - Each scale can have its own **inbound and outbound ticket printers** (optional). Auto-printed tickets go to the capturing scale's printer; scales without one use the site-wide defaults from the Printers page. Explicit kiosk printer choices (Launch Kiosk dialog) still take precedence.
 - In **Demo Mode** each scale has its own independent simulator — the simulator panels (header bar, Get Weight dialog, kiosk) drive whichever scale is selected.
+- Each scale has a **position** (latitude/longitude, decimal degrees). **Set…** in its Position column opens a dialog: type the coordinates, click the map (drag the pin to fine-tune), or stand on the deck with a phone or laptop and use **Use This Device's Location**. **Map** opens the saved position on OpenStreetMap. The map needs internet; typing the coordinates always works. The phone app uses the position to decide which scale a phone is standing at — see below.
+
+### Phone App Location (Require Location on Mobile)
+
+With **Setup → Mobile → Require Location on Mobile** on (the default), the driver's phone app (`/Mobile`) only weighs on the scale the phone is standing at:
+
+- The phone must allow the page to use its location. Until it does, the page explains how and offers **Try Again** — nothing can be weighed.
+- The page follows the phone's position and uses the **nearest scale that has a position**. There is no scale picker; the scale chip at the top shows the scale and how far away it is.
+- The weigh buttons only work within **Mobile Range** (default **50 m**, 10–1000) of that scale. Further away the page shows how far the phone is and waits. Once a weighment has started it stays on its scale, even if another is nearer.
+- Every weigh-in and weigh-out — including closing on a stored empty weight — sends the phone's position, and the server re-checks the distance to the scale before saving. A request from out of range is refused (403), whatever the page thinks.
+
+**It needs HTTPS.** Browsers only share their location with `https://` sites (and `localhost`). On a plain `http://` address the phone app shows *Secure connection needed* and cannot weigh. Put the site behind HTTPS (see the deployment guides) or turn **Require Location on Mobile** off.
+
+**After upgrading** the setting is on, so phone weighing stops until each scale has a position and the site is served over HTTPS. Turning it off gives the phone app exactly its old behaviour (scale picker, no location).
+
+Phone GPS is typically good to 5–15 m in the open and worse next to buildings, which is why the default range is 50 m rather than the size of the deck. Scales closer together than the range will both be in reach — the phone uses whichever is nearer.
 
 ### Custom Fields & Ticket Printing
 
@@ -745,7 +762,7 @@ Custom fields marked **Show on printed ticket** print in one of two ways:
 - **Auto-append (default):** a `Name: value` row is added near the bottom of the ticket for every field with a value.
 - **Designer placement:** every ticket-eligible custom field appears in the Ticket Designer's Field List as a parameter named `cf_<FieldName>` (non-alphanumerics become underscores). Drag it into the layout and save — the value then prints at that exact spot and the auto-appended row for that field is suppressed. Fields you don't place keep auto-appending, so existing layouts never change behavior.
 
-Dropdown-type custom fields also get their own tab on **Edit Tables** for managing the choice list (add, rename, delete, drag to reorder) without opening Setup.
+Dropdown-type custom fields also get their own tab on **Tables** for managing the choice list (add, rename, delete, drag to reorder) without opening Setup.
 
 ### Cards
 
@@ -783,6 +800,14 @@ are 1 to 99999: ticket numbers start at 100000, so the kiosk keypad can tell a k
 a keyed ticket. With a reader connected, presenting a card fills its number in automatically;
 otherwise type it. A card that isn't registered is refused at the kiosk and on the setup page.
 
+**Finding and changing cards.** Card Setup's **Search** finds a card by its number, description
+or anything it carries, for when the number isn't to hand. Managers and Admins also get
+**Change Number** there (refused while the card is on an open ticket) and **Bulk Update**
+(`/Card/Bulk`), which sets fields on many cards at once: filter the grid by any field, tick the
+cards, tick the fields to set. Cards partway through a load are skipped, and any value a card
+can't take is listed rather than silently dropped. On Card Setup, required fields are outlined
+until they are filled, and a stored choice the lists no longer offer shows blank.
+
 The SP-6820 sends a 26-bit Wiegand credential, which the reader service decodes to the card
 number in decimal (0–65535) — normally the number printed on the card. Confirm that on the
 first card. Leave the reader's facility-code option off: it produces numbers like `123-45678`,
@@ -798,6 +823,14 @@ https://your-server/Kiosk?reader-id=default:kiosk-1-reader&scale-id=2&pin=12345
 ```
 
 A kiosk with no `reader-id` ignores card presentations and behaves exactly as it always has.
+
+**Where a card works.** With Use Cards on, **Setup → System → Cards** has a Yes/No for each place a card can fill in a load. All three start on.
+
+- **Allow Cards at the Kiosk** — present the card at the kiosk's reader or key its number in on the keypad, as above. Off, kiosks behave as if cards were off: no reader, no "present your card", and a keyed card number is not accepted.
+- **Allow Cards on the Weigh Forms** — the office **Weigh In** page gets a **Card** box. **Use Card** fills in the form from the card (anything no longer a choice on the form is flagged), and saving ties the card to the ticket so weighing it out frees the card. A card whose truck is already in the yard opens that ticket's **Weigh Out** page instead.
+- **Allow Cards on the Phone** — the phone app gets **USE CARD** under Weigh In. The driver keys in the number; the card answers the prompts, the phone asks only for required fields the card leaves blank, then shows the usual confirmation. A card whose truck is already in the yard hands that load to the phone to weigh out. The phone's location rule still applies.
+
+Wherever a card is used, the server re-checks it (enrolled, enabled, issued, not already on another load) and refuses a card from a place where it is switched off. On the phone and the weigh forms the stored-tare questions follow that place's own settings; **Allow Tare Reset from a Card** is for kiosk card presentations. A load weighed out anywhere — kiosk, phone or office — frees its card.
 
 **Access.** Card Setup is available to any signed-in user (it's the loader operator's job).
 Card enrollment needs Manager or Admin; the Readers page is Admin-only, like the rest of the
@@ -836,7 +869,7 @@ before anyone chooses; everything else is an override on top of it.
 | Phone page (`/Mobile`) | Yes |
 | Signature pad (`/SignaturePad`) | Yes |
 | Ticket views + browser-print ticket | Yes — the labels |
-| Dashboard, weigh forms, Reports, Edit Tables, Setup, Users | No — English |
+| Dashboard, weigh forms, Reports, Tables, Setup, Users | No — English |
 | Printed tickets from the print agents | No — see below |
 
 **How a screen picks its language**, first match wins:
@@ -860,7 +893,7 @@ prompts for it) or leave it on the site default.
 - **Your own data.** Customer, carrier, commodity, bin, location and
   custom-field *names* come out of your tables and display exactly as the
   office typed them. A Spanish kiosk still lists `Corn` if that is what is in
-  Edit Tables — translating master data is a data decision, not a code one.
+  Tables — translating master data is a data decision, not a code one.
 - **Physical tickets.** The print agents render the DevExpress `.repx` layouts,
   which are customer-editable files owned by each site (`Reports/*.repx`, kept
   out of publish so a redeploy never overwrites local edits). Change their
@@ -953,8 +986,11 @@ Login is **optional** — controlled by the "Require Login" setting on the Setup
 | **User** | Weigh trucks in and out, view dashboard, reports, inbound/completed trucks |
 | **Manager** | Everything User can do + edit master data tables (customers, carriers, etc.) |
 | **Admin** | Everything Manager can do + Setup page + user management |
+| **Mobile** | The phone app (`/Mobile`) and nothing else — for drivers weighing themselves |
 
 **Password Reset:** Admins can reset any user's password from the Setup > Manage Users page. The password is reset to `michelli` and the user must change it on next login. There is no email-based recovery (the system may not have internet access).
+
+**Phone App with Login Enabled:** the phone app needs a signed-in user, so give each driver an account. Any role can use it; a **Mobile** user can use nothing else — they land on `/Mobile` after signing in, every other page sends them back there, and any other API answers 403. The phone app shows a sign-out button and no dashboard button for them. With login off there are no accounts, and the phone app is open as before.
 
 **Kiosk Access with Login Enabled:** Kiosks don't use the login screen. Instead, pass the Kiosk PIN code as a URL parameter:
 

@@ -59,14 +59,13 @@
                         <li class="nav-item">
                             <a class="nav-link" asp-controller="Home" asp-action="Index">Dashboard</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="Transaction" asp-action="WeighIn">Weigh In</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="Transaction" asp-action="InboundTrucks">Trucks in Yard</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="Transaction" asp-action="CompletedTrucks">Completed</a>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" aria-expanded="false">Weighments</a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" asp-controller="Transaction" asp-action="WeighIn">Weigh In</a></li>
+                                <li><a class="dropdown-item" asp-controller="Transaction" asp-action="InboundTrucks">Trucks in Yard</a></li>
+                                <li><a class="dropdown-item" asp-controller="Transaction" asp-action="CompletedTrucks">Completed</a></li>
+                            </ul>
                         </li>
                         @if (appSetup?.UseBinInventory == true)
                         {
@@ -90,7 +89,7 @@
                         @if (isManagerOrAbove)
                         {
                         <li class="nav-item">
-                            <a class="nav-link" asp-controller="MasterData" asp-action="Index">Edit Tables</a>
+                            <a class="nav-link" asp-controller="MasterData" asp-action="Index">Tables</a>
                         </li>
                         }
                         @* Loader operators issue cards from a phone, so this link
@@ -115,9 +114,10 @@
                             <a class="nav-link" href="#" onclick="showKioskPrinterPicker(); return false;" title="Open the kiosk page in a new tab">Kiosk</a>
                         </li>
                         }
+                        @* Phones only: the driver's phone page has no use at a desk. *@
                         @if (appSetup?.DemoMode == true)
                         {
-                        <li class="nav-item">
+                        <li class="nav-item nav-phone-only">
                             <a class="nav-link" href="/Mobile" target="_blank" title="Driver self-service weighing on a phone">Mobile</a>
                         </li>
                         }
@@ -280,22 +280,32 @@
 
     <script src="~/js/site.js" asp-append-version="true"></script>
     <script>
-        // Reports nav dropdown. Hand-rolled because Bootstrap's Dropdown
-        // component needs Popper, which the site's bootstrap.js build lacks —
-        // navbar menus position fine with Bootstrap's CSS alone.
+        // Nav dropdowns (Weighments, Reports). Hand-rolled because Bootstrap's
+        // Dropdown component needs Popper, which the site's bootstrap.js build
+        // lacks — navbar menus position fine with Bootstrap's CSS alone. Opening
+        // one closes any other; a click anywhere else closes them all.
         (function () {
-            var toggle = document.getElementById('reportsDropdown');
-            if (!toggle) return;
-            var menu = toggle.nextElementSibling;
-            toggle.addEventListener('click', function (e) {
-                e.preventDefault();
-                var open = menu.classList.toggle('show');
-                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            var toggles = Array.prototype.slice.call(document.querySelectorAll('.navbar .dropdown-toggle'));
+            if (!toggles.length) return;
+            function closeAll(except) {
+                toggles.forEach(function (t) {
+                    if (t === except) return;
+                    t.nextElementSibling.classList.remove('show');
+                    t.setAttribute('aria-expanded', 'false');
+                });
+            }
+            toggles.forEach(function (toggle) {
+                var menu = toggle.nextElementSibling;
+                toggle.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    closeAll(toggle);
+                    var open = menu.classList.toggle('show');
+                    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                });
             });
             document.addEventListener('click', function (e) {
-                if (toggle.contains(e.target)) return;
-                menu.classList.remove('show');
-                toggle.setAttribute('aria-expanded', 'false');
+                if (toggles.some(function (t) { return t.contains(e.target); })) return;
+                closeAll(null);
             });
         })();
     </script>

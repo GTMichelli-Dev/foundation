@@ -107,6 +107,11 @@ public class ScaleDbContext : DbContext
             e.Property(s => s.AllowSkipDestination).HasDefaultValue(true);
             e.Property(s => s.PromptKioskBinOnInbound).HasDefaultValue(true);
             e.Property(s => s.AllowSkipBin).HasDefaultValue(true);
+            e.Property(s => s.MobileRequireLocation).HasDefaultValue(true);
+            e.Property(s => s.MobileRangeMeters).HasDefaultValue(50);
+            e.Property(s => s.AllowCardKiosk).HasDefaultValue(true);
+            e.Property(s => s.AllowCardDesktop).HasDefaultValue(true);
+            e.Property(s => s.AllowCardMobile).HasDefaultValue(true);
         });
 
         modelBuilder.Entity<AppUser>(e =>

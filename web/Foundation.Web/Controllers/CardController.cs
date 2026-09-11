@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Foundation.Web.Data;
 using Foundation.Web.Models;
@@ -6,14 +7,15 @@ using Foundation.Web.Services;
 namespace Foundation.Web.Controllers;
 
 /// <summary>
-/// Prox-card weighing. Two audiences:
+/// Cards: a card carries a load's details so nobody enters them at the scale.
 ///
-///   /Card       — enrollment. An admin registers each physical card's number
-///                 once (api/cardadmin/*). Only enrolled cards can be issued
-///                 or used at a kiosk.
-///   /Card/Setup — the loader operator's phone page (api/cards/*). Type the
-///                 card number, the card's last-issued values come back, edit
-///                 what this load needs, save. The driver takes it to the scale.
+///   /Card       — enrollment. A manager registers each card's number once
+///                 (api/cardadmin/*). Only enrolled cards can be issued or used
+///                 at a kiosk.
+///   /Card/Setup — the loader operator's page (api/cards/*). Find the card,
+///                 its last-issued values come back, edit what this load needs,
+///                 save. The driver presents it at a reader or keys it in.
+///   /Card/Bulk  — set fields on many cards at once (api/cardadmin/bulk).
 /// </summary>
 public class CardController : Controller
 {
@@ -37,13 +39,23 @@ public class CardController : Controller
         return View();
     }
 
-    /// <summary>The loader operator's mobile card-issue page.</summary>
+    /// <summary>The loader operator's card-issue page (phone or desktop).</summary>
     public IActionResult Setup()
     {
         var setup = _setupCache.Get();
         ViewBag.RecycleCards = setup.RecycleCards;
         ViewBag.UseCardReader = setup.UseCardReader;
         ViewBag.UseRetainedTare = setup.UseRetainedTare;
+        // Renumbering a card and bulk updates are enrollment jobs, so their
+        // buttons only show to the roles allowed to use them.
+        ViewBag.CanManageCards = CanManageCards(setup);
+        return View();
+    }
+
+    /// <summary>Set fields on many cards at once (Manager / Admin — enforced in Program.cs).</summary>
+    public IActionResult Bulk()
+    {
+        ViewBag.RecycleCards = _setupCache.Get().RecycleCards;
         return View();
     }
 
@@ -82,6 +94,34 @@ public class CardController : Controller
             return Ok(new { found = false, cardNumber = number });
 
         return Ok(new { found = true, card = Describe(card) });
+    }
+
+    /// <summary>
+    /// The Weigh In page's card shortcut (Setup → Cards → Allow Cards on the
+    /// Weigh Forms): what the card would do at a kiosk right now — fill in a
+    /// weigh-in, or point at the open ticket it is already on.
+    /// </summary>
+    [HttpGet("api/cards/resolve")]
+    public IActionResult Resolve([FromQuery] string? cardNumber, [FromQuery] int? scaleId)
+    {
+        var setup = _setupCache.Get();
+        if (!setup.UseCardReader || !setup.AllowCardDesktop)
+            return Ok(new { ok = false, reason = "disabled", message = "Cards are turned off on the weigh forms (Setup → Cards)." });
+
+        // The office pages are English, so the messages are left as they are.
+        var r = CardFields.Resolve(_db, setup, cardNumber, scaleId, k => k);
+        if (!r.Ok)
+            return Ok(new { ok = false, reason = r.Reason, message = r.Message });
+
+        return Ok(new
+        {
+            ok = true,
+            action = r.Action,
+            card = r.Summary,
+            values = r.Values,
+            missingRequired = r.MissingRequired,
+            ticket = r.Ticket == null ? null : new { ticket = r.Ticket.Ticket, carrier = r.Ticket.Carrier, truckId = r.Ticket.TruckId }
+        });
     }
 
     /// <summary>
@@ -184,6 +224,29 @@ public class CardController : Controller
             .ToList());
     }
 
+    /// <summary>
+    /// Find cards for Card Setup's search: by number, description or any value
+    /// a card carries (customer, carrier, truck, ...). Open to every role like
+    /// the rest of api/cards — the loader operator uses it to find a card
+    /// without its number to hand.
+    /// </summary>
+    [HttpGet("api/cards/search")]
+    public IActionResult Search([FromQuery] string? q)
+    {
+        var term = (q ?? "").Trim();
+        var matches = _db.Cards
+            .OrderBy(c => c.CardNumber.Length).ThenBy(c => c.CardNumber)
+            .ToList()
+            .Where(c => term.Length == 0
+                || c.CardNumber.Contains(term, StringComparison.OrdinalIgnoreCase)
+                || (c.Description ?? "").Contains(term, StringComparison.OrdinalIgnoreCase)
+                || CardFields.ValuesOf(_db, c).Values.Any(v => v.Contains(term, StringComparison.OrdinalIgnoreCase)))
+            .Take(50)
+            .Select(Describe)
+            .ToList();
+        return Json(matches);
+    }
+
     // ===== ENROLLMENT API (Manager / Admin — enforced in Program.cs) =====
 
     [HttpGet("api/cardadmin")]
@@ -243,6 +306,16 @@ public class CardController : Controller
                 return BadRequest(new { message = CardNumberRule });
             number = normalized;
         }
+        // A card mid-trip is matched to its ticket partly by number, so its
+        // number stays put until that load weighs out.
+        if (number != card.CardNumber && !string.IsNullOrEmpty(card.OpenTicket)
+            && _db.Transactions.Any(t => t.Ticket == card.OpenTicket && !t.Void && t.DateOut == null))
+        {
+            return BadRequest(new
+            {
+                message = $"Card is on open ticket #{card.OpenTicket}. Weigh that load out before changing its number."
+            });
+        }
         if (_db.Cards.Any(c => c.Id != id && c.CardNumber == number))
             return BadRequest(new { message = $"Card \"{number}\" is already enrolled." });
 
@@ -281,7 +354,99 @@ public class CardController : Controller
         return Ok(new { deleted = id });
     }
 
+    /// <summary>
+    /// Set field values on many cards at once (the Bulk Update page). Only the
+    /// keys sent change — a blank value clears that field — and each card is
+    /// checked the way Save &amp; Issue checks one: a value must be a choice the
+    /// weigh forms allow, judged against that card's own answers, and a truck
+    /// must belong to the card's carrier. Issued state is left alone; a card
+    /// on an open ticket is skipped, as Issue would refuse it.
+    /// </summary>
+    [HttpPost("api/cardadmin/bulk")]
+    public IActionResult BulkUpdate([FromBody] BulkRequest body)
+    {
+        var ids = (body.CardIds ?? new List<int>()).Distinct().ToList();
+        var changes = body.Values ?? new Dictionary<string, string?>();
+        var recycle = body.RecycleMode is "Default" or "Recycle" or "Deactivate" ? body.RecycleMode : null;
+        if (ids.Count == 0)
+            return BadRequest(new { message = "Select at least one card." });
+        if (changes.Count == 0 && recycle == null)
+            return BadRequest(new { message = "Tick at least one field to set." });
+
+        var setup = _setupCache.Get();
+        var siteId = SiteContext.CurrentSiteId(HttpContext, _db);
+        var descriptors = CardFields.Describe(_db, setup, siteId);
+        var labels = descriptors.ToDictionary(d => d.Key, d => d.Label);
+
+        var skipped = new List<object>();
+        var done = new List<(Card Card, List<string> NotApplied)>();
+
+        foreach (var card in _db.Cards.Where(c => ids.Contains(c.Id)).ToList())
+        {
+            if (!string.IsNullOrEmpty(card.OpenTicket)
+                && _db.Transactions.Any(t => t.Ticket == card.OpenTicket && !t.Void && t.DateOut == null))
+            {
+                skipped.Add(new { cardNumber = card.CardNumber, reason = $"on open ticket #{card.OpenTicket}" });
+                continue;
+            }
+
+            // The card as it will be: its own values with the changes laid over,
+            // so a cascading choice or a truck is judged against this card's
+            // parent answer and carrier rather than whatever else was sent.
+            var merged = CardFields.ValuesOf(_db, card)
+                .ToDictionary(kv => kv.Key, kv => (string?)kv.Value);
+            foreach (var kv in changes) merged[kv.Key] = kv.Value;
+
+            var notApplied = new List<string>();
+            if (changes.TryGetValue("truck", out var truck) && !string.IsNullOrWhiteSpace(truck))
+            {
+                var carrier = merged.GetValueOrDefault("carrier")?.Trim();
+                var t = truck.Trim();
+                var known = !string.IsNullOrWhiteSpace(carrier)
+                    && _db.Trucks.Any(x => x.TruckId == t && x.CarrierName == carrier && x.UseAtKiosk);
+                if (!known)
+                {
+                    merged.Remove("truck");
+                    notApplied.Add(labels.GetValueOrDefault("truck", "Truck ID"));
+                }
+            }
+
+            CardFields.ApplyValues(_db, card, merged, descriptors);
+            if (recycle != null) card.RecycleMode = recycle;
+            done.Add((card, notApplied));
+        }
+        _db.SaveChanges();
+
+        // ApplyValues leaves out a value the weigh forms would refuse. Say which,
+        // rather than let the operator think every card took it.
+        var partial = new List<object>();
+        foreach (var (card, notApplied) in done)
+        {
+            var after = CardFields.ValuesOf(_db, card);
+            foreach (var kv in changes)
+            {
+                if (!labels.TryGetValue(kv.Key, out var label) || notApplied.Contains(label)) continue;
+                var want = kv.Value?.Trim();
+                var got = after.GetValueOrDefault(kv.Key);
+                var took = string.IsNullOrEmpty(want) ? got == null : got == want;
+                if (!took) notApplied.Add(label);
+            }
+            if (notApplied.Count > 0) partial.Add(new { cardNumber = card.CardNumber, fields = notApplied });
+        }
+
+        return Ok(new { updated = done.Count, skipped, partial });
+    }
+
     // ===== HELPERS =====
+
+    /// <summary>Manager or Admin, or anyone when login is off — the same test
+    /// the navbar and Program.cs use for the enrollment pages.</summary>
+    private bool CanManageCards(AppSetup setup)
+    {
+        if (!setup.UseLogin) return true;
+        var role = User.FindFirst(ClaimTypes.Role)?.Value;
+        return role is "Manager" or "Admin";
+    }
 
     /// <summary>Card numbers are compared case-insensitively so a reader that
     /// emits lower-case hex still matches a number enrolled in upper case.</summary>
@@ -336,6 +501,16 @@ public class CardController : Controller
         public string? CardNumber { get; set; }
         public string? Description { get; set; }
         public bool? Enabled { get; set; }
+        public string? RecycleMode { get; set; }
+    }
+
+    public class BulkRequest
+    {
+        public List<int>? CardIds { get; set; }
+        /// <summary>Only the fields to change, keyed like IssueRequest.Values.
+        /// A blank value clears the field.</summary>
+        public Dictionary<string, string?>? Values { get; set; }
+        /// <summary>Also set "After this load" when given.</summary>
         public string? RecycleMode { get; set; }
     }
 }

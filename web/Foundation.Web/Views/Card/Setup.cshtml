@@ -3,6 +3,7 @@
     var recycleCards = (bool)(ViewBag.RecycleCards ?? false);
     var useCardReader = (bool)(ViewBag.UseCardReader ?? false);
     var useRetainedTare = (bool)(ViewBag.UseRetainedTare ?? false);
+    var canManageCards = (bool)(ViewBag.CanManageCards ?? false);
 }
 
 @section Styles {
@@ -30,9 +31,20 @@
     }
     .card-setup .cs-required { color: #dc3545; font-weight: 700; }
 
-    .cs-number-row { display: flex; gap: 8px; max-width: 460px; }
+    .cs-number-row { display: flex; gap: 8px; max-width: 580px; }
     .cs-number-row .form-control { flex: 1; }
     #cardNumberInput { font-size: 1.25rem; font-weight: 700; letter-spacing: 1px; }
+
+    .cs-head-btn { padding: 0.45rem 1.1rem; font-size: 1rem; font-weight: 600; }
+
+    /* A required field left blank is outlined until it is answered: the kiosk
+       would stop the driver to ask for it. */
+    .card-setup .cs-req-missing .form-control,
+    .card-setup .cs-req-missing .form-select {
+        border-color: #dc3545;
+        background-color: rgba(220, 53, 69, 0.06);
+        box-shadow: inset 3px 0 0 #dc3545;
+    }
 
     /* The card's fields side by side, as many columns as the width allows. */
     #csFields {
@@ -96,7 +108,9 @@
 
         .cs-number-row { flex-direction: column; max-width: none; }
         #cardNumberInput { font-size: 1.6rem; text-align: center; min-height: 64px; }
-        #btnRecall { min-height: 54px; font-size: 1.1rem; font-weight: 700; }
+        #btnRecall { min-height: 54px; font-size: 1.1rem; font-weight: 700; order: 1; }
+        #btnSearch { order: 2; min-height: 48px; font-size: 1.05rem; }
+        .cs-head-btn { padding: 0.25rem 0.5rem; font-size: 0.875rem; font-weight: 400; }
 
         #csFields { display: block; }
         .card-setup .cs-field { margin-bottom: 14px; }
@@ -133,9 +147,17 @@
 }
 
 <div class="card-setup">
-    <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="d-flex justify-content-between align-items-center mb-2 gap-2">
         <h3 class="mb-0 cs-title">Card Setup</h3>
-        <a href="/Card" class="btn btn-outline-secondary btn-sm">Cards</a>
+        @* Both are enrollment pages (Manager / Admin), so a loader operator is
+           not shown buttons that would only answer "access denied". *@
+        @if (canManageCards)
+        {
+            <div class="d-flex gap-2">
+                <a href="/Card/Bulk" class="btn btn-outline-primary cs-head-btn">Bulk Update</a>
+                <a href="/Card" class="btn btn-outline-secondary cs-head-btn">Cards</a>
+            </div>
+        }
     </div>
     <p class="text-muted small mb-2">
         A card carries a load's details so nobody has to enter them at the scale.
@@ -161,6 +183,8 @@
             <input type="text" class="form-control" id="cardNumberInput"
                    inputmode="numeric" autocomplete="off" autocapitalize="off" spellcheck="false"
                    placeholder="Enter card number" />
+            <button type="button" class="btn btn-outline-secondary" id="btnSearch"
+                    title="Find a card by its number, description or anything it carries">Search</button>
             <button type="button" class="btn btn-primary" id="btnRecall">Recall Card</button>
         </div>
         <div class="form-text mt-2">
@@ -174,13 +198,21 @@
         <div class="cs-panel">
             <div class="cs-status">
                 <span id="csStatusBadge" class="cs-badge cs-badge-free">Available</span>
+                <strong>Card <span id="csCardNumber"></span></strong>
                 <span id="csCardDescription" class="text-muted"></span>
+                @if (canManageCards)
+                {
+                    <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" id="btnChangeNumber">Change Number</button>
+                }
             </div>
             <div id="csLastUsed" class="form-text mt-1"></div>
             <div id="csOpenTicketWarning" class="alert alert-warning py-2 mt-2 mb-0" style="display:none;"></div>
         </div>
 
         <div class="cs-panel">
+            <div id="csReqNote" class="form-text mt-0 mb-2" style="display:none;">
+                <span class="cs-required">*</span> Required — the kiosk stops the driver to ask for any left blank.
+            </div>
             <div id="csFields"><!-- built from /api/cards/fields --></div>
         </div>
 
@@ -202,6 +234,23 @@
         <div class="cs-actionbar">
             <button type="button" class="btn btn-outline-danger btn-release" id="btnRelease">Deactivate</button>
             <button type="button" class="btn btn-success" id="btnIssue">Save &amp; Issue</button>
+        </div>
+    </div>
+</div>
+
+<!-- Card search: find a card without its number to hand. -->
+<div class="modal fade" id="csSearchModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+        <div class="modal-content cs-confirm">
+            <div class="modal-header">
+                <h5 class="modal-title">Find a Card</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="search" class="form-control mb-2" id="csSearchInput" autocomplete="off"
+                       placeholder="Number, description, customer, carrier, truck…" />
+                <div id="csSearchResults" class="list-group"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -250,6 +299,13 @@
     document.getElementById('btnRecall').addEventListener('click', recall);
     document.getElementById('btnIssue').addEventListener('click', issue);
     document.getElementById('btnRelease').addEventListener('click', release);
+    document.getElementById('btnSearch').addEventListener('click', openSearch);
+    var $changeNumber = document.getElementById('btnChangeNumber');
+    if ($changeNumber) $changeNumber.addEventListener('click', changeNumber);
+
+    // Required fields re-check as they are answered.
+    $fields.addEventListener('input', markRequired);
+    $fields.addEventListener('change', markRequired);
 
     // Enter on the number box recalls, so a keyboard wedge or a phone keypad
     // "go" key works without hunting for the button.
@@ -283,6 +339,7 @@
 
     function renderCard() {
         $body.style.display = '';
+        document.getElementById('csCardNumber').textContent = currentCard.cardNumber;
         document.getElementById('csCardDescription').textContent = currentCard.description || '';
         document.getElementById('csRecycleMode').value = currentCard.recycleMode || 'Default';
 
@@ -329,11 +386,15 @@
         var carrier = values.carrier;
         if (carrier) loadTrucks(carrier, values.truck);
         refreshCascades();
+        document.getElementById('csReqNote').style.display =
+            fields.some(function (f) { return f.required; }) ? '' : 'none';
+        markRequired();
     }
 
     function buildField(f, value) {
         var wrap = document.createElement('div');
         wrap.className = 'cs-field';
+        if (f.required) wrap.classList.add('cs-req');
 
         var label = document.createElement('label');
         label.className = 'cs-label';
@@ -409,15 +470,11 @@
         });
 
         // A value the list no longer offers (renamed master data, or a choice
-        // now limited to another location) is kept visible rather than silently
-        // dropped — otherwise saving the card would erase it without a word.
-        if (selected && !Array.prototype.some.call(select.options, function (o) { return o.value === selected; })) {
-            var stale = document.createElement('option');
-            stale.value = selected;
-            stale.textContent = selected + ' (no longer listed)';
-            select.appendChild(stale);
-        }
+        // now limited to another location) shows blank, so saving the card
+        // clears it rather than carrying an out-of-date choice to the kiosk.
         select.value = selected || '';
+        if (select.value !== (selected || '')) select.value = '';
+        markRequired();
     }
 
     function loadTrucks(carrier, selected) {
@@ -531,6 +588,134 @@
             })
             .catch(function (err) { toast('err', err.message || 'Could not deactivate the card.'); })
             .finally(function () { setBusy(false); });
+    }
+
+    // ===== REQUIRED FIELDS =====
+
+    /// Outline every required field still blank: the kiosk would stop the
+    /// driver to ask for it.
+    function markRequired() {
+        $fields.querySelectorAll('.cs-req').forEach(function (wrap) {
+            var input = wrap.querySelector('input, select');
+            wrap.classList.toggle('cs-req-missing', !!input && !(input.value || '').trim());
+        });
+    }
+
+    // ===== SEARCH =====
+
+    var searchModal = null;
+    var searchTimer = null;
+    var searchSeq = 0;
+
+    function openSearch() {
+        var el = document.getElementById('csSearchModal');
+        var input = document.getElementById('csSearchInput');
+        if (!searchModal) {
+            searchModal = new bootstrap.Modal(el);
+            el.addEventListener('shown.bs.modal', function () { input.focus(); });
+            input.addEventListener('input', function () {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(runSearch, 250);
+            });
+        }
+        input.value = ($number.value || '').trim();
+        runSearch();
+        searchModal.show();
+    }
+
+    function runSearch() {
+        var q = document.getElementById('csSearchInput').value.trim();
+        var $results = document.getElementById('csSearchResults');
+        var seq = ++searchSeq;
+        fetch('/api/cards/search?q=' + encodeURIComponent(q))
+            .then(readJson)
+            .then(function (list) {
+                if (seq !== searchSeq) return; // a later keystroke already asked again
+                if (!list.length) {
+                    $results.innerHTML = '<div class="text-muted p-2">No cards match.</div>';
+                    return;
+                }
+                $results.innerHTML = list.map(function (c) {
+                    var carries = fields.map(function (f) { return (c.values || {})[f.key]; }).filter(Boolean);
+                    var line = [c.description].concat(carries).filter(Boolean).join(' · ');
+                    return '<button type="button" class="list-group-item list-group-item-action" data-number="' + escHtml(c.cardNumber) + '">' +
+                        '<div class="d-flex align-items-center gap-2 flex-wrap">' +
+                            '<strong>Card ' + escHtml(c.cardNumber) + '</strong>' + statusBadgeHtml(c) +
+                        '</div>' +
+                        (line ? '<div class="small text-muted">' + escHtml(line) + '</div>' : '') +
+                        '</button>';
+                }).join('');
+                $results.querySelectorAll('[data-number]').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        $number.value = this.getAttribute('data-number');
+                        searchModal.hide();
+                        recall();
+                    });
+                });
+            })
+            .catch(function (err) {
+                if (seq !== searchSeq) return;
+                $results.innerHTML = '<div class="text-danger p-2">' + escHtml(err.message || 'Search failed.') + '</div>';
+            });
+    }
+
+    function statusBadgeHtml(c) {
+        if (!c.enabled) return '<span class="cs-badge cs-badge-disabled">Disabled</span>';
+        if (c.openTicket) return '<span class="cs-badge cs-badge-open">On ticket #' + escHtml(c.openTicket) + '</span>';
+        if (c.issued) return '<span class="cs-badge cs-badge-issued">Issued</span>';
+        return '<span class="cs-badge cs-badge-free">Available</span>';
+    }
+
+    // ===== CHANGE NUMBER =====
+
+    /// Give the recalled card a new number. The card keeps its values and
+    /// history; the form's unsaved edits are left as they are.
+    function changeNumber() {
+        if (!currentCard) return;
+
+        var ask = confirmDialog({
+            title: 'Change Card Number',
+            html: '<label class="cs-label" for="csNewNumber">New number for card ' + escHtml(currentCard.cardNumber) + '</label>' +
+                  '<input type="text" class="form-control" id="csNewNumber" inputmode="numeric" autocomplete="off" value="' +
+                  escHtml(currentCard.cardNumber) + '" />' +
+                  '<p class="form-text mt-2 mb-0">Card numbers are 1 to 99999. The card keeps everything set on it.</p>',
+            okText: 'Change Number',
+            okClass: 'btn-primary'
+        });
+
+        var input = document.getElementById('csNewNumber');
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); document.getElementById('csConfirmOk').click(); }
+        });
+        setTimeout(function () { input.focus(); input.select(); }, 350);
+
+        ask.then(function (proceed) {
+            if (!proceed) return;
+            var number = (input.value || '').trim();
+            if (!number || number === currentCard.cardNumber) return;
+
+            setBusy(true);
+            fetch('/api/cardadmin/' + currentCard.id, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cardNumber: number,
+                    description: currentCard.description || '',
+                    enabled: currentCard.enabled,
+                    recycleMode: currentCard.recycleMode || 'Default'
+                })
+            })
+                .then(readJson)
+                .then(function (card) {
+                    var old = currentCard.cardNumber;
+                    currentCard.cardNumber = card.cardNumber;
+                    $number.value = card.cardNumber;
+                    document.getElementById('csCardNumber').textContent = card.cardNumber;
+                    toast('ok', 'Card ' + old + ' is now card ' + card.cardNumber + '.');
+                })
+                .catch(function (err) { toast('err', err.message || 'Could not change the number.'); })
+                .finally(function () { setBusy(false); });
+        });
     }
 
     // ===== CONFIRM DIALOG =====

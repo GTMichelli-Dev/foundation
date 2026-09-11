@@ -51,7 +51,7 @@ public class ScaleController : Controller
     [HttpGet("api/scales")]
     public IActionResult GetScales() =>
         Json(_db.Scales.OrderBy(s => s.SortOrder).ThenBy(s => s.Name)
-            .Select(s => new { s.Id, s.Name, s.HardwareId, s.SiteId, s.SortOrder, s.Active, s.InboundPrinterId, s.OutboundPrinterId }).ToList());
+            .Select(s => new { s.Id, s.Name, s.HardwareId, s.SiteId, s.SortOrder, s.Active, s.InboundPrinterId, s.OutboundPrinterId, s.Latitude, s.Longitude }).ToList());
 
     /// <summary>Active scales for the weigh-form / kiosk / simulator pickers,
     /// limited to the operator's current location (navbar picker).</summary>
@@ -99,6 +99,8 @@ public class ScaleController : Controller
         existing.Active = scale.Active;
         existing.InboundPrinterId = string.IsNullOrWhiteSpace(scale.InboundPrinterId) ? null : scale.InboundPrinterId;
         existing.OutboundPrinterId = string.IsNullOrWhiteSpace(scale.OutboundPrinterId) ? null : scale.OutboundPrinterId;
+        existing.Latitude = scale.Latitude;
+        existing.Longitude = scale.Longitude;
         _db.SaveChanges();
         return Json(existing);
     }
@@ -195,6 +197,11 @@ public class ScaleController : Controller
         if (scale.Name.Trim().Length > 50) return "Scale name must be 50 characters or fewer.";
         if (_db.Scales.Any(s => s.Id != id && s.Name.ToLower() == scale.Name.Trim().ToLower()))
             return "A scale with that name already exists.";
+        // Half a position is no position.
+        if (scale.Latitude.HasValue != scale.Longitude.HasValue)
+            return "Enter both latitude and longitude, or clear both.";
+        if (scale.Latitude.HasValue && !GeoDistance.IsValid(scale.Latitude, scale.Longitude))
+            return "That is not a valid position: latitude is -90 to 90 and longitude -180 to 180.";
         return null;
     }
 }
