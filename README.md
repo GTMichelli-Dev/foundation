@@ -832,6 +832,24 @@ A kiosk with no `reader-id` ignores card presentations and behaves exactly as it
 
 Wherever a card is used, the server re-checks it (enrolled, enabled, issued, not already on another load) and refuses a card from a place where it is switched off. On the phone and the weigh forms the stored-tare questions follow that place's own settings; **Allow Tare Reset from a Card** is for kiosk card presentations. A load weighed out anywhere — kiosk, phone or office — frees its card.
 
+**Descriptions and trucks.** A card's **Description** can be changed on Card Setup as well as on Cards. When the site requires a Truck ID (Setup → Kiosk Prompts), a **Use the Truck ID as the description** box sets it from the truck, now and whenever the truck changes; typing a description of your own unticks it. A card recalled with a description that isn't its truck ID starts unticked, so an existing label is never replaced unasked.
+
+To copy card descriptions onto the trucks they name (Tables → Trucks → Description), run the script from the repository on any machine that can reach the server. Preview first with the dry run:
+
+```powershell
+# Windows (PowerShell 5.1 or 7)
+.\scripts\copy-card-descriptions-to-trucks.ps1 -Server https://your-server -DryRun
+.\scripts\copy-card-descriptions-to-trucks.ps1 -Server https://your-server -Username admin
+```
+
+```bash
+# Linux / Raspberry Pi
+bash scripts/copy-card-descriptions-to-trucks.sh --server https://your-server --dry-run
+bash scripts/copy-card-descriptions-to-trucks.sh --server https://your-server --user admin
+```
+
+Each enabled card with a carrier and truck ID is matched to the truck with that carrier and truck ID; cards themselves are not changed. The report lists every truck changed, every truck left alone because two cards name it with different descriptions, and every card passed over (no description, no carrier or truck ID, or a truck not in Tables). With Require Login on, sign in as a Manager or Admin (`-Username` / `--user`); the password is asked for. The scripts call `POST /api/cardadmin/copy-descriptions-to-trucks` (add `?dryRun=true` to preview).
+
 **Access.** Card Setup is available to any signed-in user (it's the loader operator's job).
 Card enrollment needs Manager or Admin; the Readers page is Admin-only, like the rest of the
 device configuration.

@@ -46,6 +46,8 @@
         box-shadow: inset 3px 0 0 #dc3545;
     }
 
+    .card-setup .cs-desc-field { max-width: 580px; }
+
     /* The card's fields side by side, as many columns as the width allows. */
     #csFields {
         display: grid;
@@ -210,6 +212,22 @@
         </div>
 
         <div class="cs-panel">
+            <div class="cs-field cs-desc-field">
+                <label class="cs-label" for="csDescription">Description</label>
+                <input type="text" class="form-control" id="csDescription" maxlength="100" autocomplete="off" />
+                @* Shown when the Truck ID is required (Setup → Kiosk Prompts), so
+                   every card carries one to take the description from. *@
+                <div id="csDescFromTruckRow" style="display:none;">
+                    <div class="form-check mt-1">
+                        <input class="form-check-input" type="checkbox" id="csDescFromTruck" />
+                        <label class="form-check-label" for="csDescFromTruck">Use the Truck ID as the description</label>
+                    </div>
+                    <div class="form-text mt-0">Ticked, the description follows the truck. Type your own to override it.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="cs-panel">
             <div id="csReqNote" class="form-text mt-0 mb-2" style="display:none;">
                 <span class="cs-required">*</span> Required — the kiosk stops the driver to ask for any left blank.
             </div>
@@ -288,6 +306,8 @@
     var $body = document.getElementById('cardBody');
     var $fields = document.getElementById('csFields');
     var $toast = document.getElementById('csToast');
+    var $desc = document.getElementById('csDescription');
+    var $descFromTruck = document.getElementById('csDescFromTruck');
 
     // ===== SETUP =====
 
@@ -373,7 +393,36 @@
         }
 
         renderFields(currentCard.values || {});
+        renderDescription(currentCard.values || {});
     }
+
+    // ===== DESCRIPTION =====
+    // With the Truck ID required the description can follow it: ticked, it is
+    // set from the truck, now and whenever the truck changes. Typing a
+    // description of your own unticks the box, so an override is never
+    // written over, and a card recalled with a description that isn't its
+    // truck starts unticked for the same reason.
+
+    function truckRequired() {
+        return fields.some(function (f) { return f.key === 'truck' && f.required; });
+    }
+
+    function renderDescription(values) {
+        var desc = currentCard.description || '';
+        var show = truckRequired();
+        document.getElementById('csDescFromTruckRow').style.display = show ? '' : 'none';
+        $descFromTruck.checked = show && (!desc || desc === (values.truck || ''));
+        $desc.value = $descFromTruck.checked && values.truck ? values.truck : desc;
+    }
+
+    function followTruck() {
+        if (!$descFromTruck.checked) return;
+        var truck = document.getElementById('fld_truck');
+        if (truck && truck.value) $desc.value = truck.value;
+    }
+
+    $desc.addEventListener('input', function () { $descFromTruck.checked = false; });
+    $descFromTruck.addEventListener('change', followTruck);
 
     // ===== FIELDS =====
 
@@ -440,6 +489,7 @@
                 loadTrucks(this.value, null);
             });
         }
+        if (f.key === 'truck') input.addEventListener('change', followTruck);
         // A parent field's answer filters its sub-fields' choices.
         if (fields.some(function (x) { return x.parentKey === f.key; })) {
             input.addEventListener('change', refreshCascades);
@@ -549,7 +599,11 @@
             fetch('/api/cards/' + currentCard.id + '/issue', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ values: values, recycleMode: document.getElementById('csRecycleMode').value })
+                body: JSON.stringify({
+                    values: values,
+                    recycleMode: document.getElementById('csRecycleMode').value,
+                    description: $desc.value.trim()
+                })
             })
                 .then(readJson)
                 .then(function (data) {

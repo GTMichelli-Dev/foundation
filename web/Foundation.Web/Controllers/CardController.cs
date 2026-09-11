@@ -169,6 +169,11 @@ public class CardController : Controller
         if (body.RecycleMode is "Default" or "Recycle" or "Deactivate")
             card.RecycleMode = body.RecycleMode;
 
+        // Card Setup sends the description too — typed, or kept equal to the
+        // truck ID. Null is a page that never showed it: leave it alone.
+        if (body.Description != null)
+            card.Description = Trim(body.Description, 100);
+
         card.Issued = true;
         card.IssuedAt = DateTime.UtcNow;
         card.IssuedBy = User.Identity?.IsAuthenticated == true ? User.Identity.Name : null;
@@ -437,6 +442,89 @@ public class CardController : Controller
         return Ok(new { updated = done.Count, skipped, partial });
     }
 
+    /// <summary>
+    /// Copy each card's description onto the truck it names — the truck with
+    /// the card's carrier and truck ID — in Tables → Trucks. Run by
+    /// scripts/copy-card-descriptions-to-trucks (.ps1 / .sh). Only enabled
+    /// cards count, and cards are never changed. A card with no description,
+    /// no carrier or truck ID, or a truck missing from the table is passed
+    /// over, and a truck two cards name with different descriptions is left
+    /// alone: the report lists each so nothing is guessed. dryRun reports
+    /// without changing anything.
+    /// </summary>
+    [HttpPost("api/cardadmin/copy-descriptions-to-trucks")]
+    public IActionResult CopyDescriptionsToTrucks([FromQuery] bool dryRun = false)
+    {
+        var trucks = _db.Trucks.ToList();
+        var skipped = new List<object>();
+        var byTruck = new Dictionary<Truck, List<Card>>();
+
+        var cards = _db.Cards.Where(c => c.Enabled).AsEnumerable()
+            .OrderBy(c => c.CardNumber.Length).ThenBy(c => c.CardNumber, StringComparer.OrdinalIgnoreCase);
+        foreach (var card in cards)
+        {
+            var description = card.Description?.Trim();
+            var carrier = card.Carrier?.Trim();
+            var truckId = card.TruckId?.Trim();
+            if (string.IsNullOrEmpty(description))
+            {
+                skipped.Add(new { cardNumber = card.CardNumber, reason = "no description" });
+                continue;
+            }
+            if (string.IsNullOrEmpty(carrier) || string.IsNullOrEmpty(truckId))
+            {
+                skipped.Add(new { cardNumber = card.CardNumber, reason = "no carrier and truck ID on the card" });
+                continue;
+            }
+
+            var truck = trucks.FirstOrDefault(t =>
+                string.Equals(t.CarrierName, carrier, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(t.TruckId, truckId, StringComparison.OrdinalIgnoreCase));
+            if (truck == null)
+            {
+                skipped.Add(new { cardNumber = card.CardNumber, reason = $"no truck \"{truckId}\" under \"{carrier}\" in Tables" });
+                continue;
+            }
+
+            if (!byTruck.TryGetValue(truck, out var list)) byTruck[truck] = list = new List<Card>();
+            list.Add(card);
+        }
+
+        var changes = new List<object>();
+        var conflicts = new List<object>();
+        var unchanged = 0;
+        foreach (var (truck, named) in byTruck)
+        {
+            var descriptions = named.Select(c => c.Description!.Trim()).Distinct(StringComparer.Ordinal).ToList();
+            if (descriptions.Count > 1)
+            {
+                conflicts.Add(new
+                {
+                    carrier = truck.CarrierName,
+                    truckId = truck.TruckId,
+                    cards = named.Select(c => new { cardNumber = c.CardNumber, description = c.Description!.Trim() })
+                });
+                continue;
+            }
+
+            var description = descriptions[0];
+            if (truck.Description == description) { unchanged++; continue; }
+
+            changes.Add(new
+            {
+                carrier = truck.CarrierName,
+                truckId = truck.TruckId,
+                before = truck.Description,
+                after = description,
+                cards = named.Select(c => c.CardNumber)
+            });
+            if (!dryRun) truck.Description = description;
+        }
+        if (!dryRun) _db.SaveChanges();
+
+        return Ok(new { dryRun, updated = changes.Count, unchanged, changes, conflicts, skipped });
+    }
+
     // ===== HELPERS =====
 
     /// <summary>Manager or Admin, or anyone when login is off — the same test
@@ -494,6 +582,8 @@ public class CardController : Controller
         /// ("commodity", "truck", "cf3"). A blank value clears the field.</summary>
         public Dictionary<string, string?>? Values { get; set; }
         public string? RecycleMode { get; set; }
+        /// <summary>The card's description; null leaves it unchanged, blank clears it.</summary>
+        public string? Description { get; set; }
     }
 
     public class EnrollRequest
