@@ -198,14 +198,20 @@ public class CardController : Controller
         return Json(cards);
     }
 
+    // Cards live below the first ticket number so the kiosk keypad can tell a
+    // keyed card from a keyed ticket.
+    private static readonly string CardNumberRule =
+        $"Card numbers are 1 to {TicketNumbers.Minimum - 1}. Numbers from {TicketNumbers.Minimum} up are ticket numbers.";
+
     [HttpPost("api/cardadmin")]
     public IActionResult Enroll([FromBody] EnrollRequest body)
     {
         var number = (body.CardNumber ?? "").Trim();
         if (number.Length == 0)
             return BadRequest(new { message = "Card number is required." });
-        if (number.Length > 50)
-            return BadRequest(new { message = "Card number is too long (50 characters max)." });
+        if (!TicketNumbers.IsCardNumber(number, out var normalized))
+            return BadRequest(new { message = CardNumberRule });
+        number = normalized;
         if (_db.Cards.Any(c => c.CardNumber == number))
             return BadRequest(new { message = $"Card \"{number}\" is already enrolled." });
 
@@ -230,6 +236,13 @@ public class CardController : Controller
         var number = (body.CardNumber ?? "").Trim();
         if (number.Length == 0)
             return BadRequest(new { message = "Card number is required." });
+        // A card enrolled before the rule keeps its number until it is changed.
+        if (number != card.CardNumber)
+        {
+            if (!TicketNumbers.IsCardNumber(number, out var normalized))
+                return BadRequest(new { message = CardNumberRule });
+            number = normalized;
+        }
         if (_db.Cards.Any(c => c.Id != id && c.CardNumber == number))
             return BadRequest(new { message = $"Card \"{number}\" is already enrolled." });
 

@@ -39,7 +39,7 @@ public class SetupController : Controller
         existing.Header2 = setup.Header2;
         existing.Header3 = setup.Header3;
         existing.Header4 = setup.Header4;
-        existing.TicketNumber = setup.TicketNumber;
+        existing.TicketNumber = TicketNumbers.Floor(setup.TicketNumber);
         existing.TicketsPerPage = setup.TicketsPerPage;
         existing.DemoMode = setup.DemoMode;
         existing.KioskCount = setup.KioskCount;
@@ -269,7 +269,7 @@ public class SetupController : Controller
 
         TempData["Message"] = removed == 0
             ? "No transactions to clear. Master data is unchanged."
-            : $"{removed:N0} transaction{(removed == 1 ? "" : "s")} cleared. Master data is unchanged and the ticket number is back to 1.";
+            : $"{removed:N0} transaction{(removed == 1 ? "" : "s")} cleared. Master data is unchanged and the ticket number is back to {TicketNumbers.Minimum}.";
         return RedirectToAction("Index");
     }
 
@@ -299,7 +299,7 @@ public class SetupController : Controller
 
     /// <summary>
     /// Remove every ticket and the rows and files that hang off a ticket
-    /// number, then send the ticket counter back to 1. Shared by "Clear
+    /// number, then send the ticket counter back to the first ticket. Shared by "Clear
     /// Transactions" and the full "Clear Database" so neither can leave custom
     /// values, email logs, card links or ticket images pointing at tickets that
     /// no longer exist. Caller SaveChanges().
@@ -318,7 +318,7 @@ public class SetupController : Controller
 
         DeleteTicketImages();
 
-        setup.TicketNumber = 1;
+        setup.TicketNumber = TicketNumbers.Minimum;
     }
 
     /// <summary>
@@ -444,7 +444,7 @@ public class SetupController : Controller
 
         var rng = new Random(42);
         var now = DateTime.Now;
-        int ticketNum = 1000;
+        int ticketNum = TicketNumbers.Minimum;
         int completedCount = 0, voidedCount = 0;
 
         // Generate ~1 year of completed tickets, ~20 per weekday, 8am-5pm
@@ -628,7 +628,7 @@ public class SetupController : Controller
 
         var rng = new Random(7);
         var now = DateTime.UtcNow;
-        int ticketNum = 1000;
+        int ticketNum = TicketNumbers.Minimum;
         int harvestLoads = 0, saleLoads = 0;
 
         // Harvest windows by month/day (any year in the trailing 12 months)

@@ -1,4 +1,5 @@
 using Foundation.Web.Models;
+using Foundation.Web.Services;
 
 namespace Foundation.Web.Data;
 
@@ -59,6 +60,16 @@ public static class DbInitializer
                 SortOrder = 10,
                 Active = true
             });
+            context.SaveChanges();
+        }
+
+        // Tickets start at TicketNumbers.Minimum, with card numbers below it so
+        // the kiosk keypad can tell the two apart. Raises the counter on a site
+        // that started at 1; one already past the minimum is left alone.
+        var ticketSetup = context.AppSetup.FirstOrDefault();
+        if (ticketSetup != null && ticketSetup.TicketNumber < TicketNumbers.Minimum)
+        {
+            ticketSetup.TicketNumber = TicketNumbers.Minimum;
             context.SaveChanges();
         }
 
@@ -150,7 +161,7 @@ public static class DbInitializer
 
         // Update ticket number for seeded transactions
         var setup = context.AppSetup.First();
-        setup.TicketNumber = 1025;
+        setup.TicketNumber = TicketNumbers.Minimum;
         setup.Header1 = "Foundation Scale";
         setup.Header2 = "123 Industrial Blvd";
         setup.Header3 = "Anytown, USA 12345";
@@ -165,7 +176,7 @@ public static class DbInitializer
         var truckIds = trucks.Select(t => t.TruckId).ToArray();
         var commodityNames = commodities.Where(c => c.Active).Select(c => c.CommodityName).ToArray();
 
-        var ticketNum = 1000;
+        var ticketNum = TicketNumbers.Minimum;
         var transactions = new List<Transaction>();
 
         // 40 completed transactions over the past 30 days

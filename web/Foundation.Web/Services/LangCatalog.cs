@@ -107,12 +107,14 @@ public static class LangCatalog
         ["PRESENT YOUR CARD"] = "PRESENTE SU TARJETA",
         ["PRESS ENTER TO WEIGH IN"] = "PRESIONE ENTER PARA PESAR ENTRADA",
         ["SCAN BAR CODE OR KEY IN TICKET #"] = "ESCANEE EL CÓDIGO O TECLEE EL N.° DE BOLETA",
+        ["SCAN BAR CODE OR KEY IN TICKET OR CARD #"] = "ESCANEE EL CÓDIGO O TECLEE EL N.° DE BOLETA O TARJETA",
         ["PRESS"] = "PRESIONE",
         ["ENTER"] = "ENTER",
         ["TO WEIGH"] = "PARA PESAR",
 
         // ===== KIOSK: ticket entry =====
         ["Enter Ticket Number"] = "Ingrese el Número de Boleta",
+        ["Enter Ticket or Card Number"] = "Ingrese el Número de Boleta o Tarjeta",
         ["CLR"] = "BORR",
         ["ENT"] = "ENT",
         ["Checking Ticket"] = "Verificando la Boleta",

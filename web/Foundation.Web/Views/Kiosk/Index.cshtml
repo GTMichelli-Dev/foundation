@@ -977,7 +977,7 @@
                     @L["PRESS ENTER TO WEIGH IN"]
                 </button>
                 <button class="kiosk-btn btn-blue btn-wide" id="btn-enter-ticket">
-                    @L["SCAN BAR CODE OR KEY IN TICKET #"]
+                    @(Model.UseCardReader ? L["SCAN BAR CODE OR KEY IN TICKET OR CARD #"] : L["SCAN BAR CODE OR KEY IN TICKET #"])
                 </button>
             </div>
             <!-- Shown only when on-screen buttons are hidden — operator drives via Enter. -->
@@ -991,7 +991,7 @@
         <!-- ENTERING TICKET: Numpad -->
         <div id="state-entering-ticket" class="kiosk-state">
             <div class="ticket-entry">
-                <div class="ticket-label">@L["Enter Ticket Number"]</div>
+                <div class="ticket-label">@(Model.UseCardReader ? L["Enter Ticket or Card Number"] : L["Enter Ticket Number"])</div>
                 <div class="ticket-value" id="ticket-display">&nbsp;</div>
                 <div class="numpad">
                     <button class="numpad-btn" data-num="1">1</button>
@@ -1221,6 +1221,9 @@
         allowTareResetKiosk: @(Model.AllowTareResetKiosk.ToString().ToLower()),
         allowTareResetCard: @(Model.AllowTareResetCard.ToString().ToLower()),
         demoMode: @(Model.DemoMode.ToString().ToLower()),
+        // Card weighing on: a number keyed below the first ticket is a card.
+        useCardReader: @(Model.UseCardReader.ToString().ToLower()),
+        ticketMinimum: @Foundation.Web.Services.TicketNumbers.Minimum,
         header1: '@Html.Raw((Model.Header1 ?? "").Replace("'", "\\'"))',
         header2: '@Html.Raw((Model.Header2 ?? "").Replace("'", "\\'"))',
         header3: '@Html.Raw((Model.Header3 ?? "").Replace("'", "\\'"))',
@@ -1444,7 +1447,11 @@
         });
     }
 
-    function handleCardRead(cardNumber) {
+    // opts.keyed: the number was typed on the ticket keypad rather than read
+    // from a card. Tickets opened before the 100000 floor carry small numbers
+    // too, so a keyed number that is not a card is tried as a ticket.
+    function handleCardRead(cardNumber, opts) {
+        opts = opts || {};
         // Only accept a card from a settled ready/idle kiosk. Mid-operation
         // reads are ignored so a driver waving the card can't restart a flow
         // that already has answers in it.
@@ -1471,6 +1478,11 @@
             data: JSON.stringify({ cardNumber: cardNumber, scaleId: kioskScaleDbId }),
             success: function (result) {
                 if (!result || !result.ok) {
+                    if (opts.keyed && result && (result.reason === 'unknown' || result.reason === 'disabled')) {
+                        startOperationTracking();
+                        lookupTicket(cardNumber);
+                        return;
+                    }
                     // result.message already arrives translated from the server.
                     showCardOverlay((result && result.message) || T('Card Not Recognized'), '');
                     return;
@@ -1590,6 +1602,13 @@
             if (setupReaders.some(function (x) { return x.value === value; })) return;
             setupReaders.push({ value: value, label: (r.displayName || r.DisplayName || id) + ' (' + sid + ')' });
         });
+        // A reader announcing after its step was skipped puts the step back,
+        // just before the review — or in place of it, if that is where we are.
+        if (setupActive && setupOptions && setupOptions.useCardReader && setupReaders.length
+            && !setupSteps.some(function (s) { return s.key === 'reader'; })) {
+            setupSteps.splice(setupSteps.length - 1, 0, { key: 'reader' });
+            if (currentStepKey() !== 'reader') renderSetupStep();
+        }
         if (setupActive && currentStepKey() === 'reader') renderSetupStep();
     }
 
@@ -1689,8 +1708,21 @@
         return null;
     }
 
+    // The reader step only asks when there is a reader to pick. With card
+    // weighing on but nothing wired, drivers key their card number in on the
+    // ticket keypad, and a list offering only "No card reader" is noise. A
+    // kiosk already mapped to a reader keeps the step so it can change it.
+    function readerStepApplies() {
+        return kioskSettings.demoMode || setupReaders.length > 0 || !!setupChoice.readerId;
+    }
+
     function renderSetupStep() {
         var key = currentStepKey();
+        if (key === 'reader' && !readerStepApplies()) {
+            setupChoice.readerId = null;
+            setupSteps.splice(setupStep, 1);
+            key = currentStepKey();
+        }
         var stepNo = setupStep + 1;
         $('#setup-step-label').text(TF('Kiosk Setup — Step {0} of {1}', stepNo, setupSteps.length));
         $('#setup-back').toggle(setupStep > 0 || kioskDeviceId !== '');
@@ -3231,9 +3263,26 @@
             startWeighIn();
             return;
         }
+        // Cards are numbered below the first ticket, so one keypad serves
+        // both: a short number is a card, keyed in exactly as if it had been
+        // presented at a reader.
+        var keyed = parseInt(ticketInput, 10);
+        if (kioskSettings.useCardReader && keyed < kioskSettings.ticketMinimum) {
+            ticketInput = '';
+            clearOperationTracking();
+            // handleCardRead ignores a kiosk mid-operation, and ticket entry
+            // counts as one.
+            setState(readyOrIdle());
+            handleCardRead(String(keyed), { keyed: true });
+            return;
+        }
+        lookupTicket(ticketInput);
+    }
+
+    function lookupTicket(number) {
         setState('checking-ticket');
         $.ajax({
-            url: '/api/kiosk/ticket/' + encodeURIComponent(ticketInput),
+            url: '/api/kiosk/ticket/' + encodeURIComponent(number),
             method: 'GET',
             success: function (data) {
                 setTimeout(function () {

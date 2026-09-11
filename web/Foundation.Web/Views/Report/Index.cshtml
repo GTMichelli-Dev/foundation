@@ -972,7 +972,7 @@ function showTicketImage(ticket, direction, data) {
             $('#voidsGrid').dxDataGrid({
                 dataSource: { store: { type: 'array', key: 'ticket', data: [] }, sort: { field: 'dateOut', desc: true } },
                 columns: [
-                    { dataField: 'ticket', caption: '#', width: 60,
+                    { dataField: 'ticket', caption: '#', width: 75,
                       calculateSortValue: function (data) { return parseInt(data.ticket, 10) || 0; } },
                     { dataField: 'customer', caption: 'Customer' },
                     { dataField: 'carrier', caption: 'Carrier' },
