@@ -17,9 +17,11 @@ Or, from an ADMIN command prompt in this folder:
 
     INSTALL-WEB.bat
 
-That is the whole install. The same command handles a fresh install and an
-update, and is safe to re-run - an update keeps the database, the login keys
-and any ticket layouts edited in the Report Designer.
+That is the whole install. It asks which port to use first: press Enter for
+5110 (or, on an update, the port the site is already on), or type 80 to serve
+the site with no port in the address. The same command handles a fresh
+install and an update, and is safe to re-run - an update keeps the database,
+the login keys and any ticket layouts edited in the Report Designer.
 
     INSTALL-WEB.bat -Port 80
         Serve the site with no port in the address: http://scale.local/
@@ -29,8 +31,8 @@ and any ticket layouts edited in the Report Designer.
         address.
 
     INSTALL-WEB.bat -Port 8080
-        Listen on a different port. A fresh install uses 5110; an update keeps
-        the port the site is already on.
+        Set the port without being asked - for a scripted install, or to skip
+        the question.
 
     INSTALL-WEB.bat -InstallDir D:\Foundation
         Install somewhere other than C:\Foundation.

@@ -90,6 +90,9 @@ SDK, no git and no DevExpress licence needed on the machine.
 
 That is the whole install. It:
 
+- asks which port to listen on — Enter keeps 5110, or the port an existing
+  install is already on; type 80 for no port in the address (see
+  [Port 80](#port-80)),
 - copies the app to `C:\Foundation`,
 - registers a Windows service named **Foundation** that starts at boot and
   restarts itself if it crashes,
@@ -105,15 +108,15 @@ Useful switches:
 | | |
 |---|---|
 | `-Port 80` | Serve the site with no port in the address — `http://scale.local/` rather than `:5110`. See [Port 80](#port-80). |
-| `-Port 8080` | Listen somewhere other than 5110. |
+| `-Port 8080` | Set the port without being asked — for a scripted install, or to skip the question. |
 | `-InstallDir D:\Foundation` | Install somewhere other than `C:\Foundation`. |
 | `-ResetDb` | Start from an empty database. Destroys every ticket and setting; a timestamped backup is taken first regardless. |
 | `-SkipFirewall` | Do not add the inbound rule. Only when firewall rules are managed centrally — without one, nothing else on the network reaches the site. |
 
 **Updating is the same command.** Re-run it against a newer package: the
 service is stopped, the database, data-protection keys and any Report Designer
-templates are kept, the binaries are replaced, and it starts again. It stays on
-the port it is already on; pass `-Port` only to move it.
+templates are kept, the binaries are replaced, and it starts again. The port
+question defaults to the port it is already on, so Enter keeps it there.
 
 Managing it afterwards is ordinary service management — `sc query Foundation`,
 `sc stop Foundation`, `sc start Foundation` — and startup errors land in Event
@@ -125,8 +128,9 @@ Viewer under Windows Logs → Application.
 INSTALL-WEB.bat -Port 80
 ```
 
-puts the site on the browser's default port, so it is reached as
-`http://scale.local/` (or `http://<pc-name>/`) with no `:5110`.
+— or typing `80` when the installer asks for the port — puts the site on the
+browser's default port, so it is reached as `http://scale.local/` (or
+`http://<pc-name>/`) with no `:5110`.
 
 - **IIS must be off.** Windows' own web server holds port 80 when it is
   switched on, and the installer stops and says so rather than half-installing.
@@ -141,8 +145,8 @@ puts the site on the browser's default port, so it is reached as
 - **Moving an existing site means re-pointing everything.** Kiosks, the scale
   reader, the print service and bookmarks still using `:5110` stop reaching it.
   The installer closes the old firewall port and prints a reminder.
-- **Updates keep it.** Re-running the installer without `-Port` leaves the site
-  on port 80.
+- **Updates keep it.** From then on the port question defaults to 80, so Enter
+  leaves the site where it is.
 
 ## Building It Yourself
 

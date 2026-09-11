@@ -16,11 +16,12 @@
     the new binaries, and starts it again. That is the supported update path.
 
 .PARAMETER Port
-    Port the site listens on. A fresh install defaults to 5110; an update keeps
-    the port the site is already on unless -Port is given. -Port 80 serves the
-    site with no port in the address (http://scale.local/). The kiosk
-    displays, scale reader, print service and drivers' phones all connect to
-    this.
+    Port the site listens on. Without it the installer asks, defaulting to
+    5110 on a fresh install or to the port the site is already on for an
+    update, so Enter keeps it. Given here, it is used without asking. 80
+    serves the site with no port in the address (http://scale.local/). The
+    kiosk displays, scale reader, print service and drivers' phones all
+    connect to this.
 
 .PARAMETER InstallDir
     Where the app is installed. Default C:\Foundation
@@ -99,6 +100,28 @@ $identity  = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($identity)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Die "This must run from an ADMIN PowerShell. Creating a Windows service needs it."
+}
+
+# Ask for the port unless it was given. Asked after the admin check, so nobody
+# answers it only to be sent off to re-open the installer as admin. Enter keeps
+# the default - 5110 on a fresh install, or the port an existing install is
+# already on - so a routine update is still a single Enter. Skipped when nobody
+# is there to answer (input redirected, or a non-interactive session), which
+# keeps the default.
+if (-not $PSBoundParameters.ContainsKey('Port') -and [Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {
+    Write-Host "  Port the site listens on. 80 serves it with no port in the address"
+    Write-Host "  (http://$($env:COMPUTERNAME.ToLower())/); kiosks and services must use the same one."
+    while ($true) {
+        $answer = (Read-Host "  Port [$Port]").Trim()
+        if ($answer -eq "") { break }
+        $parsed = 0
+        if ([int]::TryParse($answer, [ref]$parsed) -and $parsed -ge 1 -and $parsed -le 65535) {
+            $Port = $parsed
+            break
+        }
+        Write-Host "  Enter a number from 1 to 65535, or press Enter for $Port." -ForegroundColor Yellow
+    }
+    Write-Host ""
 }
 
 # A port already taken by something else is the one failure that looks like a

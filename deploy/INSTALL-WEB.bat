@@ -7,7 +7,8 @@ REM  Exists so the PowerShell script runs without changing the machine's
 REM  execution policy.
 REM
 REM  Usage:
-REM    INSTALL-WEB.bat
+REM    INSTALL-WEB.bat                 (asks for the port; Enter keeps 5110, or
+REM                                     the port an existing install is on)
 REM    INSTALL-WEB.bat -Port 80        (no port in the address; IIS must be off)
 REM    INSTALL-WEB.bat -Port 8080
 REM    INSTALL-WEB.bat -InstallDir D:\Foundation
