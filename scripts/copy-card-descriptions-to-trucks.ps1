@@ -3,12 +3,16 @@
     Copy each card's description to the truck it names in Tables -> Trucks.
 
 .DESCRIPTION
-    For every enabled card that carries a carrier and a truck ID, the truck
-    with that carrier and truck ID gets the card's description. The server
-    does the work (POST /api/cardadmin/copy-descriptions-to-trucks) and
-    reports every truck it changed and every card it passed over.
+    Every enabled card with a description gives it to the truck the card
+    names in Tables -> Trucks. A card with no carrier uses its customer,
+    which is added to Carriers if it isn't one; a card with no truck ID uses
+    its card number; a truck not in Tables yet is created. The card is filled
+    in with that carrier and truck so it names the truck from then on - but
+    not while it is on an open ticket.
 
-    Cards are never changed. A truck named by two cards with different
+    The server does the work (POST /api/cardadmin/copy-descriptions-to-trucks)
+    and reports every carrier and truck it added, every card it filled in and
+    every card it passed over. A truck named by two cards with different
     descriptions is left alone and listed, so you can decide which is right.
 
     Works in Windows PowerShell 5.1 and PowerShell 7.
@@ -81,10 +85,27 @@ if (-not (@($response.Headers['Content-Type']) -match 'json')) {
 $r = $response.Content | ConvertFrom-Json
 
 $verb = if ($r.dryRun) { 'Would update' } else { 'Updated' }
-Write-Host ("{0} {1} truck(s); {2} already matched." -f $verb, $r.updated, $r.unchanged)
+Write-Host ("{0} {1} truck(s), {2} of them new; {3} already matched." -f $verb, $r.updated, $r.trucksCreated, $r.unchanged)
 foreach ($c in @($r.changes)) {
-    $before = if ($c.before) { '"' + $c.before + '"' } else { '(blank)' }
+    $before = if ($c.newTruck) { 'new truck' } elseif ($c.before) { '"' + $c.before + '"' } else { '(blank)' }
     Write-Host ('  {0} / {1}: {2} -> "{3}"  (card {4})' -f $c.carrier, $c.truckId, $before, $c.after, (@($c.cards) -join ', '))
+}
+
+if (@($r.carriersCreated).Count -gt 0) {
+    Write-Host ''
+    Write-Host $(if ($r.dryRun) { 'Customers that would be added as carriers:' } else { 'Customers added as carriers:' })
+    foreach ($n in @($r.carriersCreated)) { Write-Host "  $n" }
+}
+
+if (@($r.cardsFilled).Count -gt 0) {
+    Write-Host ''
+    Write-Host $(if ($r.dryRun) { 'Cards that would be filled in:' } else { 'Cards filled in:' })
+    foreach ($f in @($r.cardsFilled)) {
+        $parts = @()
+        if ($f.carrier) { $parts += 'carrier "' + $f.carrier + '"' }
+        if ($f.truckId) { $parts += 'truck "' + $f.truckId + '"' }
+        Write-Host ('  card {0}: {1}' -f $f.cardNumber, ($parts -join ', '))
+    }
 }
 
 if (@($r.conflicts).Count -gt 0) {

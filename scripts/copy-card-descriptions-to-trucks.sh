@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # Copy each card's description to the truck it names in Tables -> Trucks.
 #
-# For every enabled card that carries a carrier and a truck ID, the truck with
-# that carrier and truck ID gets the card's description. The server does the
-# work (POST /api/cardadmin/copy-descriptions-to-trucks) and reports every
-# truck it changed and every card it passed over.
+# Every enabled card with a description gives it to the truck the card names
+# in Tables -> Trucks. A card with no carrier uses its customer, which is added
+# to Carriers if it isn't one; a card with no truck ID uses its card number; a
+# truck not in Tables yet is created. The card is filled in with that carrier
+# and truck so it names the truck from then on - but not while it is on an
+# open ticket.
 #
-# Cards are never changed. A truck named by two cards with different
+# The server does the work (POST /api/cardadmin/copy-descriptions-to-trucks)
+# and reports every carrier and truck it added, every card it filled in and
+# every card it passed over. A truck named by two cards with different
 # descriptions is left alone and listed, so you can decide which is right.
 #
 # Needs curl; python3 (if present) prints the report readably.
@@ -101,11 +105,29 @@ printf '%s' "$body" | python3 -c '
 import json, sys
 
 r = json.load(sys.stdin)
-verb = "Would update" if r["dryRun"] else "Updated"
-print("%s %d truck(s); %d already matched." % (verb, r["updated"], r["unchanged"]))
+dry = r["dryRun"]
+verb = "Would update" if dry else "Updated"
+print("%s %d truck(s), %d of them new; %d already matched." % (verb, r["updated"], r["trucksCreated"], r["unchanged"]))
 for c in r["changes"]:
-    before = "\"%s\"" % c["before"] if c["before"] else "(blank)"
+    before = "new truck" if c["newTruck"] else ("\"%s\"" % c["before"] if c["before"] else "(blank)")
     print("  %s / %s: %s -> \"%s\"  (card %s)" % (c["carrier"], c["truckId"], before, c["after"], ", ".join(c["cards"])))
+
+if r["carriersCreated"]:
+    print()
+    print("Customers that would be added as carriers:" if dry else "Customers added as carriers:")
+    for n in r["carriersCreated"]:
+        print("  " + n)
+
+if r["cardsFilled"]:
+    print()
+    print("Cards that would be filled in:" if dry else "Cards filled in:")
+    for f in r["cardsFilled"]:
+        parts = []
+        if f["carrier"]:
+            parts.append("carrier \"%s\"" % f["carrier"])
+        if f["truckId"]:
+            parts.append("truck \"%s\"" % f["truckId"])
+        print("  card %s: %s" % (f["cardNumber"], ", ".join(parts)))
 
 if r["conflicts"]:
     print()

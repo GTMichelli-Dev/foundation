@@ -443,86 +443,162 @@ public class CardController : Controller
     }
 
     /// <summary>
-    /// Copy each card's description onto the truck it names — the truck with
-    /// the card's carrier and truck ID — in Tables → Trucks. Run by
-    /// scripts/copy-card-descriptions-to-trucks (.ps1 / .sh). Only enabled
-    /// cards count, and cards are never changed. A card with no description,
-    /// no carrier or truck ID, or a truck missing from the table is passed
-    /// over, and a truck two cards name with different descriptions is left
-    /// alone: the report lists each so nothing is guessed. dryRun reports
-    /// without changing anything.
+    /// Copy each card's description onto the truck it names in Tables →
+    /// Trucks. Run by scripts/copy-card-descriptions-to-trucks (.ps1 / .sh).
+    /// Only enabled cards with a description count. A card with no carrier
+    /// uses its customer, which is added to Carriers if it isn't one; a card
+    /// with no truck ID uses its card number; a truck not in Tables yet is
+    /// created. The card is filled in with that carrier and truck so it names
+    /// the truck from then on — except a card on an open ticket, passed over
+    /// until the load weighs out, since changing what it names mid-trip would
+    /// split it from its load. A truck two cards name with different
+    /// descriptions is left alone and listed rather than guessed at. dryRun
+    /// reports everything without changing anything.
     /// </summary>
     [HttpPost("api/cardadmin/copy-descriptions-to-trucks")]
     public IActionResult CopyDescriptionsToTrucks([FromQuery] bool dryRun = false)
     {
+        static bool Same(string? a, string? b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+        var carriers = _db.Carriers.ToList();
         var trucks = _db.Trucks.ToList();
         var skipped = new List<object>();
-        var byTruck = new Dictionary<Truck, List<Card>>();
+
+        // Each card with the carrier and truck it resolves to, grouped by truck.
+        var groups = new Dictionary<string, List<(Card Card, string Carrier, string TruckId, bool FillCarrier, bool FillTruck)>>(
+            StringComparer.OrdinalIgnoreCase);
 
         var cards = _db.Cards.Where(c => c.Enabled).AsEnumerable()
             .OrderBy(c => c.CardNumber.Length).ThenBy(c => c.CardNumber, StringComparer.OrdinalIgnoreCase);
         foreach (var card in cards)
         {
             var description = card.Description?.Trim();
-            var carrier = card.Carrier?.Trim();
-            var truckId = card.TruckId?.Trim();
             if (string.IsNullOrEmpty(description))
             {
                 skipped.Add(new { cardNumber = card.CardNumber, reason = "no description" });
                 continue;
             }
-            if (string.IsNullOrEmpty(carrier) || string.IsNullOrEmpty(truckId))
+
+            var carrier = card.Carrier?.Trim();
+            var fillCarrier = string.IsNullOrEmpty(carrier);
+            if (fillCarrier) carrier = card.Customer?.Trim();
+            if (string.IsNullOrEmpty(carrier))
             {
-                skipped.Add(new { cardNumber = card.CardNumber, reason = "no carrier and truck ID on the card" });
+                skipped.Add(new { cardNumber = card.CardNumber, reason = "no carrier or customer on the card" });
                 continue;
             }
 
-            var truck = trucks.FirstOrDefault(t =>
-                string.Equals(t.CarrierName, carrier, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(t.TruckId, truckId, StringComparison.OrdinalIgnoreCase));
-            if (truck == null)
+            var truckId = card.TruckId?.Trim();
+            var fillTruck = string.IsNullOrEmpty(truckId);
+            if (fillTruck) truckId = card.CardNumber.Trim();
+
+            var onTicket = card.OpenTicket;
+            if ((fillCarrier || fillTruck) && !string.IsNullOrEmpty(onTicket)
+                && _db.Transactions.Any(t => t.Ticket == onTicket && !t.Void && t.DateOut == null))
             {
-                skipped.Add(new { cardNumber = card.CardNumber, reason = $"no truck \"{truckId}\" under \"{carrier}\" in Tables" });
+                skipped.Add(new { cardNumber = card.CardNumber, reason = $"on open ticket #{onTicket} — weigh it out first" });
                 continue;
             }
 
-            if (!byTruck.TryGetValue(truck, out var list)) byTruck[truck] = list = new List<Card>();
-            list.Add(card);
+            // A newline can't appear in either name, so no two pairs share a key.
+            var key = carrier + "\n" + truckId;
+            if (!groups.TryGetValue(key, out var list)) groups[key] = list = new();
+            list.Add((card, carrier!, truckId!, fillCarrier, fillTruck));
         }
 
         var changes = new List<object>();
         var conflicts = new List<object>();
+        var carriersCreated = new List<string>();
+        var cardsFilled = new List<object>();
+        var trucksCreated = 0;
         var unchanged = 0;
-        foreach (var (truck, named) in byTruck)
+
+        foreach (var named in groups.Values)
         {
-            var descriptions = named.Select(c => c.Description!.Trim()).Distinct(StringComparer.Ordinal).ToList();
+            var carrierName = named[0].Carrier;
+            var truckId = named[0].TruckId;
+            var descriptions = named.Select(n => n.Card.Description!.Trim()).Distinct(StringComparer.Ordinal).ToList();
             if (descriptions.Count > 1)
             {
                 conflicts.Add(new
                 {
-                    carrier = truck.CarrierName,
-                    truckId = truck.TruckId,
-                    cards = named.Select(c => new { cardNumber = c.CardNumber, description = c.Description!.Trim() })
+                    carrier = carrierName,
+                    truckId,
+                    cards = named.Select(n => new { cardNumber = n.Card.CardNumber, description = n.Card.Description!.Trim() })
                 });
                 continue;
             }
-
             var description = descriptions[0];
-            if (truck.Description == description) { unchanged++; continue; }
 
-            changes.Add(new
+            // An existing carrier keeps its own spelling. A customer that isn't
+            // a carrier yet becomes one, the way Tables' Add to Carriers does.
+            var carrier = carriers.FirstOrDefault(c => Same(c.CarrierName, carrierName));
+            if (carrier == null)
             {
-                carrier = truck.CarrierName,
-                truckId = truck.TruckId,
-                before = truck.Description,
-                after = description,
-                cards = named.Select(c => c.CardNumber)
-            });
-            if (!dryRun) truck.Description = description;
+                carrier = new Carrier { CarrierName = Trim(carrierName, 50)!, Active = true, UseAtKiosk = true };
+                carriers.Add(carrier);
+                carriersCreated.Add(carrier.CarrierName);
+                if (!dryRun) _db.Carriers.Add(carrier);
+            }
+
+            var truck = trucks.FirstOrDefault(t => Same(t.CarrierName, carrier.CarrierName) && Same(t.TruckId, truckId));
+            var isNew = truck == null;
+            var before = truck?.Description;
+            if (truck == null)
+            {
+                truck = new Truck { TruckId = Trim(truckId, 50)!, CarrierName = carrier.CarrierName, UseAtKiosk = true };
+                trucks.Add(truck);
+                trucksCreated++;
+                if (!dryRun) _db.Trucks.Add(truck);
+            }
+
+            if (!isNew && truck.Description == description)
+            {
+                unchanged++;
+            }
+            else
+            {
+                changes.Add(new
+                {
+                    carrier = carrier.CarrierName,
+                    truckId = truck.TruckId,
+                    before,
+                    after = description,
+                    newTruck = isNew,
+                    cards = named.Select(n => n.Card.CardNumber)
+                });
+                if (!dryRun) truck.Description = description;
+            }
+
+            // The card names the truck from now on, so the kiosk and the phone
+            // find it — and its stored tare — like any other.
+            foreach (var n in named.Where(n => n.FillCarrier || n.FillTruck))
+            {
+                cardsFilled.Add(new
+                {
+                    cardNumber = n.Card.CardNumber,
+                    carrier = n.FillCarrier ? carrier.CarrierName : null,
+                    truckId = n.FillTruck ? truck.TruckId : null
+                });
+                if (dryRun) continue;
+                if (n.FillCarrier) n.Card.Carrier = carrier.CarrierName;
+                if (n.FillTruck) n.Card.TruckId = truck.TruckId;
+            }
         }
         if (!dryRun) _db.SaveChanges();
 
-        return Ok(new { dryRun, updated = changes.Count, unchanged, changes, conflicts, skipped });
+        return Ok(new
+        {
+            dryRun,
+            updated = changes.Count,
+            unchanged,
+            trucksCreated,
+            carriersCreated,
+            cardsFilled,
+            changes,
+            conflicts,
+            skipped
+        });
     }
 
     // ===== HELPERS =====
