@@ -288,6 +288,18 @@ body {
   border-color: var(--bw-primary) !important;
 }
 
+/* The menu holds up to ten items plus the location picker and user controls,
+   more than one row fits between the collapse breakpoint and a wide monitor.
+   It wraps onto a second row rather than pushing the page wider than the
+   window: min-width: 0 holds the collapse area to the width it is given (a
+   flex item otherwise refuses to shrink below its content), and link text
+   stays on one line so an item never stacks into three. */
+@media (min-width: 992px) {
+  .navbar-expand-lg .navbar-collapse { min-width: 0; flex-wrap: wrap; row-gap: 4px; }
+  .navbar-expand-lg .navbar-nav { flex-wrap: wrap; }
+  .navbar-expand-lg .nav-link { white-space: nowrap; }
+}
+
 /* ===== DEVEXTREME GRID ROW HOVER ===== */
 .dx-datagrid-rowsview .dx-row:not(.dx-selection):hover > td {
   background-color: var(--bw-grid-hover);
