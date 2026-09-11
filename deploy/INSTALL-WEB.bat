@@ -8,6 +8,7 @@ REM  execution policy.
 REM
 REM  Usage:
 REM    INSTALL-WEB.bat
+REM    INSTALL-WEB.bat -Port 80        (no port in the address; IIS must be off)
 REM    INSTALL-WEB.bat -Port 8080
 REM    INSTALL-WEB.bat -InstallDir D:\Foundation
 REM

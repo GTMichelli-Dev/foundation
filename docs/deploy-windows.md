@@ -104,6 +104,7 @@ Useful switches:
 
 | | |
 |---|---|
+| `-Port 80` | Serve the site with no port in the address — `http://scale.local/` rather than `:5110`. See [Port 80](#port-80). |
 | `-Port 8080` | Listen somewhere other than 5110. |
 | `-InstallDir D:\Foundation` | Install somewhere other than `C:\Foundation`. |
 | `-ResetDb` | Start from an empty database. Destroys every ticket and setting; a timestamped backup is taken first regardless. |
@@ -111,11 +112,37 @@ Useful switches:
 
 **Updating is the same command.** Re-run it against a newer package: the
 service is stopped, the database, data-protection keys and any Report Designer
-templates are kept, the binaries are replaced, and it starts again.
+templates are kept, the binaries are replaced, and it starts again. It stays on
+the port it is already on; pass `-Port` only to move it.
 
 Managing it afterwards is ordinary service management — `sc query Foundation`,
 `sc stop Foundation`, `sc start Foundation` — and startup errors land in Event
 Viewer under Windows Logs → Application.
+
+### Port 80
+
+```
+INSTALL-WEB.bat -Port 80
+```
+
+puts the site on the browser's default port, so it is reached as
+`http://scale.local/` (or `http://<pc-name>/`) with no `:5110`.
+
+- **IIS must be off.** Windows' own web server holds port 80 when it is
+  switched on, and the installer stops and says so rather than half-installing.
+  If nothing on the PC uses IIS, disable it from an admin prompt and run the
+  installer again:
+
+  ```
+  sc stop W3SVC
+  sc config W3SVC start= disabled
+  ```
+
+- **Moving an existing site means re-pointing everything.** Kiosks, the scale
+  reader, the print service and bookmarks still using `:5110` stop reaching it.
+  The installer closes the old firewall port and prints a reminder.
+- **Updates keep it.** Re-running the installer without `-Port` leaves the site
+  on port 80.
 
 ## Building It Yourself
 

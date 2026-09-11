@@ -16,8 +16,11 @@
     the new binaries, and starts it again. That is the supported update path.
 
 .PARAMETER Port
-    Port the site listens on. Default 5110. The kiosk displays, scale reader,
-    print service and drivers' phones all connect to this.
+    Port the site listens on. A fresh install defaults to 5110; an update keeps
+    the port the site is already on unless -Port is given. -Port 80 serves the
+    site with no port in the address (http://scale.local/). The kiosk
+    displays, scale reader, print service and drivers' phones all connect to
+    this.
 
 .PARAMETER InstallDir
     Where the app is installed. Default C:\Foundation
@@ -35,6 +38,9 @@
 
 .EXAMPLE
     .\install-web.ps1
+
+.EXAMPLE
+    .\install-web.ps1 -Port 80
 
 .EXAMPLE
     .\install-web.ps1 -Port 8080 -InstallDir D:\Foundation
@@ -68,6 +74,20 @@ Write-Host ""
 
 if ($Port -lt 1 -or $Port -gt 65535) { Die "Port must be 1-65535 - got $Port" }
 
+# An update keeps the port the site is already on. Otherwise a routine re-run
+# without -Port would quietly move a site that was put on port 80 back to 5110,
+# and every kiosk and bookmark pointing at it would stop working. An explicit
+# -Port always wins.
+$existingPort = $null
+$svcKey = "HKLM:\SYSTEM\CurrentControlSet\Services\$ServiceName"
+if (Test-Path $svcKey) {
+    $imagePath = (Get-ItemProperty $svcKey -ErrorAction SilentlyContinue).ImagePath
+    if ($imagePath -match '--urls\s+"?http://[^:/\s]+:(\d+)') { $existingPort = [int]$Matches[1] }
+}
+if (-not $PSBoundParameters.ContainsKey('Port') -and $existingPort) {
+    $Port = $existingPort
+}
+
 $appSource = Join-Path $PSScriptRoot "app"
 if (-not (Test-Path $appSource)) { $appSource = $PSScriptRoot }
 $exeSource = Join-Path $appSource "Foundation.Web.exe"
@@ -83,11 +103,28 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 
 # A port already taken by something else is the one failure that looks like a
 # broken install but is not, so say so plainly before touching anything.
+$disableIis = "If nothing on this PC uses IIS, disable it from an admin prompt:`n`n    sc stop W3SVC`n    sc config W3SVC start= disabled`n`nthen run this again. Or pick another port with -Port."
 $inUse = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
 if ($inUse) {
-    $owner = (Get-Process -Id $inUse[0].OwningProcess -ErrorAction SilentlyContinue).ProcessName
+    $ownerPid = $inUse[0].OwningProcess
+    $owner = (Get-Process -Id $ownerPid -ErrorAction SilentlyContinue).ProcessName
+    # PID 4 is Windows' own HTTP service (http.sys). On port 80 that is almost
+    # always IIS, which a scale-house PC often has switched on unused.
+    if ($ownerPid -eq 4) {
+        Die "Port $Port is held by Windows' HTTP service (http.sys) - usually IIS. $disableIis"
+    }
     if ($owner -notmatch "Foundation") {
         Die "Port $Port is already in use by '$owner'. Pick another with -Port, or stop that process."
+    }
+}
+
+# IIS stopped but still set to start at boot takes port 80 back on the next
+# restart, before Foundation starts: a site that installs cleanly and is gone
+# the morning after a reboot.
+if ($Port -eq 80) {
+    $w3svc = Get-Service -Name W3SVC -ErrorAction SilentlyContinue
+    if ($w3svc -and $w3svc.StartType -match '^Automatic') {
+        Die "IIS (W3SVC) is set to start automatically, so it would take port 80 at the next reboot. $disableIis"
     }
 }
 
@@ -171,6 +208,12 @@ Step 5 "Opening the firewall..."
 if ($SkipFirewall) {
     Warn "-SkipFirewall: no rule added. Only this machine will reach the site."
 } else {
+    # Moving the site should not leave its old port open with nothing behind it.
+    if ($existingPort -and $existingPort -ne $Port) {
+        Get-NetFirewallRule -DisplayName "Foundation $existingPort" -ErrorAction SilentlyContinue |
+            Remove-NetFirewallRule -ErrorAction SilentlyContinue
+        Note "Removed the rule for the old port $existingPort."
+    }
     $ruleName = "Foundation $Port"
     Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue |
         Remove-NetFirewallRule -ErrorAction SilentlyContinue
@@ -191,7 +234,9 @@ Ok "Service running."
 # little: the first start also applies database migrations, which is exactly
 # when a bad install shows up.
 Step 7 "Verifying the site answers..."
-$url = "http://localhost:$Port/"
+# Port 80 is the browser default, so the address is shown without it.
+$portSuffix = if ($Port -eq 80) { "" } else { ":$Port" }
+$url = "http://localhost$portSuffix/"
 $up  = $false
 foreach ($attempt in 1..30) {
     Start-Sleep -Seconds 2
@@ -220,10 +265,16 @@ Write-Host "  Install complete" -ForegroundColor Green
 Write-Host "=========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "  On this PC:        $url"
-if ($ip) { Write-Host "  On the network:    http://${ip}:$Port/" }
+if ($ip) { Write-Host "  On the network:    http://${ip}$portSuffix/" }
+Write-Host "  By name:           http://$($env:COMPUTERNAME.ToLower())$portSuffix/"
 Write-Host "  Installed in:      $InstallDir"
 Write-Host "  Service:           $ServiceName (starts automatically at boot)"
 Write-Host ""
+if ($existingPort -and $existingPort -ne $Port) {
+    Write-Host "  The site moved from port $existingPort to $Port. Re-point every kiosk, the" -ForegroundColor Yellow
+    Write-Host "  scale reader, the print service and any bookmarks at the address above." -ForegroundColor Yellow
+    Write-Host ""
+}
 if (-not $isUpdate) {
     Write-Host "  Next: open the site and work through Setup." -ForegroundColor Yellow
     Write-Host "  Point kiosks, the scale reader and the print service at the network URL above."

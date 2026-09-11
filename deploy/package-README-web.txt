@@ -21,8 +21,16 @@ That is the whole install. The same command handles a fresh install and an
 update, and is safe to re-run - an update keeps the database, the login keys
 and any ticket layouts edited in the Report Designer.
 
+    INSTALL-WEB.bat -Port 80
+        Serve the site with no port in the address: http://scale.local/
+        instead of http://scale.local:5110/. IIS must be off - the installer
+        stops and says so if it is in the way. Moving an existing site means
+        re-pointing kiosks, the scale reader and the print service at the new
+        address.
+
     INSTALL-WEB.bat -Port 8080
-        Listen on a different port. Default is 5110.
+        Listen on a different port. A fresh install uses 5110; an update keeps
+        the port the site is already on.
 
     INSTALL-WEB.bat -InstallDir D:\Foundation
         Install somewhere other than C:\Foundation.

@@ -15,8 +15,8 @@ start cannot bind, dies with an `AddressInUseException`, and systemd reports
 
 | Port | Service | Bind | Notes |
 |------|---------|------|-------|
-| `80` | Foundation.Web | all | Cloud/Debian server install |
-| `5110` | Foundation.Web | all | Raspberry Pi / LAN install |
+| `80` | Foundation.Web | all | Raspberry Pi (Kestrel direct); Windows with `-Port 80`. Debian serves 80/443 from nginx in front of 5110 |
+| `5110` | Foundation.Web | all | Windows default. On Debian, Kestrel on loopback only, behind nginx |
 | `5210` | Camera Capture Service | all | Swagger + config API |
 | `5220` | Scale Reader Service | all | Swagger + config API |
 | `5230` | Web Print Service (PiPrintService) | all | Swagger + config API |
@@ -69,6 +69,7 @@ first.
 
 | Installer | Refuses a taken port | Keeps the existing port |
 |-----------|----------------------|-------------------------|
+| Foundation.Web (Windows) | yes | yes |
 | RFID Reader Service | yes | yes |
 | Camera Capture Service | yes | yes |
 | Gate Controller Service | no | no |

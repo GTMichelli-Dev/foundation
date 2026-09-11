@@ -297,6 +297,8 @@ jobs:
           answers before reporting success. It prints the network address to
           point kiosks and services at. Useful switches:
 
+          - \`-Port 80\` — serve the site with no port in the address. IIS must
+            be off; the installer says so if it is in the way.
           - \`-Port 8080\` — listen somewhere other than 5110.
           - \`-InstallDir D:\Foundation\` — install somewhere other than \`C:\Foundation\`.
           - \`-ResetDb\` — start from an empty database. Destroys every ticket
