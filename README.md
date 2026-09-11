@@ -35,7 +35,7 @@ Foundation is a web-based truck scale management application for weighing inboun
   - [Finding the Serial Port](#finding-the-serial-port)
   - [Scales (multi-scale)](#scales-multi-scale)
   - [Custom Fields & Ticket Printing](#custom-fields--ticket-printing)
-  - [Prox Card Weighing](#prox-card-weighing)
+  - [Cards](#cards)
   - [Language (English / Spanish)](#language-english--spanish)
   - [User Login System](#user-login-system)
   - [Updating Device Definitions](#updating-device-definitions)
@@ -60,7 +60,7 @@ Foundation is a web-based truck scale management application for weighing inboun
 - **Custom Fields** — Admin-defined ticket fields (text, dropdown, integer, decimal with min/max) that appear on the weigh forms, grids, kiosk prompts, and printed tickets — placeable anywhere in the ticket designer
 - **Field Ordering** — Standard and custom fields share one sort order that drives the weigh forms, with the two form columns kept balanced automatically
 - **Kiosk Mode** — Touchscreen-optimized interface for unattended scale houses (1280x800 resolution)
-- **Prox Card Weighing** — A loader operator issues an HID / prox card from a phone with the load's details already on it; the driver presents the card at a kiosk reader to weigh in and out without answering prompts. Cards deactivate when the load closes, or recycle for the next trip
+- **Cards** — A card carries a load's details, so nobody enters them at the scale. The loader operator issues it with the details on it; the driver presents it at a kiosk card reader or keys its number in on the kiosk keypad, and weighs in and out without answering prompts. Cards deactivate when the load closes, or recycle for the next trip
 - **Retained Tare** — A truck's empty weight is stored on weigh-out and reused, so a return trip closes in one weighment. When a truck has a stored tare, the kiosk and the phone page tell the driver what it is and let them either finish on it or **reset** it — a reset clears the stored weight and keeps the ticket open so the real weigh-out captures a fresh one. Whether a driver may reset is gated per source (kiosk, phone, prox card) in Setup; with a gate off that source applies the stored tare automatically instead. Tares expire overnight by default, and the office can view, edit, or clear them on the Retained Tare page
 - **Gate & Light Control** — A Raspberry Pi ([Gate Controller Service](GateControllerService/README.md)) opens a gate or turns on a light when a ticket completes on the scale it serves, releasing once the truck drives off or a timeout expires. Per-scale, and entirely optional
 - **On-Scale Detection** — Optional photo-eyes at each end of the deck, wired to two Pi inputs. While either beam is broken the truck is hanging off the platform, so the kiosk, phone page and weigh forms show **NOT ON SCALE** and refuse to capture. A scale with no detectors wired behaves exactly as before
@@ -308,7 +308,7 @@ see [pi-network-setup](https://github.com/GTMichelli-Dev/pi-network-setup).
 
 ### RFID Card Reader Service
 
-For prox-card weighing. Installs on the machine the RS-232 card reader is plugged into —
+For presenting cards at a reader (cards can also be keyed in, with no reader at all). Installs on the machine the RS-232 card reader is plugged into —
 usually the same Pi that runs the kiosk or the scale reader. Run it **on that machine**:
 
 ```bash
@@ -747,11 +747,14 @@ Custom fields marked **Show on printed ticket** print in one of two ways:
 
 Dropdown-type custom fields also get their own tab on **Edit Tables** for managing the choice list (add, rename, delete, drag to reorder) without opening Setup.
 
-### Prox Card Weighing
+### Cards
 
-Drivers weigh with an HID / prox card instead of answering kiosk prompts. Turn it on with
-**Use Card Reader** (Setup → System → Options), which reveals the **Cards** and **Readers**
-pages and adds a **Card Setup** link to the navbar.
+A card carries a load's details — customer, carrier, truck, commodity, bin, custom fields — so
+nobody enters them at the scale. The driver presents it at a kiosk card reader, or keys its
+number in on the kiosk keypad, and weighs in and out without answering prompts. Turn it on with
+**Use Cards** (Setup → System → Cards), which reveals the **Cards** and **Readers** pages and
+adds a **Card Setup** link to the navbar. Card Setup lays out for one-handed use on a phone and
+as an ordinary page on a desktop.
 
 **How a load runs**
 
@@ -759,9 +762,10 @@ pages and adds a **Card Setup** link to the navbar.
    card number, and the card's last-issued details come back.
 2. The operator changes whatever this load needs — customer, commodity, truck, bin, custom
    fields — and taps **Save & Issue**.
-3. The driver presents the card at the kiosk reader. The kiosk fills in everything the card
-   carries and only asks for fields that are **required and not set on the card**. Nothing on
-   the card means the full prompt sequence, exactly as before.
+3. The driver presents the card at the kiosk reader, or keys its number in on the kiosk keypad.
+   The kiosk fills in everything the card carries and only asks for fields that are **required
+   and not set on the card**. Nothing on the card means the full prompt sequence, exactly as
+   before.
 4. The driver weighs out with the same card — no ticket number to key in. If the truck has an
    active [retained tare](#configuration), the first presentation offers to close the load in
    one weighment — the driver picks that or resets the tare, same as a keyed weigh-in.
@@ -774,14 +778,15 @@ pages and adds a **Card Setup** link to the navbar.
 it on the Card Setup page — so regular haulers can hold a permanent card while one-off
 visitors get single-use ones.
 
-**Enrolling cards.** Register each physical card once on **Cards** (Manager or Admin). With a
-reader connected, presenting a card fills its number in automatically; otherwise type it.
-A card that isn't registered is refused at the kiosk and on the setup page.
+**Enrolling cards.** Register each card once on **Cards** (Manager or Admin). Card numbers
+are 1 to 99999: ticket numbers start at 100000, so the kiosk keypad can tell a keyed card from
+a keyed ticket. With a reader connected, presenting a card fills its number in automatically;
+otherwise type it. A card that isn't registered is refused at the kiosk and on the setup page.
 
 The SP-6820 sends a 26-bit Wiegand credential, which the reader service decodes to the card
-number in decimal — normally the number printed on the card. Confirm that on the first card;
-if the site reuses card numbers across facility codes, switch the reader to include the
-facility code and enroll numbers as `123-45678`. See
+number in decimal (0–65535) — normally the number printed on the card. Confirm that on the
+first card. Leave the reader's facility-code option off: it produces numbers like `123-45678`,
+which cannot be enrolled or keyed in at the kiosk. See
 [Card format](RfidReaderService/README.md#card-format).
 
 **Mapping a reader to a kiosk.** Readers belong to an [RFID Reader Service](RfidReaderService/README.md)

@@ -279,12 +279,15 @@ public class AppSetup
     public bool AllowTareResetCard { get; set; } = true;
 
     /// <summary>
-    /// HID / prox card weighing. When true: the Cards pages appear, a kiosk
-    /// mapped to a card reader accepts card presentations, and the loader
-    /// operator issues cards from a phone (Cards → Card Setup). When false,
-    /// nothing card-related is shown and readers are ignored.
+    /// Cards. A card carries a load's details — customer, carrier, truck,
+    /// commodity and so on — so nobody enters them at the scale. The loader
+    /// operator issues it from Card Setup, and the driver presents it at a
+    /// card reader or keys its number in on the kiosk keypad. When true the
+    /// Cards pages appear and kiosks accept cards; when false nothing
+    /// card-related is shown and readers are ignored. Named for the reader it
+    /// started with; kept so the database column need not be renamed.
     /// </summary>
-    [Display(Name = "Use Card Reader")]
+    [Display(Name = "Use Cards")]
     public bool UseCardReader { get; set; }
 
     /// <summary>

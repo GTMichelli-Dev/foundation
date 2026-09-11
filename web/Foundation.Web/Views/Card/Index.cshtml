@@ -15,15 +15,17 @@
 @if (!useCardReader)
 {
     <div class="alert alert-warning py-2">
-        <strong>Use Card Reader</strong> is off (Setup &rarr; System &rarr; Options), so kiosks
-        ignore card presentations. Cards can still be registered and issued here.
+        <strong>Use Cards</strong> is off (Setup &rarr; System &rarr; Cards), so kiosks
+        ignore cards, presented or keyed in. Cards can still be registered and issued here.
     </div>
 }
 
 <div class="alert alert-info py-2">
-    Register each physical card by the number it reports, then the loader operator issues it
-    from <a href="/Card/Setup">Card Setup</a>. Live reads from a connected reader appear below —
-    present a card to fill the number in without typing it.
+    A card carries a load's details so nobody has to enter them at the scale. Register each card
+    by its number here; the loader operator then issues it with the load's details from
+    <a href="/Card/Setup">Card Setup</a>, and the driver presents it at a card reader or keys the
+    number in at the kiosk. Live reads from a connected reader appear below — present a card to
+    fill the number in without typing it.
 </div>
 
 <!-- Live read capture: makes enrollment a matter of tapping cards on a reader -->

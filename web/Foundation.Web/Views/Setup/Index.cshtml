@@ -320,17 +320,17 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Card Reader -->
+                    <!-- Cards -->
                     <div class="card mb-3">
                         <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
-                            <strong>Card Reader</strong>
+                            <strong>Cards</strong>
                         </div>
                         <div class="card-body py-2">
                             <div class="row g-2 mb-2">
                                 <div class="col-4">
                                     <label asp-for="UseCardReader" class="form-label mb-0 small"></label>
                                     <select asp-for="UseCardReader" class="form-select form-select-sm" id="UseCardReader"
-                                            title="Drivers weigh with an HID / prox card issued by the loader operator instead of answering kiosk prompts">
+                                            title="A card carries a load's details, so the driver skips the kiosk prompts. Drivers present it at a card reader or key its number in at the kiosk.">
                                         <option value="false">No</option>
                                         <option value="true">Yes</option>
                                     </select>
@@ -1799,7 +1799,7 @@
         setSectionDisplay(el, this.value === 'true' ? 'flex' : 'none');
     });
 
-    // --- Card reader options ---
+    // --- Card options ---
     document.getElementById('UseCardReader').addEventListener('change', function () {
         var on = this.value === 'true';
         document.getElementById('recycleCardsSection').style.display = on ? 'block' : 'none';
