@@ -1340,6 +1340,7 @@
 
     // ===== CARD STATE =====
     var activeCardNumber = null;  // card driving the current flow (sent on save)
+    var activeCardFromReader = false; // that card was scanned at the reader, not keyed in
     var cardValues = {};          // field values the card supplies
     var lastCardRead = { number: null, at: 0 }; // de-dup for a reader that repeats while the card is held
     var completedCardMessage = null; // "keep the card" / "hand it back" line for the complete screen
@@ -1512,6 +1513,9 @@
                     showCardOverlay((result && result.message) || T('Card Not Recognized'), '');
                     return;
                 }
+                // Setup → Printing can skip the inbound ticket for reader
+                // scans only, so the save says which this was.
+                activeCardFromReader = !opts.keyed;
                 startCardFlow(cardNumber, result);
             },
             error: function (xhr) {
@@ -2923,6 +2927,7 @@
                 printerId: kioskHasPrinter ? (kioskServiceId + ':' + kioskPrinterId) : null,
                 customFields: buildCustomFieldPayload(),
                 cardNumber: activeCardNumber,
+                cardFromReader: activeCardNumber ? activeCardFromReader : null,
                 scaleName: kioskScaleName || null,
                 // Null when the truck had no stored tare to ask about, which
                 // leaves the server's automatic handling exactly as it was.

@@ -247,30 +247,6 @@
                         </div>
                     </div>
 
-                    <!-- Printing -->
-                    <div class="card mb-3">
-                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
-                            <strong>Printing</strong>
-                        </div>
-                        <div class="card-body py-2">
-                            <div class="row g-2 mb-2">
-                                <div class="col-6">
-                                    <label asp-for="RemotePrintMode" class="form-label mb-0 small"></label>
-                                    <select asp-for="RemotePrintMode" class="form-select form-select-sm" id="RemotePrintMode">
-                                        <option value="None">No Remote Printing</option>
-                                        <option value="Scale">Scale Prints Ticket</option>
-                                        <option value="RemotePrinter">Remote Printer (Pi)</option>
-                                    </select>
-                                </div>
-                                <div class="col-3 d-flex align-items-end" id="printerManageSection" style="display: @(Model.RemotePrintMode == "RemotePrinter" ? "flex" : "none") !important;">
-                                    <a href="/Printer" class="btn btn-outline-secondary btn-sm w-100">
-                                        Printers
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Scales -->
                     <div class="card mb-3">
                         <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
@@ -289,9 +265,36 @@
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="col-md-6">
+                    <!-- Mobile -->
+                    <div class="card mb-3">
+                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Mobile</strong>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="form-text small mt-0 mb-1">
+                                The driver's phone app. With location required, a phone only weighs on the
+                                scale it is standing at — set each scale's position on the Scales page.
+                                Phones only share their location with an https:// site.
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label asp-for="MobileRequireLocation" class="form-label mb-0 small"></label>
+                                    <select asp-for="MobileRequireLocation" class="form-select form-select-sm"
+                                            title="The phone must allow location and be within range of a scale with a position set">
+                                        <option value="true">Yes</option>
+                                        <option value="false">No</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label asp-for="MobileRangeMeters" class="form-label mb-0 small"></label>
+                                    <input asp-for="MobileRangeMeters" type="number" min="10" max="1000" step="5" class="form-control form-control-sm"
+                                           title="How close the phone must be to the scale, in meters (10 to 1000)" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Kiosk -->
                     <div class="card mb-3">
                         <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
@@ -323,34 +326,9 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Mobile -->
-                    <div class="card mb-3">
-                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
-                            <strong>Mobile</strong>
-                        </div>
-                        <div class="card-body py-2">
-                            <div class="form-text small mt-0 mb-1">
-                                The driver's phone app. With location required, a phone only weighs on the
-                                scale it is standing at — set each scale's position on the Scales page.
-                                Phones only share their location with an https:// site.
-                            </div>
-                            <div class="row g-2 mb-2">
-                                <div class="col-6">
-                                    <label asp-for="MobileRequireLocation" class="form-label mb-0 small"></label>
-                                    <select asp-for="MobileRequireLocation" class="form-select form-select-sm"
-                                            title="The phone must allow location and be within range of a scale with a position set">
-                                        <option value="true">Yes</option>
-                                        <option value="false">No</option>
-                                    </select>
-                                </div>
-                                <div class="col-6">
-                                    <label asp-for="MobileRangeMeters" class="form-label mb-0 small"></label>
-                                    <input asp-for="MobileRangeMeters" type="number" min="10" max="1000" step="5" class="form-control form-control-sm"
-                                           title="How close the phone must be to the scale, in meters (10 to 1000)" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                </div>
+
+                <div class="col-md-6">
                     <!-- Cards -->
                     <div class="card mb-3">
                         <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
@@ -1056,6 +1034,30 @@
         <div class="tab-pane fade" id="tabPrinting">
             <div class="row g-3">
                 <div class="col-lg-5 col-xl-4">
+                    <!-- Remote Printing -->
+                    <div class="card mb-3">
+                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Remote Printing</strong>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label asp-for="RemotePrintMode" class="form-label mb-0 small"></label>
+                                    <select asp-for="RemotePrintMode" class="form-select form-select-sm" id="RemotePrintMode">
+                                        <option value="None">No Remote Printing</option>
+                                        <option value="Scale">Scale Prints Ticket</option>
+                                        <option value="RemotePrinter">Remote Printer (Pi)</option>
+                                    </select>
+                                </div>
+                                <div class="col-3 d-flex align-items-end" id="printerManageSection" style="display: @(Model.RemotePrintMode == "RemotePrinter" ? "flex" : "none") !important;">
+                                    <a href="/Printer" class="btn btn-outline-secondary btn-sm w-100">
+                                        Printers
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="card mb-3">
                         <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
                             <strong>Automatic Printing</strong>
@@ -1085,11 +1087,12 @@
                             </div>
                             <div class="row g-2 mb-2">
                                 <div class="col-6">
-                                    <label asp-for="PrintInboundForCard" class="form-label mb-0 small"></label>
-                                    <select asp-for="PrintInboundForCard" class="form-select form-select-sm"
-                                            title="A weigh-in started from a card (kiosk or weigh forms) prints its inbound ticket. Off by default — the driver has the card. The completed ticket always prints.">
-                                        <option value="false">No</option>
-                                        <option value="true">Yes</option>
+                                    <label asp-for="CardInboundPrint" class="form-label mb-0 small"></label>
+                                    <select asp-for="CardInboundPrint" class="form-select form-select-sm"
+                                            title="Whether a weigh-in started from a card prints its inbound ticket. RFID scans = a card presented at a kiosk's reader; a card number keyed in at the kiosk or used on the weigh forms still prints. The completed ticket always prints.">
+                                        <option value="SkipRfid">Don't print for RFID scans</option>
+                                        <option value="SkipAll">Don't print for any card</option>
+                                        <option value="Print">Print</option>
                                     </select>
                                 </div>
                                 <div class="col-6">

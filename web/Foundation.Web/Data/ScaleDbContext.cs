@@ -177,6 +177,7 @@ public class ScaleDbContext : DbContext
             e.Property(s => s.KioskPrintOutbound).HasDefaultValue(true);
             e.Property(s => s.PrintWhenNoRuleMatches).HasDefaultValue(true);
             e.Property(s => s.BoldTicketText).HasDefaultValue(true);
+            e.Property(s => s.CardInboundPrint).HasDefaultValue(Models.AppSetup.CardPrintSkipRfid);
         });
 
         modelBuilder.Entity<PrintRule>(e =>

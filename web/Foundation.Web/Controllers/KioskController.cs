@@ -640,7 +640,8 @@ public class KioskController : Controller
         bool printSuppressed = false;
         if (!suppressInboundPrint)
         {
-            var decision = PrintRules.Decide(_db, setup, transaction, PrintSource.Kiosk, outbound: tareApplied, cardUsed: card != null);
+            var decision = PrintRules.Decide(_db, setup, transaction, PrintSource.Kiosk, outbound: tareApplied,
+                cardUsed: card != null, cardFromReader: card != null && request.CardFromReader == true);
             if (decision.Print)
             {
                 printing = await SendPrintCommand(ticketNumber, tareApplied ? "weighout" : "weighin", request.PrinterId, request.ScaleName);
@@ -906,6 +907,11 @@ public class KioskController : Controller
         /// <summary>Card this weigh-in came from, when the driver presented one.
         /// The card's stored values fill in every field left null above.</summary>
         public string? CardNumber { get; set; }
+        /// <summary>True when the card was scanned at this kiosk's RFID reader
+        /// rather than keyed in on the keypad — Setup → Printing can skip the
+        /// inbound ticket for scans alone. Null (an older kiosk page) counts
+        /// as keyed.</summary>
+        public bool? CardFromReader { get; set; }
         /// <summary>Name of the site scale this kiosk is mapped to.</summary>
         public string? ScaleName { get; set; }
         /// <summary>

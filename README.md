@@ -779,7 +779,7 @@ Dropdown-type custom fields also get their own tab on **Tables** for managing th
 A ticket is checked in this order, and the first "no" wins:
 
 1. **Print Inbound Tickets at the Kiosk** / **Print Outbound Tickets at the Kiosk** — turn either kiosk ticket off. Kiosk only; both start on.
-2. **Print Inbound Ticket for Card Weigh-Ins** — a weigh-in started from a card (presented at a reader, keyed in at the kiosk, or used on the weigh forms) prints no inbound ticket unless this is on. **Off by default**: the driver has the card, and the completed ticket still prints. Upgrading a site with cards stops those inbound tickets until someone turns it on.
+2. **Inbound Ticket for Card Weigh-Ins** — whether a weigh-in started from a card prints its inbound ticket. **Don't print for RFID scans** (the default): a card presented at a kiosk's reader prints none, while a card number keyed in at the kiosk or used on the weigh forms prints as usual. **Don't print for any card**: no card weigh-in prints one. **Print**: every one does. The completed ticket always prints. Upgrading a site with card readers stops the inbound ticket for scanned cards until someone changes it.
 3. **Print rules** — each rule says *where* (kiosk, office or either), *which ticket* (inbound, outbound or either), the conditions — customer, carrier, truck ID, commodity, location, destination and one custom field, a blank condition matching anything — and whether a match **prints** or **doesn't print**. Rules are checked in their order and the first match decides.
 4. **When No Print Rule Matches** — print (the default) or don't. With it on *Don't print*, rules become a list of the only tickets that print.
 
@@ -880,7 +880,7 @@ A kiosk with no `reader-id` ignores card presentations and behaves exactly as it
 
 **Hide Weigh In Button at Card Kiosks** (Setup → System → Cards, off by default) removes the green weigh-in button from kiosks mapped to a card reader, so every load starts from a card. The scan / key-in button stays, and Enter on a keyboard-driven kiosk opens it instead. Kiosks without a reader are unaffected. A card-reader kiosk's ready screen reads *PRESENT YOUR CARD OR SELECT AN OPTION*.
 
-Card weigh-ins print no inbound ticket unless **Setup → Printing → Print Inbound Ticket for Card Weigh-Ins** is on — see [Automatic Printing & Print Rules](#automatic-printing--print-rules).
+A card scanned at a kiosk's reader prints no inbound ticket by default; keyed-in card numbers still print. **Setup → Printing → Inbound Ticket for Card Weigh-Ins** changes that — see [Automatic Printing & Print Rules](#automatic-printing--print-rules).
 
 Wherever a card is used, the server re-checks it (enrolled, enabled, issued, not already on another load) and refuses a card from a place where it is switched off. On the phone and the weigh forms the stored-tare questions follow that place's own settings; **Allow Tare Reset from a Card** is for kiosk card presentations. A load weighed out anywhere — kiosk, phone or office — frees its card.
 

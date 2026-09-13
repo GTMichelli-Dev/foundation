@@ -352,14 +352,21 @@ public class AppSetup
     [Display(Name = "Print Outbound Tickets at the Kiosk")]
     public bool KioskPrintOutbound { get; set; } = true;
 
+    public const string CardPrintAlways = "Print";
+    public const string CardPrintSkipRfid = "SkipRfid";
+    public const string CardPrintSkipAll = "SkipAll";
+
     /// <summary>
-    /// A weigh-in started from a card prints its inbound ticket. Off by
-    /// default: the card is the driver's claim on the load, so the paper
-    /// inbound ticket is only something to lose. The completed ticket prints
-    /// as usual.
+    /// Whether a weigh-in started from a card prints its inbound ticket.
+    /// "SkipRfid" (the default): not when the card was scanned at a kiosk's
+    /// reader — the card is the driver's claim on the load, so the paper is
+    /// only something to lose — while a card number keyed in, at the kiosk or
+    /// on the weigh forms, prints as usual. "SkipAll": no card weigh-in prints
+    /// one. "Print": every one does. The completed ticket always prints.
     /// </summary>
-    [Display(Name = "Print Inbound Ticket for Card Weigh-Ins")]
-    public bool PrintInboundForCard { get; set; }
+    [StringLength(10)]
+    [Display(Name = "Inbound Ticket for Card Weigh-Ins")]
+    public string CardInboundPrint { get; set; } = CardPrintSkipRfid;
 
     /// <summary>What happens when no print rule matches a ticket: print it
     /// (true) or not. Rules are the exceptions to this.</summary>

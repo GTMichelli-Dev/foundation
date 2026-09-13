@@ -108,7 +108,9 @@ public class SetupController : Controller
         existing.HideKioskWeighInForCards = setup.HideKioskWeighInForCards;
         existing.KioskPrintInbound = setup.KioskPrintInbound;
         existing.KioskPrintOutbound = setup.KioskPrintOutbound;
-        existing.PrintInboundForCard = setup.PrintInboundForCard;
+        existing.CardInboundPrint = setup.CardInboundPrint is AppSetup.CardPrintAlways or AppSetup.CardPrintSkipAll
+            ? setup.CardInboundPrint
+            : AppSetup.CardPrintSkipRfid;
         existing.PrintWhenNoRuleMatches = setup.PrintWhenNoRuleMatches;
         existing.BoldTicketText = setup.BoldTicketText;
         existing.SignatureMode = setup.SignatureMode ?? "None";
