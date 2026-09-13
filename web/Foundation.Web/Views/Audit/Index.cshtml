@@ -1,0 +1,109 @@
+@{
+    var recordType = ViewBag.Type as string ?? "";
+    var recordKey = ViewBag.Key as string ?? "";
+    var oneRecord = recordType.Length > 0 && recordKey.Length > 0;
+    ViewData["Title"] = oneRecord ? $"History — {recordType} {recordKey}" : "Audit Trail";
+}
+
+<style>
+    .audit-value { white-space: normal !important; word-break: break-word; }
+    .audit-action-created { color: #2f855a; font-weight: 600; }
+    .audit-action-deleted { color: #c53030; font-weight: 600; }
+</style>
+
+<div class="d-flex align-items-center gap-2 mb-2">
+    <h3 class="mb-0">@ViewData["Title"]</h3>
+    @if (oneRecord)
+    {
+        <a href="/Audit" class="btn btn-sm btn-outline-secondary">All Changes</a>
+    }
+</div>
+<p class="small mb-2" style="color: var(--bw-text-muted);">
+    Every change saved to tickets, tables, cards and settings — who made it (when Require Login is on),
+    and where from. A record that was created or deleted shows its values in one line.
+</p>
+<div id="auditNotice" class="alert alert-info py-1 small mb-2" style="display:none;"></div>
+
+<div id="auditGrid"></div>
+
+@section Scripts {
+<script>
+    $(function () {
+        var recordType = '@Html.Raw(recordType.Replace("\\", "\\\\").Replace("'", "\\'"))';
+        var recordKey = '@Html.Raw(recordKey.Replace("\\", "\\\\").Replace("'", "\\'"))';
+        var oneRecord = recordType !== '' && recordKey !== '';
+        var startVal = new Date(new Date().setDate(new Date().getDate() - 7));
+        var endVal = new Date();
+
+        function query() {
+            if (oneRecord) return '?type=' + encodeURIComponent(recordType) + '&key=' + encodeURIComponent(recordKey);
+            return '?startDate=' + DevExpress.localization.formatDate(startVal, 'yyyy-MM-dd') +
+                   '&endDate=' + DevExpress.localization.formatDate(endVal, 'yyyy-MM-dd');
+        }
+
+        function dateBox(label, value, onChange) {
+            return {
+                location: 'before',
+                template: function () {
+                    var $c = $('<div>').css({ display: 'flex', alignItems: 'center', gap: '8px' });
+                    $c.append($('<span>').css({ fontWeight: '600', whiteSpace: 'nowrap' }).text(label));
+                    $('<div>').appendTo($c).dxDateBox({
+                        value: value, type: 'date', displayFormat: 'MM/dd/yyyy', width: 160,
+                        onValueChanged: function (e) { onChange(e.value); grid.refresh(); }
+                    });
+                    return $c;
+                }
+            };
+        }
+
+        var grid = $('#auditGrid').dxDataGrid({
+            dataSource: new DevExpress.data.CustomStore({
+                key: 'id',
+                load: function () {
+                    return $.getJSON('/api/audit' + query()).then(function (r) {
+                        $('#auditNotice').toggle(!!r.truncated)
+                            .text('Showing the newest ' + r.maxRows.toLocaleString() + ' changes. Narrow the dates to see further back.');
+                        return r.rows;
+                    });
+                }
+            }),
+            toolbar: {
+                items: (oneRecord ? [] : [
+                    dateBox('Start Date:', startVal, function (v) { startVal = v; }),
+                    dateBox('End Date:', endVal, function (v) { endVal = v; })
+                ]).concat(['searchPanel'])
+            },
+            columns: [
+                { dataField: 'timestamp', caption: 'When', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm:ss a', width: 175, sortOrder: 'desc' },
+                { dataField: 'userName', caption: 'User', width: 120,
+                  customizeText: function (c) { return c.valueText || '—'; } },
+                { dataField: 'source', caption: 'From', width: 150 },
+                { dataField: 'entityType', caption: 'Record', width: 110, visible: !oneRecord },
+                { dataField: 'entityKey', caption: 'Which', width: 140, visible: !oneRecord },
+                {
+                    dataField: 'action', caption: 'Action', width: 90,
+                    cellTemplate: function (container, options) {
+                        $('<span>').addClass('audit-action-' + String(options.value || '').toLowerCase())
+                            .text(options.value).appendTo(container);
+                    }
+                },
+                { dataField: 'field', caption: 'Field', width: 150 },
+                { dataField: 'oldValue', caption: 'Old Value', cssClass: 'audit-value' },
+                { dataField: 'newValue', caption: 'New Value', cssClass: 'audit-value' }
+            ],
+            showBorders: true,
+            hoverStateEnabled: true,
+            filterRow: { visible: true },
+            headerFilter: { visible: true },
+            searchPanel: { visible: true, width: 240, placeholder: 'Search…' },
+            sorting: { mode: 'multiple' },
+            columnAutoWidth: false,
+            wordWrapEnabled: true,
+            width: '100%',
+            paging: { pageSize: 50 },
+            pager: { showPageSizeSelector: true, allowedPageSizes: [25, 50, 100, 250], showInfo: true },
+            noDataText: oneRecord ? 'No changes recorded for this record yet.' : 'No changes in these dates.'
+        }).dxDataGrid('instance');
+    });
+</script>
+}

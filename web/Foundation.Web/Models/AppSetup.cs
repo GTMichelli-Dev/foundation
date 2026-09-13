@@ -332,6 +332,48 @@ public class AppSetup
     [Display(Name = "Allow Cards on the Phone")]
     public bool AllowCardMobile { get; set; } = true;
 
+    /// <summary>
+    /// Kiosks with a card reader drop the green "weigh in" button, so a load
+    /// can only be started by presenting a card — or keying a ticket or card
+    /// number on the other button. Kiosks with no reader are unaffected.
+    /// </summary>
+    [Display(Name = "Hide Weigh In Button at Card Kiosks")]
+    public bool HideKioskWeighInForCards { get; set; }
+
+    // ===== Printing (Setup → Printing) =====
+    // Applied to the tickets that print by themselves when a truck is weighed —
+    // kiosk and office. A reprint someone asks for always prints.
+
+    /// <summary>Kiosks print the open (inbound) ticket after a weigh-in.</summary>
+    [Display(Name = "Print Inbound Tickets at the Kiosk")]
+    public bool KioskPrintInbound { get; set; } = true;
+
+    /// <summary>Kiosks print the completed (outbound) ticket after a weigh-out.</summary>
+    [Display(Name = "Print Outbound Tickets at the Kiosk")]
+    public bool KioskPrintOutbound { get; set; } = true;
+
+    /// <summary>
+    /// A weigh-in started from a card prints its inbound ticket. Off by
+    /// default: the card is the driver's claim on the load, so the paper
+    /// inbound ticket is only something to lose. The completed ticket prints
+    /// as usual.
+    /// </summary>
+    [Display(Name = "Print Inbound Ticket for Card Weigh-Ins")]
+    public bool PrintInboundForCard { get; set; }
+
+    /// <summary>What happens when no print rule matches a ticket: print it
+    /// (true) or not. Rules are the exceptions to this.</summary>
+    [Display(Name = "When No Print Rule Matches")]
+    public bool PrintWhenNoRuleMatches { get; set; } = true;
+
+    /// <summary>
+    /// Print every line of a ticket bold, with the net weight larger still.
+    /// Thermal printers render regular Courier thin and grey. Applied when the
+    /// ticket is rendered, so it also covers layouts saved in the designer.
+    /// </summary>
+    [Display(Name = "Bold Ticket Text")]
+    public bool BoldTicketText { get; set; } = true;
+
     // Remote printing mode: None, Scale, RemotePrinter
     [StringLength(20)]
     [Display(Name = "Remote Printing")]

@@ -111,9 +111,6 @@
     <i class="fa fa-spinner fa-spin me-2"></i> Checking scale services...
 </div>
 
-<!-- Toast container -->
-<div id="scaleToastContainer" style="position:fixed;top:70px;right:20px;z-index:9999;min-width:350px;max-width:500px;"></div>
-
 <!-- Services container -->
 <div id="servicesContainer"></div>
 
@@ -833,11 +830,13 @@
     }
 
     function deleteSiteScale(id) {
-        if (!confirm('Delete this scale? Existing tickets keep the recorded scale name.')) return;
-        fetch('/api/scales/' + id, { method: 'DELETE' }).then(function (r) {
-            if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'Delete failed.'); });
-            loadSiteScales();
-        }).catch(function (e) { siteScaleStatus(e.message, true); });
+        bwConfirm('Delete this scale? Existing tickets keep the recorded scale name.', 'Delete Scale', { okText: 'Delete', danger: true }).then(function (ok) {
+            if (!ok) return;
+            fetch('/api/scales/' + id, { method: 'DELETE' }).then(function (r) {
+                if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'Delete failed.'); });
+                loadSiteScales();
+            }).catch(function (e) { siteScaleStatus(e.message, true); });
+        });
     }
 
     // ===== SCALE POSITION =====
@@ -1222,9 +1221,9 @@
         data.frameSignIndex = tok.usable && tok.signIndex >= 0 ? tok.signIndex : null;
         data.frameSignNegChar = tok.usable && tok.signIndex >= 0 ? tok.signNegChar : null;
 
-        if (!data.scaleId) { alert('Scale ID is required'); return; }
+        if (!data.scaleId) { bwAlert('Scale ID is required', 'Save Scale'); return; }
         if (connectionType === 'Serial' && !data.serialPortName) {
-            alert('Serial Port is required for serial-connected scales (e.g. COM1, /dev/ttyUSB0)');
+            bwAlert('Serial Port is required for serial-connected scales (e.g. COM1, /dev/ttyUSB0)', 'Save Scale');
             return;
         }
 
@@ -1494,9 +1493,11 @@
     }
 
     function deleteScale(serviceId, scaleId) {
-        if (!confirm('Delete scale "' + scaleId + '"?')) return;
-        connection.invoke('DeleteScaleFromService', serviceId, scaleId).catch(function (err) {
-            showToast('danger', 'Error: ' + err);
+        bwConfirm('Delete scale "' + scaleId + '"?', 'Delete Scale', { okText: 'Delete', danger: true }).then(function (ok) {
+            if (!ok) return;
+            connection.invoke('DeleteScaleFromService', serviceId, scaleId).catch(function (err) {
+                showToast('danger', 'Error: ' + err);
+            });
         });
     }
 
@@ -1590,19 +1591,9 @@
     }
 
     // ===== TOAST =====
+    // Errors stay up longer so they are not missed.
     function showToast(type, message) {
-        var container = document.getElementById('scaleToastContainer');
-        var colors = {
-            success: { bg: '#d1e7dd', border: '#badbcc', text: '#0f5132' },
-            danger: { bg: '#f8d7da', border: '#f5c2c7', text: '#842029' },
-            info: { bg: '#cff4fc', border: '#b6effb', text: '#055160' }
-        };
-        var c = colors[type] || colors.info;
-        var html = '<div role="alert" style="padding:12px 40px 12px 16px;margin-bottom:8px;border:1px solid ' + c.border +
-            ';border-radius:6px;background:' + c.bg + ';color:' + c.text + ';position:relative;">' +
-            message + '<button type="button" onclick="this.parentElement.remove()" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:18px;cursor:pointer;color:' + c.text + ';">&times;</button></div>';
-        container.innerHTML = html;
-        if (type !== 'danger') setTimeout(function () { container.innerHTML = ''; }, 5000);
+        bwNotify(message, type, type === 'danger' ? 10000 : 5000);
     }
 </script>
 }

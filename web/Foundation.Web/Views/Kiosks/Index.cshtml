@@ -14,8 +14,6 @@
     it from this page, or press and hold the logo on the kiosk itself for three seconds to run setup again.
 </p>
 
-<div id="kioskToastContainer" style="position:fixed;top:70px;right:20px;z-index:9999;min-width:350px;max-width:500px;"></div>
-
 <div class="card">
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -110,11 +108,7 @@
     }
 
     function toast(message, kind) {
-        var el = document.createElement('div');
-        el.className = 'alert alert-' + (kind || 'success') + ' py-2 shadow';
-        el.textContent = message;
-        document.getElementById('kioskToastContainer').appendChild(el);
-        setTimeout(function () { el.remove(); }, 4000);
+        bwNotify(message, kind || 'success');
     }
 
     /// "Never" for a kiosk that registered but has not come back, otherwise a
@@ -268,14 +262,16 @@
         if (delId) {
             var kd = kiosks.find(function (x) { return String(x.id) === delId; });
             if (!kd) return;
-            if (!window.confirm('Remove "' + kd.name + '"? The display keeps working until it reloads, then runs setup again.')) return;
-            fetch('/api/kiosks/' + delId, { method: 'DELETE' })
-                .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
-                .then(function (res) {
-                    if (!res.ok) { toast(res.body.message || 'Could not remove the kiosk.', 'danger'); return; }
-                    toast('Kiosk removed.');
-                    loadKiosks();
-                });
+            bwConfirm('Remove "' + kd.name + '"? The display keeps working until it reloads, then runs setup again.', 'Remove Kiosk', { okText: 'Remove', danger: true }).then(function (ok) {
+                if (!ok) return;
+                fetch('/api/kiosks/' + delId, { method: 'DELETE' })
+                    .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
+                    .then(function (res) {
+                        if (!res.ok) { toast(res.body.message || 'Could not remove the kiosk.', 'danger'); return; }
+                        toast('Kiosk removed.');
+                        loadKiosks();
+                    });
+            });
         }
     });
 

@@ -384,12 +384,14 @@
                                     if (o.data.adjustmentId == null) return;
                                     $('<button type="button" class="btn btn-sm btn-outline-danger py-0">Remove</button>')
                                         .on('click', function () {
-                                            if (!confirm('Remove this adjustment?')) return;
-                                            $.ajax({ url: '/api/reports/bin-adjustments/' + o.data.adjustmentId, method: 'DELETE' })
-                                                .done(function () {
-                                                    o.component.refresh();
-                                                    binGrid.refresh();
-                                                });
+                                            bwConfirm('Remove this adjustment?', 'Remove Adjustment', { okText: 'Remove', danger: true }).then(function (ok) {
+                                                if (!ok) return;
+                                                $.ajax({ url: '/api/reports/bin-adjustments/' + o.data.adjustmentId, method: 'DELETE' })
+                                                    .done(function () {
+                                                        o.component.refresh();
+                                                        binGrid.refresh();
+                                                    });
+                                            });
                                         })
                                         .appendTo(c);
                                 }
@@ -598,29 +600,40 @@
             }
             var amountLbs = Math.round(amount * unit.pounds);
             if (amountLbs <= 0) { $err.text('That rounds to nothing — enter a larger amount.').show(); return; }
-            if (held && amountLbs > held.lbs
-                && !confirm('That is more than the ' + fmtInUnit(held.lbs, held.commodity) + ' on hand in ' + from + ' — the bin will go negative. Continue?')) return;
-            var $btn = $(this).prop('disabled', true);
-            $.ajax({
-                url: '/api/reports/bin-transfers',
-                method: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({
-                    fromBin: from,
-                    toBin: to,
-                    amountLbs: amountLbs,
-                    note: $('#binXferNote').val() || null
-                })
-            }).done(function () {
-                bootstrap.Modal.getInstance(document.getElementById('binXferModal')).hide();
-                if (binGrid) binGrid.refresh();
-            }).fail(function (xhr) {
-                var msg = 'Transfer failed.';
-                try { msg = JSON.parse(xhr.responseText).message || msg; } catch (e) { }
-                $err.text(msg).show();
-            }).always(function () {
-                $btn.prop('disabled', false);
-            });
+            var $btn = $(this);
+
+            function send() {
+                $btn.prop('disabled', true);
+                $.ajax({
+                    url: '/api/reports/bin-transfers',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        fromBin: from,
+                        toBin: to,
+                        amountLbs: amountLbs,
+                        note: $('#binXferNote').val() || null
+                    })
+                }).done(function () {
+                    bootstrap.Modal.getInstance(document.getElementById('binXferModal')).hide();
+                    if (binGrid) binGrid.refresh();
+                }).fail(function (xhr) {
+                    var msg = 'Transfer failed.';
+                    try { msg = JSON.parse(xhr.responseText).message || msg; } catch (e) { }
+                    $err.text(msg).show();
+                }).always(function () {
+                    $btn.prop('disabled', false);
+                });
+            }
+
+            if (held && amountLbs > held.lbs) {
+                bwConfirm('That is more than the ' + fmtInUnit(held.lbs, held.commodity) + ' on hand in ' + from + ' — the bin will go negative. Continue?',
+                    'Bin Will Go Negative', { okText: 'Continue' }).then(function (ok) {
+                    if (ok) send();
+                });
+                return;
+            }
+            send();
         });
 
         // ===== Set Commodity modal =====

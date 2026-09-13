@@ -534,7 +534,8 @@
             <button class="btn btn-green btn-hero" id="btn-weighin">@L["WEIGH IN"]</button>
             @if (Model.UseCardReader && Model.AllowCardMobile)
             {
-            <button class="btn btn-ghost" id="btn-card" style="margin-top:10px;">@L["USE CARD"]</button>
+            @* Same size as Weigh In: for a driver with a PIN it is the way in. *@
+            <button class="btn btn-hero" id="btn-card" style="margin-top:12px;">@L["USE PIN"]</button>
             }
             <div class="spacer"></div>
         </div>
@@ -542,12 +543,12 @@
         <!-- CARD: key in a card number and it answers the weigh-in -->
         <div class="screen" id="scr-card">
             <div class="spacer"></div>
-            <div class="screen-title">@L["Enter Card Number"]</div>
-            <input type="text" id="card-input" inputmode="numeric" autocomplete="off" maxlength="50" aria-label='@L["Enter Card Number"]' />
+            <div class="screen-title">@L["Enter Your PIN"]</div>
+            <input type="text" id="card-input" inputmode="numeric" autocomplete="off" maxlength="50" aria-label='@L["Enter Your PIN"]' />
             <div class="screen-sub" id="card-error" style="margin-top:8px;">&nbsp;</div>
             <div class="btn-row" style="margin-top:8px;">
                 <button class="btn btn-ghost" id="card-cancel">@L["Cancel"]</button>
-                <button class="btn btn-green" id="card-go">@L["Use Card"]</button>
+                <button class="btn btn-green" id="card-go">@L["Use PIN"]</button>
             </div>
             <div class="spacer"></div>
         </div>
@@ -1373,13 +1374,13 @@
 
     $('#card-go').on('click', function () {
         var number = ($('#card-input').val() || '').trim();
-        if (!number) { $('#card-error').text(T('Enter the card number.')); return; }
+        if (!number) { $('#card-error').text(T('Enter your PIN.')); return; }
         if (!canWeigh()) {
             $('#card-error').text(captureBlocker() || T('Pull onto the scale, then tap Weigh In.'));
             return;
         }
         show('busy');
-        $('#busy-text').text(T('Reading card…'));
+        $('#busy-text').text(T('Checking PIN…'));
         $.ajax({
             url: '/api/mobile/card',
             method: 'POST',
@@ -1396,7 +1397,7 @@
                 openTicket = r.openTicket;
                 ticketCustomValues = r.customFields || {};
                 showOpenTicket();
-                banner(TF('Card {0} — ticket #{1} is waiting to weigh out.', number, r.openTicket.ticket));
+                banner(TF('PIN {0} — ticket #{1} is waiting to weigh out.', number, r.openTicket.ticket));
                 return;
             }
             startCardWeighIn(number, r.values || {});
@@ -1409,7 +1410,7 @@
                 return;
             }
             show('card');
-            $('#card-error').text((xhr.responseJSON && xhr.responseJSON.message) || T('Could not read the card. Try again.'));
+            $('#card-error').text((xhr.responseJSON && xhr.responseJSON.message) || T('Could not check the PIN. Try again.'));
         });
     });
 
@@ -1421,7 +1422,7 @@
         $('#busy-text').text(T('Loading…'));
         loadLists().always(function () {
             queue = buildPrompts('inbound');
-            banner(TF('Using card {0}', number));
+            banner(TF('Using PIN {0}', number));
             startQueueWithPreset(values, true);
         });
     }

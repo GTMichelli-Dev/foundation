@@ -41,6 +41,9 @@
         <li class="nav-item" id="tabKioskPromptsNav" style="display: @(Model.KioskCount > 0 ? "block" : "none");">
             <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabKioskPrompts" type="button">Kiosk Prompts</button>
         </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabPrinting" type="button">Printing</button>
+        </li>
         <li class="nav-item" id="tabSecurityNav" style="display: @(Model.UseLogin ? "block" : "none");">
             <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabSecurity" type="button">Users &amp; Security</button>
         </li>
@@ -404,9 +407,17 @@
                                 <div class="col-4">
                                     <label asp-for="AllowCardMobile" class="form-label mb-0 small"></label>
                                     <select asp-for="AllowCardMobile" class="form-select form-select-sm"
-                                            title="The phone app has a Use Card button that answers the prompts">
+                                            title="The phone app has a Use PIN button that answers the prompts">
                                         <option value="true">Yes</option>
                                         <option value="false">No</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label asp-for="HideKioskWeighInForCards" class="form-label mb-0 small"></label>
+                                    <select asp-for="HideKioskWeighInForCards" class="form-select form-select-sm"
+                                            title="Kiosks with a card reader lose the green weigh-in button, so loads start from a card. The scan / key-in button stays. Kiosks without a reader keep it.">
+                                        <option value="false">No</option>
+                                        <option value="true">Yes</option>
                                     </select>
                                 </div>
                             </div>
@@ -1041,6 +1052,96 @@
             </div>
         </div>
 
+        <!-- TAB: Printing -->
+        <div class="tab-pane fade" id="tabPrinting">
+            <div class="row g-3">
+                <div class="col-lg-5 col-xl-4">
+                    <div class="card mb-3">
+                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Automatic Printing</strong>
+                        </div>
+                        <div class="card-body py-2">
+                            <p class="small mb-2" style="color: var(--bw-text-muted);">
+                                Tickets that print by themselves when a truck is weighed, at the kiosk and on the
+                                weigh forms. A reprint someone asks for always prints.
+                            </p>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label asp-for="KioskPrintInbound" class="form-label mb-0 small"></label>
+                                    <select asp-for="KioskPrintInbound" class="form-select form-select-sm"
+                                            title="The kiosk prints the open ticket after a weigh-in">
+                                        <option value="true">Yes</option>
+                                        <option value="false">No</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label asp-for="KioskPrintOutbound" class="form-label mb-0 small"></label>
+                                    <select asp-for="KioskPrintOutbound" class="form-select form-select-sm"
+                                            title="The kiosk prints the completed ticket after a weigh-out">
+                                        <option value="true">Yes</option>
+                                        <option value="false">No</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label asp-for="PrintInboundForCard" class="form-label mb-0 small"></label>
+                                    <select asp-for="PrintInboundForCard" class="form-select form-select-sm"
+                                            title="A weigh-in started from a card (kiosk or weigh forms) prints its inbound ticket. Off by default — the driver has the card. The completed ticket always prints.">
+                                        <option value="false">No</option>
+                                        <option value="true">Yes</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label asp-for="PrintWhenNoRuleMatches" class="form-label mb-0 small"></label>
+                                    <select asp-for="PrintWhenNoRuleMatches" class="form-select form-select-sm"
+                                            title="What happens to a ticket none of the print rules match">
+                                        <option value="true">Print</option>
+                                        <option value="false">Don't print</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card mb-3">
+                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Ticket Text</strong>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="row g-2 mb-1">
+                                <div class="col-6">
+                                    <label asp-for="BoldTicketText" class="form-label mb-0 small"></label>
+                                    <select asp-for="BoldTicketText" class="form-select form-select-sm">
+                                        <option value="true">Yes</option>
+                                        <option value="false">No</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-text small">
+                                Prints every line of the ticket bold and the net weight larger — thermal printers
+                                print regular text thin and grey. Applies to layouts saved in the Ticket Designer too.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-7 col-xl-8">
+                    <div class="card mb-3" id="printRulesEditor">
+                        <div class="card-header py-1" style="background: var(--bw-surface-alt); color: var(--bw-text);">
+                            <strong>Print Rules</strong>
+                        </div>
+                        <div class="card-body py-2">
+                            <p class="small mb-2" style="color: var(--bw-text-muted);">
+                                Print or skip a ticket by what is on it — customer, carrier, truck, commodity and so on.
+                                Rules are checked in order and the first one that matches decides; a blank condition
+                                matches anything. The switches on the left are checked first.
+                            </p>
+                            <div id="printRulesGrid"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- TAB: Users & Security -->
         <div class="tab-pane fade" id="tabSecurity">
             <div class="row g-3">
@@ -1433,22 +1534,6 @@
     </div>
 </div>
 
-<!-- Setup-wide notice modal (replaces native alert() calls) -->
-<div class="modal fade" id="setupAlertModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content">
-            <div class="modal-header py-2">
-                <h6 class="modal-title">Notice</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body small" id="setupAlertBody"></div>
-            <div class="modal-footer py-1">
-                <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">OK</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- Hidden forms for reset/database operations (outside main form) -->
 <form asp-action="ResetTicket" method="post" id="resetTicketForm" style="display:none;">
     @Html.AntiForgeryToken()
@@ -1501,22 +1586,6 @@
 <form asp-action="ClearDatabase" method="post" id="clearDatabaseForm" style="display:none;">
     @Html.AntiForgeryToken()
 </form>
-
-<div class="modal fade" id="confirmModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header py-2">
-                <h6 class="modal-title" id="confirmModalTitle">Confirm Operation</h6>
-                <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body py-3" id="confirmModalBody"></div>
-            <div class="modal-footer py-2">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-sm" id="confirmModalBtn" onclick="confirmModalSubmit()">Confirm</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- Custom Field editor modal (add + edit) -->
 <div class="modal fade" id="customFieldModal" tabindex="-1">
@@ -1634,12 +1703,9 @@
 @section Scripts {
 <script src="~/js/signalr/signalr.min.js"></script>
 <script>
-    // --- Bootstrap notice helper (replaces window.alert for in-form messages) ---
+    // --- Notice helper (the site-wide DevExtreme dialog) ---
     function showSetupAlert(message) {
-        document.getElementById('setupAlertBody').textContent = message;
-        var modalEl = document.getElementById('setupAlertModal');
-        var modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
-        modal.show();
+        bwAlert(message, 'Notice');
     }
 
     // --- Tab persistence: remember which tab is active and re-activate after save ---
@@ -1797,13 +1863,124 @@
 
     setupForm.addEventListener('change', function (e) {
         if (!e.target || !e.target.matches('input, select, textarea')) return;
-        // The Locations and Email editors save through their own APIs — don't
-        // also post the whole settings form for those edits.
+        // The Locations, Email and Print Rules editors save through their own
+        // APIs — don't also post the whole settings form for those edits.
         if (e.target.closest('#locationsEditor')) return;
         if (e.target.closest('#emailEditor')) return;
+        if (e.target.closest('#printRulesEditor')) return;
         if (e.target.id === 'Theme') reloadAfterSave = true;
         scheduleAutoSave();
     });
+
+    // --- Print rules (Printing tab) ---
+    // Edited in a popup; each add / change / delete saves straight away
+    // through /api/printrules.
+    (function () {
+        var $grid = $('#printRulesGrid');
+        if (!$grid.length) return;
+
+        var rows = {}; // id -> the rule as loaded, so an edit can send it whole
+        var fieldNames = {};
+
+        function send(method, url, data) {
+            var d = $.Deferred();
+            $.ajax({ url: url, method: method, contentType: 'application/json', data: data ? JSON.stringify(data) : undefined })
+                .done(function (r) { d.resolve(r); })
+                .fail(function (xhr) { d.reject((xhr.responseJSON && xhr.responseJSON.message) || 'The rule could not be saved.'); });
+            return d.promise();
+        }
+
+        function choices(list) { return (list || []).map(function (v) { return { v: v, t: v }; }); }
+
+        function describe(r) {
+            var parts = [];
+            [['customer', 'Customer'], ['carrier', 'Carrier'], ['truckId', 'Truck'], ['commodity', 'Commodity'],
+             ['location', 'Location'], ['destination', 'Destination']].forEach(function (p) {
+                if (r[p[0]]) parts.push(p[1] + ' = ' + r[p[0]]);
+            });
+            if (r.customFieldId) parts.push((fieldNames[r.customFieldId] || 'Custom field') + ' = ' + (r.customFieldValue || ''));
+            return parts.length ? parts.join('; ') : 'Every ticket';
+        }
+
+        function condition(field, caption, list) {
+            return {
+                dataField: field, caption: caption, visible: false,
+                lookup: { dataSource: choices(list), valueExpr: 'v', displayExpr: 't', allowClearing: true },
+                editorOptions: { showClearButton: true, searchEnabled: true, placeholder: 'Any' }
+            };
+        }
+
+        $.getJSON('/api/printrules/options').always(function (o) {
+            o = o || {};
+            (o.customFields || []).forEach(function (f) { fieldNames[f.id] = f.name; });
+
+            $grid.dxDataGrid({
+                dataSource: new DevExpress.data.CustomStore({
+                    key: 'id',
+                    load: function () {
+                        return $.getJSON('/api/printrules').then(function (list) {
+                            rows = {};
+                            list.forEach(function (r) { rows[r.id] = r; });
+                            return list;
+                        });
+                    },
+                    insert: function (values) { return send('POST', '/api/printrules', values); },
+                    update: function (key, values) { return send('PUT', '/api/printrules/' + key, $.extend({}, rows[key], values)); },
+                    remove: function (key) { return send('DELETE', '/api/printrules/' + key); }
+                }),
+                columns: [
+                    { dataField: 'sortOrder', caption: 'Order', dataType: 'number', width: 70, sortOrder: 'asc',
+                      editorOptions: { min: 0, showSpinButtons: true } },
+                    { dataField: 'name', caption: 'Name', validationRules: [{ type: 'required' }] },
+                    { dataField: 'active', caption: 'Active', dataType: 'boolean', width: 70 },
+                    { dataField: 'source', caption: 'At', width: 110,
+                      lookup: { dataSource: [{ v: 'Any', t: 'Kiosk or office' }, { v: 'Kiosk', t: 'Kiosk' }, { v: 'Office', t: 'Office' }], valueExpr: 'v', displayExpr: 't' } },
+                    { dataField: 'leg', caption: 'Ticket', width: 100,
+                      lookup: { dataSource: [{ v: 'Any', t: 'Either' }, { v: 'Inbound', t: 'Inbound' }, { v: 'Outbound', t: 'Outbound' }], valueExpr: 'v', displayExpr: 't' } },
+                    { caption: 'When', allowEditing: false, calculateCellValue: describe, cssClass: 'text-wrap' },
+                    condition('customer', 'Customer', o.customers),
+                    condition('carrier', 'Carrier', o.carriers),
+                    condition('truckId', 'Truck ID', o.trucks),
+                    condition('commodity', 'Commodity', o.commodities),
+                    condition('location', 'Location', o.locations),
+                    condition('destination', 'Destination', o.destinations),
+                    { dataField: 'customFieldId', caption: 'Custom Field', visible: false,
+                      lookup: { dataSource: o.customFields || [], valueExpr: 'id', displayExpr: 'name', allowClearing: true },
+                      editorOptions: { showClearButton: true, placeholder: 'None' } },
+                    { dataField: 'customFieldValue', caption: 'Custom Field Value', visible: false },
+                    { dataField: 'print', caption: 'Then', width: 110,
+                      lookup: { dataSource: [{ v: true, t: 'Print' }, { v: false, t: "Don't print" }], valueExpr: 'v', displayExpr: 't' } }
+                ],
+                editing: {
+                    mode: 'popup',
+                    allowAdding: true,
+                    allowUpdating: true,
+                    allowDeleting: true,
+                    useIcons: true,
+                    texts: { confirmDeleteMessage: 'Delete this print rule?' },
+                    popup: { title: 'Print Rule', showTitle: true, width: 640, height: 'auto' },
+                    form: {
+                        colCount: 2,
+                        items: [
+                            { dataField: 'name', colSpan: 2 },
+                            'source', 'leg',
+                            { itemType: 'group', caption: 'When the ticket has', colSpan: 2, colCount: 2,
+                              items: ['customer', 'carrier', 'truckId', 'commodity', 'location', 'destination', 'customFieldId', 'customFieldValue'] },
+                            'print', 'sortOrder', 'active'
+                        ]
+                    }
+                },
+                onInitNewRow: function (e) {
+                    e.data = { active: true, source: 'Any', leg: 'Any', print: false, sortOrder: 0 };
+                },
+                toolbar: { items: [{ name: 'addRowButton', showText: 'always', options: { text: 'Add Rule' } }] },
+                showBorders: true,
+                wordWrapEnabled: true,
+                noDataText: 'No rules — every ticket follows "When No Print Rule Matches".',
+                paging: { enabled: false }
+            });
+        });
+    })();
 
     // --- Icon preview ---
     document.getElementById('iconFileInput').addEventListener('change', function (e) {
@@ -2051,9 +2228,12 @@
         }
 
         function deleteField(f) {
-            if (!confirm('Delete "' + f.name + '"? Values already saved on tickets will be removed. ' +
-                         'To keep history, set the field to inactive instead.')) return;
-            fetch('/api/customfields/' + f.id, { method: 'DELETE' }).then(loadCustomFields);
+            bwConfirm('Delete "' + f.name + '"? Values already saved on tickets will be removed. ' +
+                      'To keep history, set the field to inactive instead.', 'Delete Custom Field', { okText: 'Delete', danger: true })
+                .then(function (ok) {
+                    if (!ok) return;
+                    fetch('/api/customfields/' + f.id, { method: 'DELETE' }).then(loadCustomFields);
+                });
         }
 
         document.getElementById('addCustomFieldBtn').addEventListener('click', function () { openModal(null); });
@@ -2445,11 +2625,15 @@
         });
 
         function deleteSite(id) {
-            if (!confirm('Delete this location? Its scales, bins, and commodities become available at every location.')) return;
-            fetch('/api/sites/' + id, { method: 'DELETE' }).then(function (r) {
-                if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'Delete failed.'); });
-                loadSites();
-            }).catch(function (e) { siteStatus(e.message, true); });
+            bwConfirm('Delete this location? Its scales, bins, and commodities become available at every location.',
+                'Delete Location', { okText: 'Delete', danger: true })
+                .then(function (ok) {
+                    if (!ok) return;
+                    fetch('/api/sites/' + id, { method: 'DELETE' }).then(function (r) {
+                        if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'Delete failed.'); });
+                        loadSites();
+                    }).catch(function (e) { siteStatus(e.message, true); });
+                });
         }
 
         loadSites();
@@ -2786,11 +2970,15 @@
 
         function deleteSchedule(id) {
             var s = schedules.filter(function (x) { return x.id === id; })[0];
-            if (!confirm('Delete the scheduled report "' + (s ? s.name : '') + '"? It will stop sending.')) return;
-            fetch('/api/email/schedules/' + id, { method: 'DELETE' }).then(function (r) {
-                if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'Delete failed.'); });
-                return loadSchedules();
-            }).catch(function (e) { status('emScheduleStatus', e.message, true); });
+            bwConfirm('Delete the scheduled report "' + (s ? s.name : '') + '"? It will stop sending.',
+                'Delete Scheduled Report', { okText: 'Delete', danger: true })
+                .then(function (ok) {
+                    if (!ok) return;
+                    fetch('/api/email/schedules/' + id, { method: 'DELETE' }).then(function (r) {
+                        if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'Delete failed.'); });
+                        return loadSchedules();
+                    }).catch(function (e) { status('emScheduleStatus', e.message, true); });
+                });
         }
 
         function runSchedule(id, btn) {
@@ -2927,11 +3115,15 @@
 
         function deleteRule(id) {
             var r = rules.filter(function (x) { return x.id === id; })[0];
-            if (!confirm('Delete the rule "' + (r ? r.name : '') + '"? Loads will stop being emailed for it.')) return;
-            fetch('/api/email/rules/' + id, { method: 'DELETE' }).then(function (resp) {
-                if (!resp.ok) return resp.json().then(function (e) { throw new Error(e.error || 'Delete failed.'); });
-                return loadRules();
-            }).catch(function (e) { status('emRuleStatus', e.message, true); });
+            bwConfirm('Delete the rule "' + (r ? r.name : '') + '"? Loads will stop being emailed for it.',
+                'Delete Load Email Rule', { okText: 'Delete', danger: true })
+                .then(function (ok) {
+                    if (!ok) return;
+                    fetch('/api/email/rules/' + id, { method: 'DELETE' }).then(function (resp) {
+                        if (!resp.ok) return resp.json().then(function (e) { throw new Error(e.error || 'Delete failed.'); });
+                        return loadRules();
+                    }).catch(function (e) { status('emRuleStatus', e.message, true); });
+                });
         }
 
         // Filter options first — the list renderers use site names from it.
@@ -2942,21 +3134,12 @@
         });
     })();
 
-    // --- Confirm modal ---
-    var _confirmFormId = null;
+    // --- Confirm, then post one of the hidden operation forms ---
     function showConfirmModal(title, message, formId, btnClass) {
-        _confirmFormId = formId;
-        document.getElementById('confirmModalTitle').textContent = 'Confirm Operation';
-        document.getElementById('confirmModalBody').innerHTML = message.replace(/\n/g, '<br>');
-        var btn = document.getElementById('confirmModalBtn');
-        btn.className = 'btn btn-sm ' + btnClass;
-        btn.textContent = title;
-        new bootstrap.Modal(document.getElementById('confirmModal')).show();
-    }
-    function confirmModalSubmit() {
-        if (_confirmFormId) {
-            document.getElementById(_confirmFormId).submit();
-        }
+        bwConfirm(message, 'Confirm Operation', { okText: title, danger: btnClass === 'btn-danger' })
+            .then(function (ok) {
+                if (ok) document.getElementById(formId).submit();
+            });
     }
 </script>
 }

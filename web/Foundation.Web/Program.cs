@@ -506,8 +506,18 @@ app.Use(async (context, next) =>
             }
         }
 
-        // Tables (/MasterData): Manager or Admin only
-        if (path.StartsWith("/MasterData", StringComparison.OrdinalIgnoreCase) && role is not ("Manager" or "Admin"))
+        // Print rules are edited on the Setup page, so they share its gate.
+        if (path.StartsWith("/api/printrules", StringComparison.OrdinalIgnoreCase) && role != "Admin")
+        {
+            context.Response.StatusCode = 403;
+            await context.Response.WriteAsync("Access denied. Admin role required.");
+            return;
+        }
+
+        // Tables (/MasterData) and the Audit Trail: Manager or Admin only
+        if ((path.StartsWith("/MasterData", StringComparison.OrdinalIgnoreCase) ||
+             path.StartsWith("/Audit", StringComparison.OrdinalIgnoreCase) ||
+             path.StartsWith("/api/audit", StringComparison.OrdinalIgnoreCase)) && role is not ("Manager" or "Admin"))
         {
             context.Response.StatusCode = 403;
             await context.Response.WriteAsync("Access denied. Manager or Admin role required.");

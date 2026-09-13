@@ -36,6 +36,10 @@ Foundation is a web-based truck scale management application for weighing inboun
   - [Scales (multi-scale)](#scales-multi-scale)
   - [Phone App Location (Require Location on Mobile)](#phone-app-location-require-location-on-mobile)
   - [Custom Fields & Ticket Printing](#custom-fields--ticket-printing)
+  - [Automatic Printing & Print Rules](#automatic-printing--print-rules)
+  - [Manual Weights](#manual-weights)
+  - [Audit Trail](#audit-trail)
+  - [Shared Grid Layouts](#shared-grid-layouts)
   - [Cards](#cards)
   - [Language (English / Spanish)](#language-english--spanish)
   - [User Login System](#user-login-system)
@@ -66,6 +70,9 @@ Foundation is a web-based truck scale management application for weighing inboun
 - **Gate & Light Control** — A Raspberry Pi ([Gate Controller Service](GateControllerService/README.md)) opens a gate or turns on a light when a ticket completes on the scale it serves, releasing once the truck drives off or a timeout expires. Per-scale, and entirely optional
 - **On-Scale Detection** — Optional photo-eyes at each end of the deck, wired to two Pi inputs. While either beam is broken the truck is hanging off the platform, so the kiosk, phone page and weigh forms show **NOT ON SCALE** and refuse to capture. A scale with no detectors wired behaves exactly as before
 - **Remote Printing** — Print tickets to thermal printers via Raspberry Pi print agents over SignalR
+- **Print Rules** — Turn the kiosk's inbound or outbound ticket off, and print or skip any ticket by what is on it (customer, carrier, truck, commodity, location, destination, a custom field), at the kiosk, the office, or both. Tickets print bold, with the net weight larger
+- **Audit Trail** — Every change to tickets, tables, cards and settings, with the old and new value, the user (when login is on) and where it came from — office, which kiosk, phone, API. Each ticket has a History button
+- **Shared Grid Layouts** — A Manager or Admin arranges the Trucks in Yard and Completed columns once and every user sees that layout, with a Reset button
 - **Ticket Designer** — Edit ticket layouts with the built-in DevExpress Report Designer
 - **Driver Signature Capture** — Operator-device overlay or a remote signature-pad tablet (opened by scanning a QR code on the Setup page)
 - **Bilingual (English / Spanish)** — Off by default; one checkbox in Setup turns it on. The driver-facing screens — kiosk, the phone page, the signature pad and the ticket views — then render in either language, with a site default, an on-screen **EN / ES** button per device, and a kiosk Pi pinnable to one language at install time. Office and admin pages are English
@@ -629,6 +636,7 @@ Navigate to **Setup** in the web interface to configure. **Changes auto-save** �
 - **Locations** — Physical yards/facilities; with two or more, operators pick theirs in the navbar
 - **Email** — SMTP server, scheduled reports, and per-load emails (see [Email Reports](#email-reports)). This tab saves through its own API, so its edits are independent of the auto-save above
 - **Kiosk Prompts** — Which fields to show on the kiosk touchscreen
+- **Printing** — Which tickets print by themselves, print rules, and bold ticket text (see [Automatic Printing & Print Rules](#automatic-printing--print-rules)). The rules list saves through its own API, like the Email tab
 - **Ticket Designers** — Edit the layout of printed tickets
 
 ### Email Reports
@@ -735,7 +743,7 @@ The **Scales** page (System → Options → Scales) manages the named site scale
 - Each scale has a **name** (what operators see and what tickets record), a **hardware feed** (a scale reported by a connected Scale Reader Service), an order, and an active flag. A scale with no hardware feed is driven by the per-scale simulator in Demo Mode.
 - The **weigh forms** show a scale picker when more than one scale is active; the choice is remembered per browser. The dashboard's live weight display follows the same selection.
 - **Kiosks are mapped to a scale** in the Launch Kiosk dialog (or via `?scale-id=<id>` in the kiosk URL); each kiosk reads and records weights from its mapped scale.
-- Every ticket stores the scale name per weighment (**In Scale** / **Out Scale**). Manually entered weights record no scale.
+- Every ticket stores the scale name per weighment (**In Scale** / **Out Scale**). Manually entered weights record no scale and are marked manual — see [Manual Weights](#manual-weights).
 - Each scale can have its own **inbound and outbound ticket printers** (optional). Auto-printed tickets go to the capturing scale's printer; scales without one use the site-wide defaults from the Printers page. Explicit kiosk printer choices (Launch Kiosk dialog) still take precedence.
 - In **Demo Mode** each scale has its own independent simulator — the simulator panels (header bar, Get Weight dialog, kiosk) drive whichever scale is selected.
 - Each scale has a **position** (latitude/longitude, decimal degrees). **Set…** in its Position column opens a dialog: type the coordinates, click the map (drag the pin to fine-tune), or stand on the deck with a phone or laptop and use **Use This Device's Location**. **Map** opens the saved position on OpenStreetMap. The map needs internet; typing the coordinates always works. The phone app uses the position to decide which scale a phone is standing at — see below.
@@ -763,6 +771,46 @@ Custom fields marked **Show on printed ticket** print in one of two ways:
 - **Designer placement:** every ticket-eligible custom field appears in the Ticket Designer's Field List as a parameter named `cf_<FieldName>` (non-alphanumerics become underscores). Drag it into the layout and save — the value then prints at that exact spot and the auto-appended row for that field is suppressed. Fields you don't place keep auto-appending, so existing layouts never change behavior.
 
 Dropdown-type custom fields also get their own tab on **Tables** for managing the choice list (add, rename, delete, drag to reorder) without opening Setup.
+
+### Automatic Printing & Print Rules
+
+**Setup → Printing** decides which tickets print by themselves when a truck is weighed — at the kiosk and on the office weigh forms. A reprint someone asks for (the Reprint buttons, the grids' Print dialog) always prints.
+
+A ticket is checked in this order, and the first "no" wins:
+
+1. **Print Inbound Tickets at the Kiosk** / **Print Outbound Tickets at the Kiosk** — turn either kiosk ticket off. Kiosk only; both start on.
+2. **Print Inbound Ticket for Card Weigh-Ins** — a weigh-in started from a card (presented at a reader, keyed in at the kiosk, or used on the weigh forms) prints no inbound ticket unless this is on. **Off by default**: the driver has the card, and the completed ticket still prints. Upgrading a site with cards stops those inbound tickets until someone turns it on.
+3. **Print rules** — each rule says *where* (kiosk, office or either), *which ticket* (inbound, outbound or either), the conditions — customer, carrier, truck ID, commodity, location, destination and one custom field, a blank condition matching anything — and whether a match **prints** or **doesn't print**. Rules are checked in their order and the first match decides.
+4. **When No Print Rule Matches** — print (the default) or don't. With it on *Don't print*, rules become a list of the only tickets that print.
+
+With Retained Tare on, the kiosk's inbound leg still prints nothing, as before. When a kiosk ticket is kept from printing, the completion screen shows no Reprint button. The server log records every ticket kept from printing and why (`Kiosk ticket 100123 not printed: print rule "Walk-ins"`).
+
+**Bold Ticket Text** (on by default) prints every line of the ticket bold and the net weight at 15 pt — thermal printers print regular Courier thin and grey. It is applied when the ticket is rendered, so layouts already saved in the Ticket Designer get it too; turn it off to print a layout exactly as designed. The default layouts are bold in the designer as well.
+
+### Manual Weights
+
+A weight keyed in by hand rather than read from a scale is marked manual, and a weight the scale read records which scale:
+
+- **Grids** — Trucks in Yard and Completed show an **M** beside a manual weight, and **In Scale** / **Out Scale** columns with the scale's name or *Manual*.
+- **Printed tickets** — a manual gross, tare or inbound weight prints as `40,000 lb (Manual)`.
+- **Editing** — changing a weight on a completed ticket (the Edit page, or the grid's API) marks it manual and clears its scale, since the scale no longer weighed that number. The Edit page shows where each weight came from and flags it as you type.
+- **Basic Ticket** — a weight typed over rather than captured is saved as manual.
+
+A stored tare that closes a load (Retained Tare) is neither: it carries no scale and no manual mark.
+
+### Audit Trail
+
+**Weighments → Audit Trail** (Manager or Admin) lists every change saved anywhere in the app: tickets, custom-field values, Tables, cards, users, scales, kiosks, print rules and Setup. Each row is one field — the old value, the new value, when, the **user** (the signed-in name when Require Login is on) and **where from**: *Office*, *Kiosk · North Inbound* (the kiosk's name), *Phone*, *Signature Pad*, *API*, *Device Service*, or *System* for background work. A record created or deleted is one row carrying its values.
+
+Each ticket's **History** button (Edit page, and the Weigh In page for a truck in the yard) opens that ticket's changes alone. Passwords are never copied into the trail — only that one changed. Kiosk heartbeats and the next-ticket counter moving on are left out; a counter change made on the Setup page is kept.
+
+The trail is written by the database layer on every save, so nothing needs to remember to log. It is kept indefinitely; a busy site writes a few hundred rows a day.
+
+### Shared Grid Layouts
+
+The **Trucks in Yard** and **Completed** grids have one layout for everybody. A Manager or Admin (anyone, with Require Login off) reorders, resizes, shows and hides columns with the column chooser, and sets the default sort — each change saves for all users straight away. **Reset Layout** puts the built-in layout back for everyone.
+
+Other users see that layout without the column tools. Anyone can still filter and sort for themselves; filters, search and the page they are on are never saved or shared. Layouts are stored in the database, so they survive browsers being cleared and follow users between workstations.
 
 ### Cards
 
@@ -828,7 +876,11 @@ A kiosk with no `reader-id` ignores card presentations and behaves exactly as it
 
 - **Allow Cards at the Kiosk** — present the card at the kiosk's reader or key its number in on the keypad, as above. Off, kiosks behave as if cards were off: no reader, no "present your card", and a keyed card number is not accepted.
 - **Allow Cards on the Weigh Forms** — the office **Weigh In** page gets a **Card** box. **Use Card** fills in the form from the card (anything no longer a choice on the form is flagged), and saving ties the card to the ticket so weighing it out frees the card. A card whose truck is already in the yard opens that ticket's **Weigh Out** page instead.
-- **Allow Cards on the Phone** — the phone app gets **USE CARD** under Weigh In. The driver keys in the number; the card answers the prompts, the phone asks only for required fields the card leaves blank, then shows the usual confirmation. A card whose truck is already in the yard hands that load to the phone to weigh out. The phone's location rule still applies.
+- **Allow Cards on the Phone** — the phone app gets a **USE PIN** button under Weigh In, the same size. The driver keys in their PIN (the card number); the card answers the prompts, the phone asks only for required fields the card leaves blank, then shows the usual confirmation. A card whose truck is already in the yard hands that load to the phone to weigh out. The phone's location rule still applies.
+
+**Hide Weigh In Button at Card Kiosks** (Setup → System → Cards, off by default) removes the green weigh-in button from kiosks mapped to a card reader, so every load starts from a card. The scan / key-in button stays, and Enter on a keyboard-driven kiosk opens it instead. Kiosks without a reader are unaffected. A card-reader kiosk's ready screen reads *PRESENT YOUR CARD OR SELECT AN OPTION*.
+
+Card weigh-ins print no inbound ticket unless **Setup → Printing → Print Inbound Ticket for Card Weigh-Ins** is on — see [Automatic Printing & Print Rules](#automatic-printing--print-rules).
 
 Wherever a card is used, the server re-checks it (enrolled, enabled, issued, not already on another load) and refuses a card from a place where it is switched off. On the phone and the weigh forms the stored-tare questions follow that place's own settings; **Allow Tare Reset from a Card** is for kiosk card presentations. A load weighed out anywhere — kiosk, phone or office — frees its card.
 

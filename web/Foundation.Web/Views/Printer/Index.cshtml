@@ -43,9 +43,6 @@
     <p>Start a Web Print Service and point it to this server's SignalR hub.</p>
 </div>
 
-<!-- Toast container -->
-<div id="toastContainer" style="position:fixed;top:70px;right:20px;z-index:9999;min-width:300px;max-width:450px;"></div>
-
 <!-- Test Print Modal -->
 <div class="modal fade" id="testPrintModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered">
@@ -296,14 +293,6 @@
             result.style.display = 'block';
             result.innerHTML = '<div class="alert alert-danger mb-0">Failed to send test: ' + escHtml(err.toString()) + '</div>';
         });
-    }
-
-    function showToast(type, msg) {
-        var container = document.getElementById('toastContainer');
-        var html = '<div class="alert alert-' + type + ' alert-dismissible fade show py-2" role="alert">' +
-            msg + '<button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button></div>';
-        container.innerHTML = html;
-        setTimeout(function () { container.innerHTML = ''; }, 5000);
     }
 </script>
 }

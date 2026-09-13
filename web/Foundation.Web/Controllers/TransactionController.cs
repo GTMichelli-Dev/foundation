@@ -288,8 +288,14 @@ public class TransactionController : Controller
                 }
 
                 // Retained-tare completion: the truck is physically on the
-                // in-scale, so its printer (or the site default) gets the ticket.
-                var outboundPrinter = SiteScales.ResolvePrinter(_db, transaction.InScale, outbound: true, setup);
+                // in-scale, so its printer (or the site default) gets the ticket
+                // — unless Setup → Printing keeps this ticket from printing.
+                var completedPrint = PrintRules.Decide(_db, setup, transaction, PrintSource.Office, outbound: true, cardUsed: card != null);
+                if (!completedPrint.Print)
+                    _log.LogInformation("Ticket {Ticket} not printed: {Reason}", transaction.Ticket, completedPrint.Reason);
+                var outboundPrinter = completedPrint.Print
+                    ? SiteScales.ResolvePrinter(_db, transaction.InScale, outbound: true, setup)
+                    : null;
                 if (!string.IsNullOrEmpty(outboundPrinter))
                 {
                     if (outboundPrinter.Equals("Browser:Browser", StringComparison.OrdinalIgnoreCase))
@@ -324,8 +330,14 @@ public class TransactionController : Controller
                     new { ticket = transaction.Ticket, direction = "in", cameraId });
             }
 
-            // Auto-print: the capturing scale's inbound printer, else the site default
-            var inboundPrinter = SiteScales.ResolvePrinter(_db, transaction.InScale, outbound: false, setup);
+            // Auto-print: the capturing scale's inbound printer, else the site
+            // default — unless Setup → Printing keeps this ticket from printing.
+            var inboundPrint = PrintRules.Decide(_db, setup, transaction, PrintSource.Office, outbound: false, cardUsed: card != null);
+            if (!inboundPrint.Print)
+                _log.LogInformation("Ticket {Ticket} not printed: {Reason}", transaction.Ticket, inboundPrint.Reason);
+            var inboundPrinter = inboundPrint.Print
+                ? SiteScales.ResolvePrinter(_db, transaction.InScale, outbound: false, setup)
+                : null;
             if (!string.IsNullOrEmpty(inboundPrinter))
             {
                 if (inboundPrinter.Equals("Browser:Browser", StringComparison.OrdinalIgnoreCase))
@@ -602,7 +614,13 @@ public class TransactionController : Controller
         await GateDispatch.OpenForTicket(_hub, _db, _log, existing.OutScale, id, "weighout");
 
         // Auto-print: the out-weighing scale's printer, else the site default
-        var outboundPrinter = SiteScales.ResolvePrinter(_db, existing.OutScale ?? existing.InScale, outbound: true, setup);
+        // — unless Setup → Printing keeps this ticket from printing.
+        var outPrint = PrintRules.Decide(_db, setup, existing, PrintSource.Office, outbound: true, cardUsed: card != null);
+        if (!outPrint.Print)
+            _log.LogInformation("Ticket {Ticket} not printed: {Reason}", id, outPrint.Reason);
+        var outboundPrinter = outPrint.Print
+            ? SiteScales.ResolvePrinter(_db, existing.OutScale ?? existing.InScale, outbound: true, setup)
+            : null;
         if (!string.IsNullOrEmpty(outboundPrinter))
         {
             if (outboundPrinter.Equals("Browser:Browser", StringComparison.OrdinalIgnoreCase))
@@ -672,9 +690,14 @@ public class TransactionController : Controller
             return RedirectToAction("BasicTicket");
         }
 
-        // Single-weigh ticket: the one scale captured both weights.
-        transaction.InScale = scaleUsed;
-        transaction.OutScale = scaleUsed;
+        // Single-weigh ticket: the one scale captured both weights. The page
+        // clears scaleUsed as soon as the weight is typed over, so no scale
+        // means the weight was keyed in by hand.
+        var manual = string.IsNullOrWhiteSpace(scaleUsed);
+        transaction.InScale = manual ? null : scaleUsed;
+        transaction.OutScale = manual ? null : scaleUsed;
+        transaction.ManualInbound = manual;
+        transaction.ManualOutbound = manual;
 
         var setup = _db.AppSetup.First();
         while (_db.Transactions.Any(t => t.Ticket == setup.TicketNumber.ToString()))
@@ -778,8 +801,7 @@ public class TransactionController : Controller
         if (existing.InWeight != transaction.InWeight || existing.OutWeight != transaction.OutWeight)
             DeleteSignatureFile(id);
 
-        existing.InWeight = transaction.InWeight;
-        existing.OutWeight = transaction.OutWeight;
+        ApplyEditedWeights(existing, transaction);
         existing.DateIn = transaction.DateIn;
         existing.DateOut = transaction.DateOut;
         ApplyVisibleFields(existing, transaction, _setupCache.Get());
@@ -791,6 +813,28 @@ public class TransactionController : Controller
         FormulaFields.RecomputeAndSave(_db, existing);
 
         return RedirectToAction("CompletedTrucks");
+    }
+
+    /// <summary>
+    /// A weight typed over on the Edit page (or the grid's API) is no longer
+    /// the scale's reading: mark it manual and drop the scale it came from, so
+    /// the ticket never claims a scale weighed a number someone keyed in.
+    /// An untouched weight keeps its flags.
+    /// </summary>
+    private static void ApplyEditedWeights(Transaction existing, Transaction posted)
+    {
+        if (existing.InWeight != posted.InWeight)
+        {
+            existing.InWeight = posted.InWeight;
+            existing.ManualInbound = true;
+            existing.InScale = null;
+        }
+        if (existing.OutWeight != posted.OutWeight)
+        {
+            existing.OutWeight = posted.OutWeight;
+            existing.ManualOutbound = true;
+            existing.OutScale = null;
+        }
     }
 
     private static string TicketsImageDir => Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "tickets");
@@ -880,6 +924,7 @@ public class TransactionController : Controller
                 t.Bin,
                 t.Notes,
                 t.ManualInbound,
+                t.InScale,
                 HasInImage = HasImage(t.Ticket, "in"),
                 CustomFields = customValues.GetValueOrDefault(t.Ticket)
             })
@@ -930,6 +975,10 @@ public class TransactionController : Controller
                 t.Notes,
                 t.Void,
                 t.SentToQuickBooks,
+                t.ManualInbound,
+                t.ManualOutbound,
+                t.InScale,
+                t.OutScale,
                 HasInImage = HasImage(t.Ticket, "in"),
                 HasOutImage = HasImage(t.Ticket, "out"),
                 CustomFields = customValues.GetValueOrDefault(t.Ticket)
@@ -953,8 +1002,7 @@ public class TransactionController : Controller
         if (existing.InWeight != transaction.InWeight || existing.OutWeight != transaction.OutWeight)
             DeleteSignatureFile(existing.Ticket);
 
-        existing.InWeight = transaction.InWeight;
-        existing.OutWeight = transaction.OutWeight;
+        ApplyEditedWeights(existing, transaction);
         existing.DateIn = transaction.DateIn;
         existing.DateOut = transaction.DateOut;
         // Skip hidden fields — the grid doesn't send them, and writing the

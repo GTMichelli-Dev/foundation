@@ -23,7 +23,8 @@ public class TicketReport : XtraReport
         PageWidth = 283;  // 71.97mm in hundredths of an inch
         PageHeight = 800; // tall enough for content
         Margins = new DXMargins(2, 1, 10, 10);
-        Font = new DXFont("Courier New", 9f);
+        // Bold throughout: regular Courier prints thin and grey on thermal paper.
+        Font = new DXFont("Courier New", 9f, DXFontStyle.Bold);
         RollPaper = true;
 
         // Parameters for ticket data
@@ -102,6 +103,9 @@ public class TicketReport : XtraReport
         y = AddLabelRow(reportHeader, "Gross Weight:", "GrossWeight", y, 10f);
         y = AddLabelRow(reportHeader, "Tare Weight:", "TareWeight", y, 10f);
         y = AddLabelRow(reportHeader, "Net Weight:", "NetWeight", y, 13f, true, 22);
+        // The net value prints larger again than the bold text around it.
+        if (reportHeader.FindControl("valNetWeight", false) is XRLabel netValue)
+            netValue.Font = new DXFont("Courier New", 15f, DXFontStyle.Bold);
 
         // Weight separator
         y += 3;
@@ -121,7 +125,7 @@ public class TicketReport : XtraReport
             Text = "Driver Signature:",
             LocationF = new PointF(0, y),
             SizeF = new SizeF(280, 16),
-            Font = new DXFont("Courier New", 9f)
+            Font = new DXFont("Courier New", 9f, DXFontStyle.Bold)
         };
         reportHeader.Controls.Add(sigCaption);
         y += 16;
@@ -182,7 +186,7 @@ public class TicketReport : XtraReport
         return y + 18;
     }
 
-    private float AddLabelRow(Band band, string caption, string paramName, float y, float fontSize = 9f, bool bold = false, float height = 16)
+    private float AddLabelRow(Band band, string caption, string paramName, float y, float fontSize = 9f, bool bold = true, float height = 16)
     {
         var captionLabel = new XRLabel
         {

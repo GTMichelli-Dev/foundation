@@ -103,8 +103,25 @@
 @section Scripts {
 <script src="~/js/signalr/signalr.min.js"></script>
 <script src="~/js/ticket-image-download.js"></script>
+<script src="~/js/bw-grid-layout.js" asp-append-version="true"></script>
 <partial name="_FieldConfigJs" />
 <script>
+    // A weight keyed in by hand rather than read from a scale carries an M.
+    function manualWeightCell(flag) {
+        return function (container, options) {
+            $('<span>').text(DevExpress.localization.formatNumber(options.value, '#,##0')).appendTo(container);
+            if (options.data[flag]) {
+                $('<span>').css({ marginLeft: '4px', fontSize: '0.7rem', color: '#d97706', fontWeight: 'bold' })
+                    .attr('title', 'Keyed in by hand').text('M').appendTo(container);
+            }
+        };
+    }
+
+    // Which scale weighed it, or Manual for a weight keyed in by hand.
+    function scaleOrManual(scale, manual) {
+        return manual ? 'Manual' : (scale || '');
+    }
+
     function printTicketPdf(ticketId) {
         $.getJSON('/api/ticket/' + ticketId, function (t) {
             var doc = new jspdf.jsPDF({ unit: 'mm', format: [100, 200] });
@@ -128,10 +145,10 @@
 
             // Detail rows
             doc.setFontSize(9);
+            // Bold throughout, like the printed tickets.
             function addRow(label, value) {
                 doc.setFont('courier', 'bold');
                 doc.text(label, x, y);
-                doc.setFont('courier', 'normal');
                 doc.text(value || '', x + 35, y);
                 y += 5;
             }
@@ -153,10 +170,10 @@
             y += 5;
 
             doc.setFontSize(10);
-            addRow('Gross Weight:', t.grossWeight.toLocaleString() + ' lb');
-            addRow('Tare Weight:', t.tareWeight.toLocaleString() + ' lb');
+            addRow('Gross Weight:', t.grossWeight.toLocaleString() + ' lb' + (t.grossManual ? ' (Manual)' : ''));
+            addRow('Tare Weight:', t.tareWeight.toLocaleString() + ' lb' + (t.tareManual ? ' (Manual)' : ''));
 
-            doc.setFontSize(13);
+            doc.setFontSize(15);
             doc.setFont('courier', 'bold');
             doc.text('Net Weight:', x, y);
             doc.text(t.netWeight.toLocaleString() + ' lb', x + 35, y);
@@ -168,7 +185,6 @@
 
             // Notes
             if (t.notes) {
-                doc.setFont('courier', 'normal');
                 addRow('Notes:', t.notes);
             }
 
@@ -277,6 +293,7 @@
             grid.refresh();
         }
 
+        var layout = bwSharedGridLayout('completedTrucks');
         var grid = $('#completedGrid').dxDataGrid({
             hoverStateEnabled: true,
             remoteOperations: false,
@@ -367,11 +384,13 @@
                     { dataField: 'carrier', caption: 'Carrier' },
                     { dataField: 'truckId', caption: 'Truck ID' },
                     { dataField: 'commodity', caption: 'Commodity' },
-                    { dataField: 'inWeight', caption: 'In (lbs)', dataType: 'number', format: '#,##0', width: 90 },
-                    { dataField: 'outWeight', caption: 'Out (lbs)', dataType: 'number', format: '#,##0', width: 90 },
+                    { dataField: 'inWeight', caption: 'In (lbs)', dataType: 'number', format: '#,##0', width: 100, cellTemplate: manualWeightCell('manualInbound') },
+                    { dataField: 'outWeight', caption: 'Out (lbs)', dataType: 'number', format: '#,##0', width: 100, cellTemplate: manualWeightCell('manualOutbound') },
                     { dataField: 'netWeight', caption: 'Net (lbs)', dataType: 'number', format: '#,##0', width: 90 },
                     { dataField: 'dateIn', caption: 'Date In', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a', width: 155 },
                     { dataField: 'dateOut', caption: 'Date Out', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a', width: 155 },
+                    { dataField: 'inScale', caption: 'In Scale', calculateCellValue: function (d) { return scaleOrManual(d.inScale, d.manualInbound); } },
+                    { dataField: 'outScale', caption: 'Out Scale', calculateCellValue: function (d) { return scaleOrManual(d.outScale, d.manualOutbound); } },
                     { dataField: 'notes', caption: 'Notes', cssClass: 'notes-cell' },
                     {
                         dataField: 'void', caption: 'Voided', dataType: 'boolean', width: 75,
@@ -461,16 +480,13 @@
             // within the grid instead of widening the page.
             width: '100%',
             scrolling: { useNative: true, showScrollbar: 'always' },
-            allowColumnReordering: true,
-            allowColumnResizing: true,
-            columnChooser: { enabled: true, mode: 'select' },
-            stateStoring: {
-                enabled: true,
-                type: 'localStorage',
-                // v3 — discards layouts saved before the action column was
-                // pinned right (old saved orders stranded it mid-table).
-                storageKey: 'completedTrucksGrid_v3'
-            },
+            // The column layout is shared by every user; a Manager or Admin
+            // arranges it (bw-grid-layout.js turns the column tools on).
+            allowColumnReordering: false,
+            allowColumnResizing: false,
+            columnChooser: { enabled: false, mode: 'select' },
+            stateStoring: layout.stateStoring,
+            onContentReady: layout.onContentReady,
             paging: { pageSize: 20 },
             pager: { showPageSizeSelector: true, allowedPageSizes: [10, 20, 50] },
             onRowPrepared: function (e) {
@@ -480,6 +496,9 @@
             },
             export: { enabled: false }
         }).dxDataGrid('instance');
+        layout.attach(grid, function (resetButton) {
+            grid.option('toolbar.items', grid.option('toolbar.items').concat(['columnChooserButton', resetButton]));
+        });
         // ===== BOOTSTRAP ALERT HELPER =====
         function showAlert(message, type, autoDismiss) {
             type = type || 'info';

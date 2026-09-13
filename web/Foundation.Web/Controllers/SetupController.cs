@@ -105,6 +105,12 @@ public class SetupController : Controller
         existing.AllowCardKiosk = setup.AllowCardKiosk;
         existing.AllowCardDesktop = setup.AllowCardDesktop;
         existing.AllowCardMobile = setup.AllowCardMobile;
+        existing.HideKioskWeighInForCards = setup.HideKioskWeighInForCards;
+        existing.KioskPrintInbound = setup.KioskPrintInbound;
+        existing.KioskPrintOutbound = setup.KioskPrintOutbound;
+        existing.PrintInboundForCard = setup.PrintInboundForCard;
+        existing.PrintWhenNoRuleMatches = setup.PrintWhenNoRuleMatches;
+        existing.BoldTicketText = setup.BoldTicketText;
         existing.SignatureMode = setup.SignatureMode ?? "None";
         existing.SignaturePadId = setup.SignaturePadId;
         existing.SignatureRequired = setup.SignatureRequired;

@@ -16,7 +16,8 @@ public class KioskTicketReport : XtraReport
         PageWidth = 283;  // 71.97mm in hundredths of an inch
         PageHeight = 500;
         Margins = new DXMargins(2, 1, 10, 10);
-        Font = new DXFont("Courier New", 9f);
+        // Bold throughout: regular Courier prints thin and grey on thermal paper.
+        Font = new DXFont("Courier New", 9f, DXFontStyle.Bold);
         RollPaper = true;
 
         // Parameters
@@ -68,8 +69,8 @@ public class KioskTicketReport : XtraReport
         // Header lines (centered, bold)
         y = AddCenteredLabel(reportHeader, "Header1", y, 12f, true);
         y = AddCenteredLabel(reportHeader, "Header2", y, 10f, true);
-        y = AddCenteredLabel(reportHeader, "Header3", y, 9f, false);
-        y = AddCenteredLabel(reportHeader, "Header4", y, 9f, false);
+        y = AddCenteredLabel(reportHeader, "Header3", y, 9f, true);
+        y = AddCenteredLabel(reportHeader, "Header4", y, 9f, true);
 
         // Separator
         y += 3;
@@ -141,7 +142,7 @@ public class KioskTicketReport : XtraReport
         return y + 18;
     }
 
-    private float AddLabelRow(Band band, string caption, string paramName, float y, float fontSize = 9f, bool bold = false)
+    private float AddLabelRow(Band band, string caption, string paramName, float y, float fontSize = 9f, bool bold = true)
     {
         var captionLabel = new XRLabel
         {

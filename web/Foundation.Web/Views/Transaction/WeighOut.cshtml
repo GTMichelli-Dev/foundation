@@ -307,25 +307,6 @@
     <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
 </div>
 
-<!-- Leave-without-saving confirmation -->
-<div class="modal fade" id="confirmLeaveModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header py-2">
-                <h6 class="modal-title">Unsaved changes</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                You have unsaved changes. Are you sure you want to leave?
-            </div>
-            <div class="modal-footer py-1">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Stay</button>
-                <button type="button" class="btn btn-danger btn-sm" id="confirmLeaveBtn">Leave</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 @section Scripts {
 <partial name="_CascadeFieldsJs" />
 <partial name="_BinCommodityLockJs" />
@@ -356,7 +337,7 @@
 
         // Tab close / browser back / direct URL change still gets a native warning
         // as a safety net. In-app navigation (Cancel link) goes through the
-        // Bootstrap modal below and sets isSaving=true before navigating, which
+        // confirmation below and sets isSaving=true before navigating, which
         // suppresses this so the user never sees two prompts.
         $(window).on('beforeunload', function () {
             if (isDirty && !isSaving) return 'You have unsaved changes.';
@@ -371,20 +352,18 @@
             fetch('/api/signature/' + encodeURIComponent(ticketId), { method: 'DELETE', keepalive: true });
         }
 
-        var pendingHref = null;
         $('a').on('click', function (e) {
             if (isSaving) return;
             if (!isDirty) { discardSignatureOnLeave(); return; }
             e.preventDefault();
-            pendingHref = $(this).attr('href');
-            new bootstrap.Modal('#confirmLeaveModal').show();
-        });
-
-        $('#confirmLeaveBtn').on('click', function () {
-            isSaving = true; // suppresses beforeunload on the upcoming navigation
-            discardSignatureOnLeave();
-            bootstrap.Modal.getInstance(document.getElementById('confirmLeaveModal')).hide();
-            if (pendingHref) window.location.href = pendingHref;
+            var href = $(this).attr('href');
+            bwConfirm('You have unsaved changes. Are you sure you want to leave?', 'Unsaved changes',
+                { okText: 'Leave', cancelText: 'Stay', danger: true }).then(function (ok) {
+                if (!ok) return;
+                isSaving = true; // suppresses beforeunload on the upcoming navigation
+                discardSignatureOnLeave();
+                if (href) window.location.href = href;
+            });
         });
 
         var customerSelect = $('select[name="Customer"]');
@@ -604,6 +583,10 @@
             $('html, body').animate({ scrollTop: 0 }, 300);
         }
 
+        // Set once the operator agrees to save without a signature; the
+        // resubmit below consumes it so the next save asks again.
+        var sigSkipConfirmed = false;
+
         $('form').on('submit', function (e) {
             var outW = parseInt(outWeightInput.val()) || 0;
             if (outW <= 0) {
@@ -619,9 +602,18 @@
                     showValidation('A driver signature is required before saving. Press "Capture Signature".');
                     return false;
                 }
-                if (!confirm('No driver signature has been captured. Save anyway?')) {
+                if (sigSkipConfirmed) {
+                    sigSkipConfirmed = false;
+                } else {
                     e.preventDefault();
                     isSaving = false;
+                    var form = this;
+                    bwConfirm('No driver signature has been captured. Save anyway?', 'No Driver Signature',
+                        { okText: 'Save Anyway' }).then(function (ok) {
+                        if (!ok) return;
+                        sigSkipConfirmed = true;
+                        $(form).trigger('submit');
+                    });
                     return false;
                 }
             }

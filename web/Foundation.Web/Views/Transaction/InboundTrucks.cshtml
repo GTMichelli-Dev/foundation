@@ -98,6 +98,7 @@
 
 @section Scripts {
 <script src="~/js/ticket-image-download.js"></script>
+<script src="~/js/bw-grid-layout.js" asp-append-version="true"></script>
 <partial name="_FieldConfigJs" />
 <script>
     var availablePrinters = {}; // serviceId -> [{ printerId, status, enabled }]
@@ -209,12 +210,15 @@
                         var text = DevExpress.localization.formatNumber(options.value, '#,##0');
                         if (options.data.manualInbound) {
                             $('<span>').text(text).appendTo(container);
-                            $('<span>').css({ marginLeft: '4px', fontSize: '0.7rem', color: '#d97706', fontWeight: 'bold' }).text('M').appendTo(container);
+                            $('<span>').css({ marginLeft: '4px', fontSize: '0.7rem', color: '#d97706', fontWeight: 'bold' })
+                                .attr('title', 'Keyed in by hand').text('M').appendTo(container);
                         } else {
                             $('<span>').text(text).appendTo(container);
                         }
                     }
                 },
+                // Which scale weighed it in, or Manual for a weight keyed in by hand.
+                { dataField: 'inScale', caption: 'In Scale', calculateCellValue: function (d) { return d.manualInbound ? 'Manual' : (d.inScale || ''); } },
                 { dataField: 'dateIn', caption: 'Date In', dataType: 'datetime', format: 'MM/dd/yyyy hh:mm a' },
                 { dataField: 'notes', caption: 'Notes' }
             ];
@@ -272,6 +276,7 @@
                     }
             });
 
+        var layout = bwSharedGridLayout('inboundTrucks');
         var grid = $('#inboundGrid').dxDataGrid({
             hoverStateEnabled: true,
             dataSource: new DevExpress.data.CustomStore({
@@ -296,19 +301,19 @@
             // widening the page.
             width: '100%',
             scrolling: { useNative: true, showScrollbar: 'always' },
-            allowColumnReordering: true,
-            allowColumnResizing: true,
-            columnChooser: { enabled: true, mode: 'select' },
-            stateStoring: {
-                enabled: true,
-                type: 'localStorage',
-                // v3 — discards layouts saved before the action column was
-                // pinned right (old saved orders stranded it mid-table).
-                storageKey: 'inboundTrucksGrid_v3'
-            },
+            // The column layout is shared by every user; a Manager or Admin
+            // arranges it (bw-grid-layout.js turns the column tools on).
+            allowColumnReordering: false,
+            allowColumnResizing: false,
+            columnChooser: { enabled: false, mode: 'select' },
+            stateStoring: layout.stateStoring,
+            onContentReady: layout.onContentReady,
             paging: { pageSize: 20 },
             pager: { showPageSizeSelector: true, allowedPageSizes: [10, 20, 50] }
         }).dxDataGrid('instance');
+        layout.attach(grid, function (resetButton) {
+            grid.option('toolbar', { items: ['columnChooserButton', resetButton] });
+        });
 
         // SignalR: auto-refresh when tickets are created or completed
         var connection = new signalR.HubConnectionBuilder()

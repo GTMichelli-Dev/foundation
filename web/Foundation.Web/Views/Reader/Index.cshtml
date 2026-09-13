@@ -20,8 +20,6 @@
     <i class="fa fa-spinner fa-spin me-2"></i> Checking reader services...
 </div>
 
-<div id="readerToastContainer" style="position:fixed;top:70px;right:20px;z-index:9999;min-width:350px;max-width:500px;"></div>
-
 <div id="servicesContainer"></div>
 
 <div id="noServicesMessage" class="text-center text-muted py-5" style="display:none;">
@@ -515,9 +513,11 @@
     });
 
     function deleteReader(serviceId, readerId) {
-        if (!window.confirm('Delete reader "' + readerId + '"? Any kiosk mapped to it will stop accepting cards.')) return;
-        connection.invoke('DeleteReaderFromService', serviceId, readerId).catch(function (e) {
-            showToast('danger', 'Delete failed: ' + e);
+        bwConfirm('Delete reader "' + readerId + '"? Any kiosk mapped to it will stop accepting cards.', 'Delete Reader', { okText: 'Delete', danger: true }).then(function (ok) {
+            if (!ok) return;
+            connection.invoke('DeleteReaderFromService', serviceId, readerId).catch(function (e) {
+                showToast('danger', 'Delete failed: ' + e);
+            });
         });
     }
 
@@ -535,11 +535,7 @@
     }
 
     function showToast(kind, message) {
-        var el = document.createElement('div');
-        el.className = 'alert alert-' + kind + ' py-2 shadow';
-        el.textContent = message;
-        document.getElementById('readerToastContainer').appendChild(el);
-        setTimeout(function () { el.remove(); }, 6000);
+        bwNotify(message, kind);
     }
 
     function escHtml(s) {

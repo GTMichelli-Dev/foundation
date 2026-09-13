@@ -81,6 +81,8 @@ public class TicketController : Controller
             grossWeight = transaction.GrossWeight,
             tareWeight = transaction.TareWeight,
             netWeight = transaction.NetWeight,
+            grossManual = ManualLegs(transaction).GrossManual,
+            tareManual = ManualLegs(transaction).TareManual,
             notes = transaction.Notes,
             isVoid = transaction.Void,
             header1 = setup.Header1,
@@ -121,8 +123,10 @@ public class TicketController : Controller
         SetSignatureImage(report, setup, id);
         InjectBinRow(report, setup, transaction, "capSignature", "lblVoid");
         InjectCustomFields(report, id, "capSignature", "lblVoid");
+        ApplyTicketTextStyle(report, setup);
 
         // Set parameters
+        var (grossManual, tareManual) = ManualLegs(transaction);
         SetParam(report, "Ticket", transaction.Ticket);
         SetParam(report, "DateIn", transaction.DateIn.ToServerLocal().ToString("MM/dd/yyyy hh:mm tt"));
         SetParam(report, "DateOut", transaction.DateOut.ToServerLocal()?.ToString("MM/dd/yyyy hh:mm tt") ?? "");
@@ -132,8 +136,8 @@ public class TicketController : Controller
         SetParam(report, "Commodity", transaction.Commodity ?? "");
         SetParam(report, "Location", transaction.Location ?? "");
         SetParam(report, "Destination", transaction.Destination ?? "");
-        SetParam(report, "GrossWeight", transaction.GrossWeight.ToString("#,##0") + " lb");
-        SetParam(report, "TareWeight", transaction.TareWeight.ToString("#,##0") + " lb");
+        SetParam(report, "GrossWeight", Lb(transaction.GrossWeight, grossManual));
+        SetParam(report, "TareWeight", Lb(transaction.TareWeight, tareManual));
         SetParam(report, "NetWeight", transaction.NetWeight.ToString("#,##0") + " lb");
         SetParam(report, "Notes", transaction.Notes ?? "");
         SetParam(report, "IsVoid", transaction.Void);
@@ -170,6 +174,7 @@ public class TicketController : Controller
         ApplyFieldVisibility(report, setup);
         InjectBinRow(report, setup, transaction, "capInWeight");
         InjectCustomFields(report, id, "capInWeight");
+        ApplyTicketTextStyle(report, setup);
         SetParam(report, "Ticket", transaction.Ticket);
         SetParam(report, "DateIn", transaction.DateIn.ToServerLocal().ToString("MM/dd/yyyy hh:mm tt"));
         SetParam(report, "Customer", transaction.Customer ?? "");
@@ -177,7 +182,7 @@ public class TicketController : Controller
         SetParam(report, "TruckId", transaction.TruckId ?? "");
         SetParam(report, "Commodity", transaction.Commodity ?? "");
         SetParam(report, "Location", transaction.Location ?? "");
-        SetParam(report, "InWeight", transaction.InWeight.ToString("#,##0") + " lb");
+        SetParam(report, "InWeight", Lb(transaction.InWeight, transaction.ManualInbound));
         SetParam(report, "Header1", setup.Header1 ?? "");
         SetParam(report, "Header2", setup.Header2 ?? "");
         SetParam(report, "Header3", setup.Header3 ?? "");
@@ -218,6 +223,7 @@ public class TicketController : Controller
             ApplyFieldVisibility(report, setup);
             InjectBinRow(report, setup, transaction, "capInWeight");
             InjectCustomFields(report, id, "capInWeight");
+            ApplyTicketTextStyle(report, setup);
             SetParam(report, "Ticket", transaction.Ticket);
             SetParam(report, "DateIn", transaction.DateIn.ToServerLocal().ToString("MM/dd/yyyy hh:mm tt"));
             SetParam(report, "Customer", transaction.Customer ?? "");
@@ -225,7 +231,7 @@ public class TicketController : Controller
             SetParam(report, "TruckId", transaction.TruckId ?? "");
             SetParam(report, "Commodity", transaction.Commodity ?? "");
             SetParam(report, "Location", transaction.Location ?? "");
-            SetParam(report, "InWeight", transaction.InWeight.ToString("#,##0") + " lb");
+            SetParam(report, "InWeight", Lb(transaction.InWeight, transaction.ManualInbound));
             SetParam(report, "Header1", setup.Header1 ?? "");
             SetParam(report, "Header2", setup.Header2 ?? "");
             SetParam(report, "Header3", setup.Header3 ?? "");
@@ -242,6 +248,8 @@ public class TicketController : Controller
             SetSignatureImage(report, setup, id);
             InjectBinRow(report, setup, transaction, "capSignature", "lblVoid");
             InjectCustomFields(report, id, "capSignature", "lblVoid");
+            ApplyTicketTextStyle(report, setup);
+            var (grossManual, tareManual) = ManualLegs(transaction);
             SetParam(report, "Ticket", transaction.Ticket);
             SetParam(report, "DateIn", transaction.DateIn.ToServerLocal().ToString("MM/dd/yyyy hh:mm tt"));
             SetParam(report, "DateOut", transaction.DateOut.ToServerLocal()?.ToString("MM/dd/yyyy hh:mm tt") ?? "");
@@ -251,8 +259,8 @@ public class TicketController : Controller
             SetParam(report, "Commodity", transaction.Commodity ?? "");
             SetParam(report, "Location", transaction.Location ?? "");
             SetParam(report, "Destination", transaction.Destination ?? "");
-            SetParam(report, "GrossWeight", transaction.GrossWeight.ToString("#,##0") + " lb");
-            SetParam(report, "TareWeight", transaction.TareWeight.ToString("#,##0") + " lb");
+            SetParam(report, "GrossWeight", Lb(transaction.GrossWeight, grossManual));
+            SetParam(report, "TareWeight", Lb(transaction.TareWeight, tareManual));
             SetParam(report, "NetWeight", transaction.NetWeight.ToString("#,##0") + " lb");
             SetParam(report, "Notes", transaction.Notes ?? "");
             SetParam(report, "IsVoid", transaction.Void);
@@ -368,6 +376,44 @@ public class TicketController : Controller
         if (picBox != null) picBox.Visible = true;
         if (caption != null) caption.Visible = true;
     }
+
+    /// <summary>Smallest size the net weight prints at under Bold Ticket Text —
+    /// the number the ticket exists for stands out from the bold text around it.</summary>
+    private const float NetWeightMinSize = 15f;
+
+    /// <summary>
+    /// Setup → Printing → Bold Ticket Text. Thermal printers render regular
+    /// Courier thin and grey, so every text control prints bold, and the net
+    /// weight value prints larger again. Applied at render time so layouts
+    /// already saved in the designer get it too. Call after rows are injected.
+    /// </summary>
+    private static void ApplyTicketTextStyle(XtraReport report, AppSetup setup)
+    {
+        if (!setup.BoldTicketText) return;
+        foreach (var label in report.AllControls<XRLabel>())
+        {
+            var f = label.Font;
+            if (f == null) continue;
+            var size = IsNetWeightValue(label) ? Math.Max(f.Size, NetWeightMinSize) : f.Size;
+            label.Font = new DXFont(f.Name, size, f.Style | DXFontStyle.Bold, f.Unit);
+        }
+    }
+
+    private static bool IsNetWeightValue(XRLabel label) =>
+        label.Name == "valNetWeight"
+        || label.ExpressionBindings.Any(b => b.Expression?.Contains("Parameters.NetWeight", StringComparison.OrdinalIgnoreCase) == true);
+
+    /// <summary>"40,000 lb", or "40,000 lb (Manual)" for a weight keyed in by
+    /// hand rather than read from a scale.</summary>
+    private static string Lb(int weight, bool manual) =>
+        weight.ToString("#,##0") + " lb" + (manual ? " (Manual)" : "");
+
+    /// <summary>Whether a closed ticket's gross and tare were keyed in. The
+    /// gross is the heavier weighment, whichever leg it was.</summary>
+    private static (bool GrossManual, bool TareManual) ManualLegs(Transaction t) =>
+        t.InWeight >= (t.OutWeight ?? 0)
+            ? (t.ManualInbound, t.ManualOutbound)
+            : (t.ManualOutbound, t.ManualInbound);
 
     /// <summary>Collapse the printed rows of fields hidden on Setup → Fields.</summary>
     private static void ApplyFieldVisibility(XtraReport report, AppSetup setup)

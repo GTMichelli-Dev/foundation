@@ -23,8 +23,6 @@
     </div>
 </div>
 
-<div id="rtToastContainer" style="position:fixed;top:70px;right:20px;z-index:9999;min-width:300px;max-width:480px;"></div>
-
 <div class="card">
     <div class="card-header py-2 d-flex justify-content-between align-items-center">
         <strong>Trucks</strong>
@@ -112,11 +110,7 @@
 @section Scripts {
 <script>
     function rtToast(kind, msg) {
-        var html = '<div class="alert alert-' + kind + ' alert-dismissible fade show py-1 mb-2" role="alert">'
-                 + msg
-                 + '<button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button></div>';
-        var $t = $(html).appendTo('#rtToastContainer');
-        setTimeout(function () { $t.alert('close'); }, 3000);
+        bwNotify(msg, kind);
     }
 
     function fmtNumber(n) { return n == null ? '—' : Number(n).toLocaleString(); }
@@ -142,13 +136,15 @@
     $(document).on('click', '.btn-clear', function () {
         var $row = $(this).closest('tr');
         var id = $row.data('truck-id');
-        if (!confirm('Clear retained tare for this truck?')) return;
-        $.ajax({ url: '/api/retainedtares/' + id + '/clear', method: 'POST' })
-            .done(function () {
-                applyRowUpdate($row, null, null);
-                rtToast('success', 'Cleared.');
-            })
-            .fail(function (xhr) { rtToast('danger', 'Failed: ' + xhr.status); });
+        bwConfirm('Clear retained tare for this truck?', 'Clear Retained Tare', { okText: 'Clear', danger: true }).then(function (ok) {
+            if (!ok) return;
+            $.ajax({ url: '/api/retainedtares/' + id + '/clear', method: 'POST' })
+                .done(function () {
+                    applyRowUpdate($row, null, null);
+                    rtToast('success', 'Cleared.');
+                })
+                .fail(function (xhr) { rtToast('danger', 'Failed: ' + xhr.status); });
+        });
     });
 
     $(document).on('click', '.btn-edit', function () {
@@ -188,16 +184,18 @@
     });
 
     $('#btnClearAll').on('click', function () {
-        if (!confirm('Clear retained tares for ALL trucks? This cannot be undone.')) return;
-        $.ajax({ url: '/api/retainedtares/clear-all', method: 'POST' })
-            .done(function (result) {
-                $('tr[data-truck-id]').each(function () {
-                    applyRowUpdate($(this), null, null);
-                });
-                $('#btnClearAll').prop('disabled', true);
-                rtToast('success', 'Cleared ' + result.cleared + ' truck(s).');
-            })
-            .fail(function (xhr) { rtToast('danger', 'Failed: ' + xhr.status); });
+        bwConfirm('Clear retained tares for ALL trucks? This cannot be undone.', 'Clear All Retained Tares', { okText: 'Clear All', danger: true }).then(function (ok) {
+            if (!ok) return;
+            $.ajax({ url: '/api/retainedtares/clear-all', method: 'POST' })
+                .done(function (result) {
+                    $('tr[data-truck-id]').each(function () {
+                        applyRowUpdate($(this), null, null);
+                    });
+                    $('#btnClearAll').prop('disabled', true);
+                    rtToast('success', 'Cleared ' + result.cleared + ' truck(s).');
+                })
+                .fail(function (xhr) { rtToast('danger', 'Failed: ' + xhr.status); });
+        });
     });
 </script>
 }

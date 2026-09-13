@@ -1,11 +1,69 @@
 using Foundation.Web.Models;
+using Foundation.Web.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace Foundation.Web.Data;
 
 public class ScaleDbContext : DbContext
 {
-    public ScaleDbContext(DbContextOptions<ScaleDbContext> options) : base(options) { }
+    // Who is making a change, for the audit trail. Null outside a request
+    // (background services), which the trail records as "System".
+    private readonly IHttpContextAccessor? _http;
+
+    public ScaleDbContext(DbContextOptions<ScaleDbContext> options, IHttpContextAccessor? http = null) : base(options)
+    {
+        _http = http;
+    }
+
+    // Every save writes its audit rows in a second save straight after, so a
+    // key the database assigns to a new record can go into the trail. Both
+    // overloads without a bool route through these.
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        var audit = AuditTrail.Capture(this, _http?.HttpContext);
+        var result = base.SaveChanges(acceptAllChangesOnSuccess);
+        if (audit.Count > 0)
+        {
+            try
+            {
+                AuditTrail.Complete(this, audit);
+                base.SaveChanges(true);
+            }
+            catch (Exception ex)
+            {
+                DropUnsavedAuditRows(ex);
+            }
+        }
+        return result;
+    }
+
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        var audit = AuditTrail.Capture(this, _http?.HttpContext);
+        var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        if (audit.Count > 0)
+        {
+            try
+            {
+                AuditTrail.Complete(this, audit);
+                await base.SaveChangesAsync(true, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                DropUnsavedAuditRows(ex);
+            }
+        }
+        return result;
+    }
+
+    /// <summary>The change itself is already saved; don't let audit rows that
+    /// failed to write ride along on this context's next save.</summary>
+    private void DropUnsavedAuditRows(Exception ex)
+    {
+        Console.WriteLine($"[Audit] could not write audit rows: {ex.Message}");
+        foreach (var e in ChangeTracker.Entries<AuditLog>().Where(e => e.State == EntityState.Added).ToList())
+            e.State = EntityState.Detached;
+    }
 
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<Customer> Customers => Set<Customer>();
@@ -32,6 +90,9 @@ public class ScaleDbContext : DbContext
     public DbSet<Card> Cards => Set<Card>();
     public DbSet<CardCustomValue> CardCustomValues => Set<CardCustomValue>();
     public DbSet<Kiosk> Kiosks => Set<Kiosk>();
+    public DbSet<PrintRule> PrintRules => Set<PrintRule>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<GridLayout> GridLayouts => Set<GridLayout>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -112,7 +173,28 @@ public class ScaleDbContext : DbContext
             e.Property(s => s.AllowCardKiosk).HasDefaultValue(true);
             e.Property(s => s.AllowCardDesktop).HasDefaultValue(true);
             e.Property(s => s.AllowCardMobile).HasDefaultValue(true);
+            e.Property(s => s.KioskPrintInbound).HasDefaultValue(true);
+            e.Property(s => s.KioskPrintOutbound).HasDefaultValue(true);
+            e.Property(s => s.PrintWhenNoRuleMatches).HasDefaultValue(true);
+            e.Property(s => s.BoldTicketText).HasDefaultValue(true);
         });
+
+        modelBuilder.Entity<PrintRule>(e =>
+        {
+            e.ToTable("PrintRules");
+            e.Property(r => r.Active).HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<AuditLog>(e =>
+        {
+            e.ToTable("AuditLogs");
+            // The Audit Trail page reads by date range; a ticket's History
+            // button reads one record's rows.
+            e.HasIndex(a => a.Timestamp);
+            e.HasIndex(a => new { a.EntityType, a.EntityKey });
+        });
+
+        modelBuilder.Entity<GridLayout>(e => e.ToTable("GridLayouts"));
 
         modelBuilder.Entity<AppUser>(e =>
         {

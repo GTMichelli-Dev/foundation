@@ -15,7 +15,6 @@
     .bulk-field label { font-size: 0.875rem; font-weight: 600; margin-bottom: 2px; cursor: pointer; }
     .bulk-field.on .form-control,
     .bulk-field.on .form-select { border-color: var(--bw-primary, #0d6efd); }
-    #bulkToast { position: fixed; top: 70px; right: 20px; z-index: 9999; min-width: 320px; max-width: 520px; }
 </style>
 }
 
@@ -32,8 +31,6 @@
     left blank is cleared. Cards partway through a load are skipped.
 </p>
 
-<div id="bulkToast"></div>
-
 <div id="bulkGrid"></div>
 
 <div class="card mt-3">
@@ -46,22 +43,6 @@
         <div class="d-flex justify-content-end gap-2 mt-3">
             <button type="button" class="btn btn-outline-secondary" id="btnBulkClear">Clear Selection</button>
             <button type="button" class="btn btn-success" id="btnBulkApply" disabled>Apply to Selected Cards</button>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="bulkConfirmModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="bulkConfirmTitle">Update Cards</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body" id="bulkConfirmBody"></div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-success" id="bulkConfirmOk">Update</button>
-            </div>
         </div>
     </div>
 </div>
@@ -272,15 +253,12 @@
         var c = collect();
         if (!ids.length || !c.lines.length) return;
 
-        byId('bulkConfirmTitle').textContent = 'Update ' + ids.length + ' Card' + (ids.length === 1 ? '' : 's');
-        byId('bulkConfirmBody').innerHTML = 'Set on every selected card:<ul class="mt-2 mb-0">' +
+        var title = 'Update ' + ids.length + ' Card' + (ids.length === 1 ? '' : 's');
+        var html = 'Set on every selected card:<ul class="mt-2 mb-0">' +
             c.lines.map(function (l) { return '<li>' + escHtml(l) + '</li>'; }).join('') + '</ul>';
-        var modal = bootstrap.Modal.getOrCreateInstance(byId('bulkConfirmModal'));
-        byId('bulkConfirmOk').onclick = function () {
-            modal.hide();
-            apply(ids, c);
-        };
-        modal.show();
+        bwConfirm(html, title, { okText: 'Update', html: true }).then(function (ok) {
+            if (ok) apply(ids, c);
+        });
     });
 
     function apply(ids, c) {
@@ -329,11 +307,7 @@
     }
 
     function toast(kind, message, ms) {
-        var el = document.createElement('div');
-        el.className = 'alert alert-' + kind + ' py-2 shadow';
-        el.textContent = message;
-        byId('bulkToast').appendChild(el);
-        setTimeout(function () { el.remove(); }, ms || 5000);
+        bwNotify(message, kind, ms);
     }
 
     function escHtml(s) {

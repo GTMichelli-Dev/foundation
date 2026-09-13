@@ -8,9 +8,21 @@
     // the left; the photo block (when shown) sits on the right.
     var leftCount = Foundation.Web.Models.FieldOrdering.LeftColumnCount(slots.Count, leftFixed: 5, rightFixed: 1);
     ViewData["SlotTransaction"] = Model;
+    var editRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+    var canSeeHistory = !cachedSetup.UseLogin || editRole is "Manager" or "Admin";
+
+    // Where each weight came from: the scale that read it, or keyed in by hand.
+    string WeightSource(bool manual, string? scale) =>
+        manual ? "Keyed in by hand" : (string.IsNullOrEmpty(scale) ? "" : "Weighed on " + scale);
 }
 
-<h3>Edit Ticket @Model.Ticket</h3>
+<h3 class="d-flex align-items-center gap-2">
+    Edit Ticket @Model.Ticket
+    @if (canSeeHistory)
+    {
+        <a href="/Audit?type=Ticket&amp;key=@Uri.EscapeDataString(Model.Ticket)" class="btn btn-sm btn-outline-secondary" title="Every change made to this ticket, and who made it">History</a>
+    }
+</h3>
 @if (TempData["Error"] != null)
 {
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -34,12 +46,20 @@
 
                     <div class="mb-3">
                         <label asp-for="InWeight" class="form-label"></label>
-                        <input asp-for="InWeight" class="form-control" type="number" />
+                        <span class="badge bg-warning text-dark ms-1" id="inManualBadge" style="display: @(Model.ManualInbound ? "inline" : "none");">Manual</span>
+                        <input asp-for="InWeight" class="form-control weight-edit" type="number"
+                               data-original="@Model.InWeight" data-badge="#inManualBadge" data-source="#inWeightSource"
+                               data-manual="@(Model.ManualInbound ? "true" : "false")" />
+                        <div class="form-text" id="inWeightSource" data-text="@WeightSource(Model.ManualInbound, Model.InScale)">@WeightSource(Model.ManualInbound, Model.InScale)</div>
                     </div>
 
                     <div class="mb-3">
                         <label asp-for="OutWeight" class="form-label"></label>
-                        <input asp-for="OutWeight" class="form-control" type="number" />
+                        <span class="badge bg-warning text-dark ms-1" id="outManualBadge" style="display: @(Model.ManualOutbound ? "inline" : "none");">Manual</span>
+                        <input asp-for="OutWeight" class="form-control weight-edit" type="number"
+                               data-original="@Model.OutWeight" data-badge="#outManualBadge" data-source="#outWeightSource"
+                               data-manual="@(Model.ManualOutbound ? "true" : "false")" />
+                        <div class="form-text" id="outWeightSource" data-text="@WeightSource(Model.ManualOutbound, Model.OutScale)">@WeightSource(Model.ManualOutbound, Model.OutScale)</div>
                     </div>
 
                     <div class="mb-3">
@@ -277,11 +297,27 @@
 
         // Warn on link clicks
         $('a').on('click', function (e) {
-            if (isDirty && !isSaving) {
-                if (!confirm('You have unsaved changes. Are you sure you want to leave?')) {
-                    e.preventDefault();
-                }
-            }
+            var href = this.getAttribute('href');
+            if (!isDirty || isSaving || !href || href.charAt(0) === '#' || this.target === '_blank') return;
+            e.preventDefault();
+            bwConfirm('You have unsaved changes. Leave this ticket without saving them?', 'Unsaved Changes',
+                { okText: 'Leave', cancelText: 'Stay', danger: true })
+                .then(function (ok) {
+                    if (!ok) return;
+                    isSaving = true; // already answered — skip the browser's own prompt
+                    window.location.href = href;
+                });
+        });
+
+        // A weight typed over is saved as keyed in by hand: say so before
+        // the operator saves, and take it back if they restore the reading.
+        $('.weight-edit').on('input', function () {
+            var $in = $(this);
+            var changed = String($in.val()) !== String($in.data('original'));
+            var manual = changed || $in.data('manual') === true;
+            $($in.data('badge')).toggle(manual);
+            var $src = $($in.data('source'));
+            $src.text(changed ? 'Keyed in by hand — saving marks this weight manual' : $src.data('text'));
         });
 
         var customerSelect = $('select[name="Customer"]');

@@ -10,6 +10,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <title>@header1 - @L["Signature Pad"]</title>
     <link rel="icon" type="image/x-icon" href="/api/setup/icon" />
+    <link rel="stylesheet" href="/css/devextreme/dx.light.css" />
     @* T() / TF() for the status strings further down. *@
     @await Html.PartialAsync("_LangJs")
     <style>
@@ -119,6 +120,10 @@
 
     <script src="/js/signalr/signalr.min.js"></script>
     <script src="/js/signature-pad.js"></script>
+    <script src="/js/devextreme/jquery.js"></script>
+    <script src="/js/devextreme/dx.all.js"></script>
+    <script src="/js/devextreme-license.js"></script>
+    <script src="/js/bw-dialogs.js" asp-append-version="true"></script>
     <script>
         (function () {
             var PAD_ID = '@padId';
@@ -228,7 +233,7 @@
                     show('doneView');
                     doneTimer = setTimeout(toStandby, 2500);
                 }).catch(function () {
-                    alert(T('Could not save the signature. Please try again.'));
+                    bwAlert(T('Could not save the signature. Please try again.'), T('Error'));
                 }).finally(function () {
                     btn.disabled = false;
                 });

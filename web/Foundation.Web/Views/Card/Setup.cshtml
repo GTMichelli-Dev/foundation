@@ -76,20 +76,7 @@
 
     .cs-actionbar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 
-    .cs-toast {
-        position: fixed;
-        top: 70px; right: 16px;
-        width: 420px; max-width: calc(100% - 32px);
-        z-index: 1040;
-        padding: 12px 16px;
-        border-radius: 8px;
-        font-weight: 600;
-        display: none;
-    }
-    .cs-toast-ok { background: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
-    .cs-toast-err { background: #f8d7da; color: #842029; border: 1px solid #f5c2c7; }
-
-    .cs-confirm .cs-missing-list {
+    .cs-missing-list {
         margin: 10px 0 0;
         padding-left: 20px;
         font-weight: 700;
@@ -132,9 +119,7 @@
         .cs-actionbar .btn { flex: 1; min-height: 58px; font-size: 1.15rem; font-weight: 700; border-radius: 10px; }
         .cs-actionbar .btn-release { flex: 0 0 38%; }
 
-        .cs-toast { left: 12px; right: 12px; top: 12px; width: auto; max-width: none; padding: 14px 16px; border-radius: 10px; }
-
-        /* Confirmation dialog — same glove-width targets as the rest of the page. */
+        /* Search dialog — same glove-width targets as the rest of the page. */
         .cs-confirm { border-radius: 14px; }
         .cs-confirm .modal-body { font-size: 1.05rem; }
         .cs-confirm .modal-footer .btn {
@@ -175,8 +160,6 @@
             in Setup &rarr; System &rarr; Cards.
         </div>
     }
-
-    <div id="csToast" class="cs-toast"></div>
 
     <!-- STEP 1: identify the card -->
     <div class="cs-panel">
@@ -273,24 +256,6 @@
     </div>
 </div>
 
-<!-- Confirmation dialog. Replaces window.confirm so the prompt is readable on a
-     phone and matches the rest of the app — the native dialog renders at the top
-     of the screen in the browser's own styling, out of thumb reach. -->
-<div class="modal fade" id="csConfirmModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content cs-confirm">
-            <div class="modal-header">
-                <h5 class="modal-title" id="csConfirmTitle">Confirm</h5>
-            </div>
-            <div class="modal-body" id="csConfirmBody"></div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" id="csConfirmCancel" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-success" id="csConfirmOk">OK</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 @section Scripts {
 <script>
 (function () {
@@ -305,7 +270,6 @@
     var $number = document.getElementById('cardNumberInput');
     var $body = document.getElementById('cardBody');
     var $fields = document.getElementById('csFields');
-    var $toast = document.getElementById('csToast');
     var $desc = document.getElementById('csDescription');
     var $descFromTruck = document.getElementById('csDescFromTruck');
 
@@ -588,8 +552,7 @@
                       missing.map(function (f) { return '<li>' + escHtml(f.label) + '</li>'; }).join('') +
                       '</ul>' +
                       '<p class="mt-3 mb-0">The driver will be asked for them at the kiosk.</p>',
-                okText: 'Issue Anyway',
-                okClass: 'btn-warning'
+                okText: 'Issue Anyway'
             });
 
         ask.then(function (proceed) {
@@ -624,7 +587,7 @@
             html: 'Deactivate card <strong>' + escHtml(currentCard.cardNumber) + '</strong>?' +
                   '<p class="mt-2 mb-0">It will stop working at the kiosk until it is issued again.</p>',
             okText: 'Deactivate',
-            okClass: 'btn-danger'
+            danger: true
         }).then(function (proceed) {
             if (!proceed) return;
             doRelease();
@@ -733,19 +696,30 @@
                   '<input type="text" class="form-control" id="csNewNumber" inputmode="numeric" autocomplete="off" value="' +
                   escHtml(currentCard.cardNumber) + '" />' +
                   '<p class="form-text mt-2 mb-0">Card numbers are 1 to 99999. The card keeps everything set on it.</p>',
-            okText: 'Change Number',
-            okClass: 'btn-primary'
+            okText: 'Change Number'
         });
 
-        var input = document.getElementById('csNewNumber');
-        input.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') { e.preventDefault(); document.getElementById('csConfirmOk').click(); }
-        });
-        setTimeout(function () { input.focus(); input.select(); }, 350);
+        // The dialog focuses its OK button once its 400 ms opening animation
+        // ends; take focus back for the number box, and let Enter accept.
+        setTimeout(function () {
+            var input = document.getElementById('csNewNumber');
+            if (!input) return;
+            input.addEventListener('keydown', function (e) {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                var box = input.closest('.dx-overlay-content');
+                var ok = box && box.querySelector('.dx-dialog-button');
+                if (ok) ok.click();
+            });
+            input.focus();
+            input.select();
+        }, 450);
 
         ask.then(function (proceed) {
             if (!proceed) return;
-            var number = (input.value || '').trim();
+            // Still in the page: the dialog removes it only after closing.
+            var input = document.getElementById('csNewNumber');
+            var number = ((input && input.value) || '').trim();
             if (!number || number === currentCard.cardNumber) return;
 
             setBusy(true);
@@ -774,45 +748,9 @@
 
     // ===== CONFIRM DIALOG =====
 
-    var confirmModal = null;
-    var confirmResolve = null;
-
-    /// Bootstrap-modal stand-in for window.confirm. Resolves true on OK and
-    /// false on Cancel, backdrop click, or Esc — so dismissing the dialog any
-    /// way at all is treated as "no", the same as the native prompt.
+    /// Resolves true on OK and false on Cancel. opts.html is trusted markup.
     function confirmDialog(opts) {
-        var el = document.getElementById('csConfirmModal');
-
-        document.getElementById('csConfirmTitle').textContent = opts.title || 'Confirm';
-        document.getElementById('csConfirmBody').innerHTML = opts.html || '';
-
-        var ok = document.getElementById('csConfirmOk');
-        ok.textContent = opts.okText || 'OK';
-        ok.className = 'btn ' + (opts.okClass || 'btn-success');
-
-        if (!confirmModal) {
-            confirmModal = new bootstrap.Modal(el);
-
-            ok.addEventListener('click', function () {
-                settle(true);
-                confirmModal.hide();
-            });
-            // Fires for Cancel, the backdrop, and Esc alike. Runs after the OK
-            // handler has already settled, and settle() ignores the second call.
-            el.addEventListener('hidden.bs.modal', function () { settle(false); });
-        }
-
-        return new Promise(function (resolve) {
-            confirmResolve = resolve;
-            confirmModal.show();
-        });
-    }
-
-    function settle(answer) {
-        if (!confirmResolve) return;
-        var resolve = confirmResolve;
-        confirmResolve = null;
-        resolve(answer);
+        return bwConfirm(opts.html || '', opts.title, { okText: opts.okText, danger: !!opts.danger, html: true });
     }
 
     // ===== HELPERS =====
@@ -837,13 +775,8 @@
         });
     }
 
-    var toastTimer = null;
     function toast(kind, message) {
-        $toast.className = 'cs-toast ' + (kind === 'ok' ? 'cs-toast-ok' : 'cs-toast-err');
-        $toast.textContent = message;
-        $toast.style.display = 'block';
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(function () { $toast.style.display = 'none'; }, kind === 'ok' ? 3500 : 7000);
+        bwNotify(message, kind === 'ok' ? 'success' : 'error', kind === 'ok' ? 3500 : 7000);
     }
 
     $number.focus();

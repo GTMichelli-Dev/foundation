@@ -633,11 +633,23 @@ public class KioskController : Controller
         //     Retained Tare is on, since the in-leg is just data capture for the
         //     eventual closing ticket. The closing weigh-out (or the next visit's
         //     auto-completed weigh-in) is what gets printed.
+        //   - Then Setup → Printing: the kiosk's inbound/outbound switches, card
+        //     weigh-ins' inbound ticket, and the print rules.
         bool suppressInboundPrint = setup.UseRetainedTare && !tareApplied;
         bool printing = false;
+        bool printSuppressed = false;
         if (!suppressInboundPrint)
         {
-            printing = await SendPrintCommand(ticketNumber, tareApplied ? "weighout" : "weighin", request.PrinterId, request.ScaleName);
+            var decision = PrintRules.Decide(_db, setup, transaction, PrintSource.Kiosk, outbound: tareApplied, cardUsed: card != null);
+            if (decision.Print)
+            {
+                printing = await SendPrintCommand(ticketNumber, tareApplied ? "weighout" : "weighin", request.PrinterId, request.ScaleName);
+            }
+            else
+            {
+                printSuppressed = true;
+                _log.LogInformation("Kiosk ticket {Ticket} not printed: {Reason}", ticketNumber, decision.Reason);
+            }
         }
 
         return Json(new
@@ -653,6 +665,9 @@ public class KioskController : Controller
             retainedTare = truck?.RetainedTare,
             retainedTareUpdated = truck?.RetainedTareUpdated,
             suppressInboundPrint,
+            // Setup → Printing kept this ticket from printing: the completion
+            // screen offers no Reprint, since there is nothing to reprint.
+            printSuppressed,
             // Card guidance for the completion screen: keep the card for the
             // next load, or hand it back to the loader operator.
             cardUsed = card != null,
@@ -727,13 +742,19 @@ public class KioskController : Controller
             await SendCameraCapture(transaction.Ticket, "out", outSetup.OutboundCameraId);
         }
 
-        // Print the ticket
-        var printing = await SendPrintCommand(transaction.Ticket.ToString(), "weighout", request.PrinterId, request.ScaleName);
+        // Print the ticket, unless Setup → Printing says otherwise
+        var printing = false;
+        var decision = PrintRules.Decide(_db, outSetup, transaction, PrintSource.Kiosk, outbound: true, cardUsed: card != null);
+        if (decision.Print)
+            printing = await SendPrintCommand(transaction.Ticket.ToString(), "weighout", request.PrinterId, request.ScaleName);
+        else
+            _log.LogInformation("Kiosk ticket {Ticket} not printed: {Reason}", transaction.Ticket, decision.Reason);
 
         return Json(new
         {
             ticket = transaction.Ticket,
             printing,
+            printSuppressed = !decision.Print,
             cardUsed = card != null,
             cardClosed = card != null,
             cardRecycled

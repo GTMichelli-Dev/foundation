@@ -63,8 +63,6 @@
     </div>
 </div>
 
-<div id="cardToast" style="position:fixed;top:70px;right:20px;z-index:9999;min-width:320px;max-width:500px;"></div>
-
 <div class="card">
     <div class="card-header py-2"><strong>Registered Cards</strong> <span id="cardCount" class="text-muted small"></span></div>
     <div class="card-body p-0">
@@ -317,12 +315,13 @@
     function deleteCard(id) {
         var card = cards.find(function (c) { return c.id === id; });
         if (!card) return;
-        if (!window.confirm('Delete card ' + card.cardNumber + '? Tickets already weighed with it keep their record.')) return;
-
-        fetch('/api/cardadmin/' + id, { method: 'DELETE' })
-            .then(readJson)
-            .then(function () { toast('success', 'Card deleted.'); loadCards(); })
-            .catch(function (err) { toast('danger', err.message || 'Could not delete the card.'); });
+        bwConfirm('Delete card ' + card.cardNumber + '? Tickets already weighed with it keep their record.', 'Delete Card', { okText: 'Delete', danger: true }).then(function (ok) {
+            if (!ok) return;
+            fetch('/api/cardadmin/' + id, { method: 'DELETE' })
+                .then(readJson)
+                .then(function () { toast('success', 'Card deleted.'); loadCards(); })
+                .catch(function (err) { toast('danger', err.message || 'Could not delete the card.'); });
+        });
     }
 
     // ===== HELPERS =====
@@ -335,11 +334,7 @@
     }
 
     function toast(kind, message) {
-        var el = document.createElement('div');
-        el.className = 'alert alert-' + kind + ' py-2 shadow';
-        el.textContent = message;
-        document.getElementById('cardToast').appendChild(el);
-        setTimeout(function () { el.remove(); }, 5000);
+        bwNotify(message, kind);
     }
 
     function escHtml(s) {

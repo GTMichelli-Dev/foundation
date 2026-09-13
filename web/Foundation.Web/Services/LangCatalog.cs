@@ -105,6 +105,7 @@ public static class LangCatalog
         // ===== KIOSK: idle / ready =====
         ["Place Truck on Scale"] = "Coloque el Camión en la Báscula",
         ["PRESENT YOUR CARD"] = "PRESENTE SU TARJETA",
+        ["PRESENT YOUR CARD OR SELECT AN OPTION"] = "PRESENTE SU TARJETA O ELIJA UNA OPCIÓN",
         ["PRESS ENTER TO WEIGH IN"] = "PRESIONE ENTER PARA PESAR ENTRADA",
         ["SCAN BAR CODE OR KEY IN TICKET #"] = "ESCANEE EL CÓDIGO O TECLEE EL N.° DE BOLETA",
         ["SCAN BAR CODE OR KEY IN TICKET OR CARD #"] = "ESCANEE EL CÓDIGO O TECLEE EL N.° DE BOLETA O TARJETA",
@@ -232,14 +233,14 @@ public static class LangCatalog
         ["Out of range of the scale."] = "Fuera del alcance de la báscula.",
 
         // ===== MOBILE: cards (Allow Cards on the Phone) =====
-        ["USE CARD"] = "USAR TARJETA",
-        ["Enter Card Number"] = "Ingrese el Número de Tarjeta",
-        ["Use Card"] = "Usar Tarjeta",
-        ["Enter the card number."] = "Ingrese el número de tarjeta.",
-        ["Reading card…"] = "Leyendo la tarjeta…",
-        ["Could not read the card. Try again."] = "No se pudo leer la tarjeta. Intente de nuevo.",
-        ["Using card {0}"] = "Usando la tarjeta {0}",
-        ["Card {0} — ticket #{1} is waiting to weigh out."] = "Tarjeta {0} — la boleta N.° {1} espera el pesaje de salida.",
+        ["USE PIN"] = "USAR PIN",
+        ["Enter Your PIN"] = "Ingrese su PIN",
+        ["Use PIN"] = "Usar PIN",
+        ["Enter your PIN."] = "Ingrese su PIN.",
+        ["Checking PIN…"] = "Verificando el PIN…",
+        ["Could not check the PIN. Try again."] = "No se pudo verificar el PIN. Intente de nuevo.",
+        ["Using PIN {0}"] = "Usando el PIN {0}",
+        ["PIN {0} — ticket #{1} is waiting to weigh out."] = "PIN {0} — la boleta N.° {1} espera el pesaje de salida.",
         ["Keep your card for your next load."] = "Conserve su tarjeta para su próxima carga.",
         ["Return the card to the loader operator."] = "Devuelva la tarjeta al operador del cargador.",
 
